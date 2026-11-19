@@ -1,4 +1,4 @@
-import type { PermissionCode } from '@cardiy/shared';
+import type { PermissionCode, TenantKind } from '@cardiy/shared';
 import type { Tone } from '@cardiy/ui';
 import {
   Boxes,
@@ -20,6 +20,14 @@ import {
   Warehouse,
   Wrench,
   Car,
+  CarFront,
+  ChartLine,
+  ClipboardCheck,
+  Inbox,
+  LifeBuoy,
+  Package,
+  Star,
+  TicketPercent,
   BookOpen,
   Building2,
   Flag,
@@ -39,7 +47,7 @@ export interface NavItem {
   /** Cần quyền này mới thấy mục menu (không đặt = ai cũng thấy) */
   permission?: PermissionCode;
   /** Mục thuộc không gian làm việc nào */
-  workspace?: 'GARAGE' | 'PLATFORM' | 'ALL';
+  workspace?: TenantKind | 'ALL';
   /** Màn hình đã làm xong (không hiện trang chờ) */
   built?: boolean;
 }
@@ -106,6 +114,33 @@ export const NAV: NavGroup[] = [
       { href: '/tro-ly-ai', label: 'Trợ lý AI', icon: Sparkles, screen: 'A3.63', round: 'P5', tone: 'lav', permission: 'dashboard.view' },
     ],
   },
+  // ---- Cổng đối tác (A7): đối tác 1 tài khoản, mọi dịch vụ xử lý ở đây ----
+  {
+    label: 'Gian hàng',
+    items: [
+      { href: '/doi-tac/gian-hang', label: 'Hồ sơ gian hàng', icon: Store, screen: 'A7.10', round: '3.2', tone: 'sky', permission: 'partner.shop.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/san-pham', label: 'Sản phẩm', icon: Package, screen: 'A7.11', round: '3.2', tone: 'lav', permission: 'partner.listing.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/dich-vu', label: 'Dịch vụ', icon: Wrench, screen: 'A7.12', round: '3.2', tone: 'mint', permission: 'partner.listing.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/khuyen-mai', label: 'Khuyến mại', icon: TicketPercent, screen: 'A7.13', round: '3.4', tone: 'peach', permission: 'partner.promotion.manage', workspace: 'PARTNER' },
+    ],
+  },
+  {
+    label: 'Yêu cầu từ khách',
+    items: [
+      { href: '/doi-tac/yeu-cau', label: 'Đặt hàng & đặt lịch', icon: Inbox, screen: 'A7.20', round: '3.4', tone: 'sky', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: 'P4', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: 'P4', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: 'P4', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/danh-gia', label: 'Đánh giá', icon: Star, screen: 'A7.24', round: '3.5', tone: 'peach', permission: 'partner.review.reply', workspace: 'PARTNER' },
+    ],
+  },
+  {
+    label: 'Báo cáo & phí',
+    items: [
+      { href: '/doi-tac/thong-ke', label: 'Thống kê', icon: ChartLine, screen: 'A7.30', round: '3.5', tone: 'sky', permission: 'partner.report.view', workspace: 'PARTNER' },
+      { href: '/doi-tac/phi', label: 'Phí & hoá đơn', icon: Receipt, screen: 'A7.31', round: '3.1', tone: 'mint', permission: 'partner.billing.view', workspace: 'PARTNER' },
+    ],
+  },
   {
     label: 'Quản trị sàn',
     items: [
@@ -127,14 +162,14 @@ export function findNavItem(pathname: string): NavItem | undefined {
   return NAV_ITEMS.find((i) => i.href === pathname);
 }
 
-/** Mục menu người dùng được thấy, theo quyền và không gian làm việc (garage / sàn). */
-export function visibleNav(permissions: readonly string[], workspace: 'GARAGE' | 'PLATFORM'): NavGroup[] {
+/** Mục menu người dùng được thấy, theo quyền và không gian làm việc (garage PLG / đối tác / sàn). */
+export function visibleNav(permissions: readonly string[], workspace: TenantKind): NavGroup[] {
   const allowed = (i: NavItem) =>
     (i.workspace ?? 'GARAGE') === workspace || i.workspace === 'ALL' ? !i.permission || permissions.includes(i.permission) : false;
   return NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length > 0);
 }
 
 /** Trang đầu tiên người dùng được vào (KTV không có Tổng quan → vào Trang chủ). */
-export function homeFor(permissions: readonly string[], workspace: 'GARAGE' | 'PLATFORM'): string {
+export function homeFor(permissions: readonly string[], workspace: TenantKind): string {
   return permissions.includes('dashboard.view') && workspace === 'GARAGE' ? '/' : '/trang-chu';
 }

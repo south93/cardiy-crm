@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { normalizeVnPhone } from '@cardiy/shared';
+import { normalizeVnPhone, scopeOfTenant } from '@cardiy/shared';
 import { AccessService, type Access } from '../auth/access.service';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
@@ -72,7 +72,7 @@ export class StaffService {
 
   private async validateAssignments(actor: Access, assignments: RoleAssignment[]) {
     if (!assignments.length) throw new BadRequestException('Cần chọn ít nhất một vai trò');
-    const scope = actor.tenantType === 'PLATFORM' ? 'PLATFORM' : 'TENANT';
+    const scope = scopeOfTenant(actor.tenantType);
     for (const a of assignments) {
       const role = await this.prisma.role.findFirst({
         where: { id: a.roleId, OR: [{ tenantId: null, isSystem: true, scope }, { tenantId: actor.tenantId }] },
@@ -90,6 +90,7 @@ export class StaffService {
   }
 
   async create(actor: Access, dto: { fullName: string; phone: string; title?: string; roles: RoleAssignment[] }, ip?: string) {
+    if (actor.tenantType === 'PARTNER') throw new ForbiddenException('Đối tác chỉ có 1 tài khoản, không thêm được nhân viên');
     const phone = normalizeVnPhone(dto.phone);
     if (!phone) throw new BadRequestException('Số điện thoại không hợp lệ');
     await this.validateAssignments(actor, dto.roles);

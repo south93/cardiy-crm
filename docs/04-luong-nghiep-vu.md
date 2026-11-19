@@ -29,13 +29,13 @@ sequenceDiagram
     API->>K: Tạo hợp đồng điện tử theo gói
     G->>K: Ký số hợp đồng
     K-->>API: Đã ký
-    API->>API: Tạo tenant, chi nhánh, tài khoản Chủ garage, hoá đơn phí kỳ đầu
-    API->>N: Gửi thông tin đăng nhập A3 + hướng dẫn
+    API->>API: Tạo tenant đối tác + 1 tài khoản Đối tác (Cổng đối tác A7), hoá đơn phí kỳ đầu
+    API->>N: Gửi thông tin đăng nhập Cổng đối tác A7 + hướng dẫn
   else Từ chối
     AV->>API: Từ chối + lý do
     API->>N: Báo kết quả
   end
-  G->>API: Thiết lập ban đầu: nhân viên, bảng giá, dịch vụ, sản phẩm
+  G->>API: Thiết lập gian hàng: hồ sơ, sản phẩm, dịch vụ (cứu hộ, thuê xe, kiểm định…)
   API-->>AV: Kiểm duyệt tin đăng đầu tiên
   API->>API: Gian hàng hiển thị trên sàn
 ```
@@ -96,7 +96,7 @@ sequenceDiagram
   actor CX as Chủ xe
   participant W as A1/A2
   participant API as Backend M22-M23
-  actor G as Garage bán A3
+  actor G as Đối tác A7 hoặc PLG A3
 
   CX->>W: Mở trang sản phẩm chuẩn, ví dụ Lốp 265/60R18
   W->>API: Lấy danh sách offer của các garage
@@ -143,8 +143,8 @@ sequenceDiagram
   autonumber
   actor CX as Chủ xe A2
   participant API as Backend M33
-  actor G as Garage có dịch vụ cứu hộ A3
-  actor CH as Đội cứu hộ của garage A5
+  actor G as Đối tác A7 hoặc PLG A3<br/>có dịch vụ cứu hộ
+  actor CH as Đội cứu hộ<br/>của đối tác hoặc PLG A5
 
   CX->>API: Bấm SOS: vị trí GPS, loại sự cố, ảnh
   API->>API: Tìm garage có dịch vụ cứu hộ, đang trực, trong bán kính
@@ -191,7 +191,9 @@ flowchart TB
   M["Hạn đăng kiểm / bảo hiểm còn 30 ngày"] --> F
 ```
 
-## F7 · Đồng bộ tồn kho với tin đăng trên sàn
+## F7 · Đồng bộ tồn kho với tin đăng trên sàn (chỉ PLG)
+
+> Đối tác không có CRM: nhập **số lượng tồn trực tiếp trên tin đăng** ở Cổng đối tác. Luồng dưới chỉ áp dụng cho sản phẩm PLG bán trên sàn.
 
 ```mermaid
 flowchart LR

@@ -10,7 +10,7 @@ export const DEMO_PASSWORD = 'Cardiy2026';
 async function upsertTenant(taxCode: string, name: string, type: TenantType) {
   return prisma.tenant.upsert({
     where: { taxCode },
-    update: { name },
+    update: { name, type },
     create: { type, name, taxCode, status: TenantStatus.HOAT_DONG },
   });
 }
@@ -72,11 +72,12 @@ async function main() {
   // 2. Tenant: sàn, garage PLG, garage đối tác demo
   const platform = await upsertTenant('CARDIY-PLATFORM', 'Sàn CARDIY', TenantType.PLATFORM);
   const plg = await upsertTenant('PLG-DEMO-0001', 'Garage PLG', TenantType.GARAGE);
-  const partner = await upsertTenant('DOITAC-DEMO-0001', 'Garage Minh Phát (đối tác demo)', TenantType.GARAGE);
+  // Đối tác: chỉ có cổng đối tác, 1 tài khoản duy nhất
+  const partner = await upsertTenant('DOITAC-DEMO-0001', 'Minh Phát Auto (đối tác demo)', TenantType.PARTNER);
 
   const cn1 = await upsertBranch(plg.id, 'CN1', 'CN1 · Cầu Giấy', 6, 'Cầu Giấy, Hà Nội');
   const cn2 = await upsertBranch(plg.id, 'CN2', 'CN2 · Long Biên', 4, 'Long Biên, Hà Nội');
-  await upsertBranch(partner.id, 'CN1', 'Minh Phát · Hà Đông', 3, 'Hà Đông, Hà Nội');
+  await upsertBranch(partner.id, 'CN1', 'Minh Phát · Hà Đông', 3, 'Hà Đông, Hà Nội'); // địa điểm hiển thị trên bản đồ sàn
 
   // 3. Tài khoản demo
   // Chủ hệ thống: 2 "mũ" — Super Admin sàn + Chủ garage PLG
@@ -89,7 +90,7 @@ async function main() {
   await upsertMember({ phone: '0900000006', fullName: 'Đỗ Kế Toán', tenantId: plg.id, roles: [{ code: 'KT', branchId: null }] });
   await upsertMember({ phone: '0900000007', fullName: 'Hoàng Chăm Sóc', tenantId: plg.id, roles: [{ code: 'CS', branchId: null }] });
   await upsertMember({ phone: '0900000008', fullName: 'Ngô Quản Lý CN2', tenantId: plg.id, title: 'Quản lý CN2', roles: [{ code: 'QL', branchId: cn2.id }] });
-  await upsertMember({ phone: '0900000010', fullName: 'Chủ Garage Minh Phát', tenantId: partner.id, title: 'Chủ garage', roles: [{ code: 'CG', branchId: null }] });
+  await upsertMember({ phone: '0900000010', fullName: 'Minh Phát Auto', tenantId: partner.id, title: 'Đối tác', roles: [{ code: 'DT', branchId: null }] });
 
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }

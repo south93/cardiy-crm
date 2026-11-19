@@ -106,7 +106,7 @@ mindmap
       Doanh nghiệp: quản lý tài xế
 ```
 
-## A3 · Web quản trị Garage (CRM + Kênh người bán)
+## A3 · CRM garage PLG (chỉ PLG dùng)
 
 ```mermaid
 mindmap
@@ -168,7 +168,7 @@ mindmap
       Nhật ký thao tác
 ```
 
-## A4 · App kỹ thuật viên & A5 · App cứu hộ (PWA, tối ưu điện thoại)
+## A4 · App kỹ thuật viên & A5 · App cứu hộ của PLG (PWA, tối ưu điện thoại)
 
 ```mermaid
 mindmap
@@ -192,6 +192,41 @@ mindmap
         Chốt giá, thu tiền
         Chuyển xe về garage, tạo RO
       A5.03 Lịch sử ca
+```
+
+## A7 · Cổng đối tác (1 tài khoản / đối tác, trên web của PLG)
+
+```mermaid
+mindmap
+  root((A7 Cổng đối tác))
+    A7.01 Trang chủ
+      Việc cần xử lý hôm nay
+      Yêu cầu mới, ca cứu hộ đang chờ
+    Gian hàng
+      A7.10 Hồ sơ gian hàng
+        Thông tin, địa chỉ trên bản đồ, giờ mở cửa
+        Chính sách đổi trả, huỷ, bảo hành
+      A7.11 Sản phẩm
+        Chọn từ danh mục chuẩn của sàn
+        Giá, số lượng tồn, gồm lắp đặt hay không
+      A7.12 Dịch vụ
+        Bảo dưỡng, sửa chữa, đồng sơn
+        Cứu hộ: vùng phục vụ, giá, hotline
+        Thuê xe: xe, giá ngày, đặt cọc
+        Kiểm định xe cũ
+      A7.13 Khuyến mại
+    Yêu cầu từ khách
+      A7.20 Đặt hàng và đặt lịch
+        Xác nhận, chốt giá, từ chối
+        Đánh dấu đã thu tiền, hoàn tất
+      A7.21 Cứu hộ: nhận ca, cập nhật vị trí, chốt giá
+      A7.22 Thuê xe: xác minh, bàn giao, trả xe
+      A7.23 Kiểm định xe cũ: checklist, báo cáo
+      A7.24 Đánh giá: trả lời
+    Báo cáo và phí
+      A7.30 Thống kê: lượt xem, yêu cầu, tỉ lệ chốt
+      A7.31 Phí gói và hoá đơn
+    A7.40 Tài khoản và bảo mật
 ```
 
 ## A6 · Admin sàn

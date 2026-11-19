@@ -3,7 +3,16 @@
  * Quyền có dạng `module.hanh_dong`. Vai trò = tập quyền. Thêm quyền mới: thêm vào đây rồi chạy seed.
  */
 
-export type PermissionScope = 'PLATFORM' | 'TENANT';
+/** PLATFORM: sàn CARDIY · TENANT: garage PLG (CRM) · PARTNER: đối tác (cổng đối tác, 1 tài khoản) */
+export type PermissionScope = 'PLATFORM' | 'TENANT' | 'PARTNER';
+
+/** Loại không gian làm việc (tenant). */
+export type TenantKind = 'PLATFORM' | 'GARAGE' | 'PARTNER';
+
+/** Phạm vi quyền ứng với từng loại không gian làm việc. */
+export function scopeOfTenant(kind: TenantKind): PermissionScope {
+  return kind === 'PLATFORM' ? 'PLATFORM' : kind === 'PARTNER' ? 'PARTNER' : 'TENANT';
+}
 
 export interface PermissionDef {
   code: string;
@@ -28,7 +37,16 @@ export const PERMISSIONS = [
   P('platform.content.manage', 'Sàn: Nội dung', 'Blog, banner, chương trình chung', 'PLATFORM'),
   P('platform.config.manage', 'Sàn: Cấu hình', 'Cấu hình sàn, nhân sự sàn', 'PLATFORM'),
 
-  // ---- Cấp garage ----
+  // ---- Cổng đối tác (đối tác chỉ có 1 tài khoản, mọi dịch vụ xử lý qua đây) ----
+  P('partner.shop.manage', 'Đối tác: Gian hàng', 'Hồ sơ gian hàng, giờ mở cửa, chính sách', 'PARTNER'),
+  P('partner.listing.manage', 'Đối tác: Gian hàng', 'Đăng sản phẩm & dịch vụ (cứu hộ, thuê xe, kiểm định…)', 'PARTNER'),
+  P('partner.request.manage', 'Đối tác: Yêu cầu', 'Nhận và xử lý yêu cầu từ khách: đặt hàng, đặt lịch, cứu hộ, thuê xe, kiểm định', 'PARTNER'),
+  P('partner.promotion.manage', 'Đối tác: Gian hàng', 'Voucher của đối tác', 'PARTNER'),
+  P('partner.review.reply', 'Đối tác: Yêu cầu', 'Trả lời đánh giá', 'PARTNER'),
+  P('partner.report.view', 'Đối tác: Thống kê', 'Lượt xem, yêu cầu, doanh số', 'PARTNER'),
+  P('partner.billing.view', 'Đối tác: Phí', 'Gói đối tác, hoá đơn phí', 'PARTNER'),
+
+  // ---- Cấp garage PLG (CRM) ----
   P('dashboard.view', 'Tổng quan', 'Xem tổng quan'),
   P('customer.view', 'Khách hàng & Xe', 'Xem khách hàng'),
   P('customer.manage', 'Khách hàng & Xe', 'Thêm / sửa khách hàng'),
@@ -71,6 +89,7 @@ export const PERMISSION_CODES: PermissionCode[] = PERMISSIONS.map((p) => p.code)
 
 const TENANT_ALL = PERMISSIONS.filter((p) => p.scope === 'TENANT').map((p) => p.code);
 const PLATFORM_ALL = PERMISSIONS.filter((p) => p.scope === 'PLATFORM').map((p) => p.code);
+const PARTNER_ALL = PERMISSIONS.filter((p) => p.scope === 'PARTNER').map((p) => p.code);
 
 export interface SystemRoleDef {
   code: string;
@@ -88,6 +107,9 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
   { code: 'KS', name: 'Kế toán sàn', scope: 'PLATFORM', require2fa: true, permissions: ['platform.fee.manage', 'file.upload'] },
   { code: 'MK', name: 'Marketing & Nội dung sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.content.manage', 'file.upload'] },
   { code: 'GS', name: 'Giám sát chất lượng sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.report.handle', 'file.upload'] },
+
+  // Đối tác: 1 tài khoản duy nhất, không quản lý nhân viên, không có CRM
+  { code: 'DT', name: 'Đối tác', scope: 'PARTNER', require2fa: false, permissions: [...PARTNER_ALL, 'file.upload'] },
 
   { code: 'CG', name: 'Chủ garage', scope: 'TENANT', require2fa: true, permissions: TENANT_ALL },
   {

@@ -51,7 +51,12 @@ export class FilesController {
     if (!sig || !driver.verify(id, Number(exp), sig)) throw new ForbiddenException('Link đã hết hạn hoặc không hợp lệ');
     const f = await this.prisma.fileObject.findUnique({ where: { id } });
     if (!f) throw new NotFoundException();
-    const body = await driver.read(f.storageKey);
+    let body: Buffer;
+    try {
+      body = await driver.read(f.storageKey);
+    } catch {
+      throw new NotFoundException('File không còn trên máy chủ lưu trữ');
+    }
     res.setHeader('Content-Type', f.mime);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.setHeader('X-Content-Type-Options', 'nosniff');

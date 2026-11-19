@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { PermissionCode } from '@cardiy/shared';
+import type { PermissionCode, TenantKind } from '@cardiy/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -7,7 +7,7 @@ export interface Access {
   userId: string;
   membershipId: string;
   tenantId: string;
-  tenantType: 'PLATFORM' | 'GARAGE';
+  tenantType: TenantKind;
   tenantName: string;
   active: boolean;
   roles: { id: string; code: string; name: string; branchId: string | null }[];

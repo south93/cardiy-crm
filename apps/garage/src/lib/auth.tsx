@@ -1,17 +1,17 @@
 'use client';
 
-import type { PermissionCode } from '@cardiy/shared';
+import type { PermissionCode, TenantKind } from '@cardiy/shared';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, onSessionExpired, refreshSession, setAccessToken, type TokenResponse } from './api';
 
 export interface Me {
   user: { id: string; phone: string; fullName: string; email: string | null; totpEnabled: boolean; mustChangePassword: boolean; avatarUrl: string | null };
-  workspace: { membershipId: string; tenantId: string; tenantName: string; tenantType: 'PLATFORM' | 'GARAGE' };
+  workspace: { membershipId: string; tenantId: string; tenantName: string; tenantType: TenantKind };
   roles: { id: string; code: string; name: string; branchId: string | null }[];
   permissions: PermissionCode[];
   branches: { id: string; code: string; name: string }[];
   limited: boolean;
-  memberships: { membershipId: string; tenantId: string; tenantName: string; tenantType: 'PLATFORM' | 'GARAGE' }[];
+  memberships: { membershipId: string; tenantId: string; tenantName: string; tenantType: TenantKind }[];
 }
 
 type Status = 'loading' | 'authed' | 'anon';

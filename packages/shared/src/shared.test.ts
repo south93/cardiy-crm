@@ -16,6 +16,17 @@ test('mọi quyền của vai trò hệ thống đều có trong danh mục, đ�
   }
 });
 
+test('Đối tác chỉ có quyền cổng đối tác (+ tải file): không CRM, không quản lý nhân viên', () => {
+  const dt = SYSTEM_ROLES.find((r) => r.code === 'DT')!;
+  for (const code of dt.permissions) {
+    const def = PERMISSIONS.find((p) => p.code === code)!;
+    assert.ok(def.scope === 'PARTNER' || code === 'file.upload', `Đối tác không được có quyền ${code}`);
+  }
+  for (const c of ['staff.view', 'staff.manage', 'role.manage', 'ro.view', 'customer.view'] as const) {
+    assert.ok(!(dt.permissions as string[]).includes(c), c);
+  }
+});
+
 test('Chủ garage có toàn bộ quyền cấp garage', () => {
   const cg = SYSTEM_ROLES.find((r) => r.code === 'CG')!;
   const tenantCodes = PERMISSIONS.filter((p) => p.scope === 'TENANT').map((p) => p.code);

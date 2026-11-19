@@ -15,7 +15,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { PERMISSIONS, isPermissionCode } from '@cardiy/shared';
+import { PERMISSIONS, isPermissionCode, scopeOfTenant } from '@cardiy/shared';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AccessService } from '../auth/access.service';
@@ -40,7 +40,7 @@ export class RolesController {
   ) {}
 
   private scopeOf(auth: RequestAuth) {
-    return auth.access.tenantType === 'PLATFORM' ? ('PLATFORM' as const) : ('TENANT' as const);
+    return scopeOfTenant(auth.access.tenantType);
   }
 
   /** Danh mục quyền theo phạm vi của không gian làm việc hiện tại. */
@@ -48,7 +48,7 @@ export class RolesController {
   @Get('permissions')
   permissions(@CurrentAuth() auth: RequestAuth) {
     const scope = this.scopeOf(auth);
-    return PERMISSIONS.filter((p) => scope === 'PLATFORM' || p.scope === 'TENANT');
+    return PERMISSIONS.filter((p) => scope === 'PLATFORM' || p.scope === scope || (scope === 'PARTNER' && p.code === 'file.upload'));
   }
 
   @RequirePermissions('staff.view')
@@ -79,7 +79,9 @@ export class RolesController {
     for (const c of codes) {
       if (!isPermissionCode(c)) throw new BadRequestException(`Quyền không tồn tại: ${c}`);
       const def = PERMISSIONS.find((p) => p.code === c)!;
-      if (scope === 'TENANT' && def.scope !== 'TENANT') throw new BadRequestException(`Quyền ${c} chỉ dành cho sàn`);
+      if (scope !== 'PLATFORM' && def.scope !== scope && !(scope === 'PARTNER' && c === 'file.upload')) {
+        throw new BadRequestException(`Quyền ${c} không dùng được ở không gian làm việc này`);
+      }
       if (!(auth.access.permissions as string[]).includes(c)) throw new ForbiddenException(`Bạn không được cấp quyền mình không có: ${c}`);
     }
   }
