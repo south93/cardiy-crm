@@ -1,15 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { loginUI, PHONES } from './helpers';
 
-test.describe('Khung giao diện quản trị', () => {
-  test('trang Tổng quan hiển thị tiêu đề, KPI và trạng thái hệ thống', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByTestId('page-title')).toHaveText('Tổng quan');
-    await expect(page.getByText('Doanh thu tháng')).toBeVisible();
-    await expect(page.getByText('Lộ trình xây dựng')).toBeVisible();
+test.describe('Khung giao diện quản trị (Chủ garage)', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginUI(page, PHONES.owner);
   });
 
-  test('trạng thái hệ thống đọc được từ API thật: API, PostgreSQL, Redis đều hoạt động', async ({ page }) => {
-    await page.goto('/');
+  test('trang Tổng quan hiển thị tiêu đề, KPI và trạng thái hệ thống thật', async ({ page }) => {
+    await expect(page.getByTestId('page-title')).toHaveText('Tổng quan');
+    await expect(page.getByText('Doanh thu tháng')).toBeVisible();
     const status = page.getByTestId('system-status');
     await expect(status.getByTestId('status-api')).toHaveText('Hoạt động');
     await expect(status.getByTestId('status-database')).toHaveText('Hoạt động');
@@ -34,9 +33,11 @@ test.describe('Khung giao diện quản trị', () => {
 
 test.describe('Menu trên máy tính', () => {
   test.skip(({ isMobile }) => isMobile, 'chỉ áp dụng màn hình lớn');
+  test.beforeEach(async ({ page }) => {
+    await loginUI(page, PHONES.owner);
+  });
 
   test('bấm mục menu thì chuyển trang và đánh dấu mục đang chọn', async ({ page }) => {
-    await page.goto('/');
     const sidebar = page.getByTestId('sidebar');
     await sidebar.getByRole('link', { name: 'Khách hàng' }).click();
     await expect(page.getByTestId('page-title')).toHaveText('Khách hàng');
@@ -44,16 +45,15 @@ test.describe('Menu trên máy tính', () => {
   });
 
   test('thu gọn menu, tải lại trang vẫn giữ trạng thái thu gọn', async ({ page }) => {
-    await page.goto('/');
     const sidebar = page.getByTestId('sidebar');
     const wide = (await sidebar.boundingBox())!.width;
     await page.getByTestId('collapse-toggle').click();
     await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeLessThan(wide / 2);
     await page.reload();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await expect(page.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'true');
     await page.getByTestId('collapse-toggle').click();
-    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(page.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'false');
   });
 });
 
@@ -61,7 +61,7 @@ test.describe('Menu trên điện thoại', () => {
   test.skip(({ isMobile }) => !isMobile, 'chỉ áp dụng điện thoại');
 
   test('menu ẩn mặc định, bấm nút ☰ thì mở, chọn mục thì tự đóng', async ({ page }) => {
-    await page.goto('/');
+    await loginUI(page, PHONES.owner);
     const sidebar = page.getByTestId('sidebar');
     await expect(sidebar).not.toBeInViewport();
     await page.getByTestId('mobile-menu').click();

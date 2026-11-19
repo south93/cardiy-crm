@@ -6,7 +6,7 @@ WORKDIR /repo
 FROM base AS build
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @cardiy/api...
-RUN pnpm --filter @cardiy/api build
+RUN pnpm --filter "@cardiy/api..." build
 RUN pnpm deploy --filter @cardiy/api --prod --legacy /out
 RUN cp -r apps/api/dist /out/dist
 

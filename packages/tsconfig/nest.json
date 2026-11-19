@@ -11,7 +11,7 @@
     "experimentalDecorators": true,
     "isolatedModules": false,
     "sourceMap": true,
-    "incremental": true,
+    "incremental": false,
     "strictPropertyInitialization": false
   }
 }

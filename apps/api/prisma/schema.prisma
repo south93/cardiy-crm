@@ -1,6 +1,6 @@
-// Mô hình dữ liệu CARDIY. Đặc tả đầy đủ: docs/06-mo-hinh-du-lieu.md
-// Vòng 0.1 chỉ có tenant + chi nhánh để kiểm tra đường ống migration.
-// Vòng 0.2 thêm users, memberships, roles, permissions, audit_logs.
+// Mô hình dữ liệu CARDIY. Đặc tả đầy đủ: docs/06-mo-hinh-du-lieu.md (nhóm D1)
+// Vòng 0.1: tenants, branches. Vòng 0.2: users, memberships, roles, permissions,
+// sessions, audit_logs, files.
 
 generator client {
   provider      = "prisma-client-js"
@@ -30,6 +30,16 @@ enum TenantStatus {
   CHAM_DUT
 }
 
+enum UserStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum PermissionScope {
+  PLATFORM
+  TENANT
+}
+
 model Tenant {
   id        String       @id @default(uuid()) @db.Uuid
   type      TenantType   @default(GARAGE)
@@ -40,7 +50,10 @@ model Tenant {
   updatedAt DateTime     @updatedAt @map("updated_at")
   deletedAt DateTime?    @map("deleted_at")
 
-  branches Branch[]
+  branches    Branch[]
+  memberships Membership[]
+  roles       Role[]
+  files       FileObject[]
 
   @@map("tenants")
 }
@@ -51,6 +64,7 @@ model Branch {
   code      String
   name      String
   address   String?
+  phone     String?
   lat       Float?
   lng       Float?
   bays      Int       @default(0)
@@ -58,9 +72,161 @@ model Branch {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  membershipRoles MembershipRole[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
   @@map("branches")
+}
+
+/// Tài khoản đăng nhập. Một người có thể làm việc ở nhiều tenant (qua Membership).
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  phone              String     @unique
+  email              String?
+  fullName           String     @map("full_name")
+  passwordHash       String     @map("password_hash")
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  totpSecret         String?    @map("totp_secret")
+  totpEnabled        Boolean    @default(false) @map("totp_enabled")
+  avatarFileId       String?    @map("avatar_file_id") @db.Uuid
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+/// Người dùng làm việc tại một tenant
+model Membership {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  tenantId  String     @map("tenant_id") @db.Uuid
+  title     String?
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id])
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  roles  MembershipRole[]
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+/// Vai trò. tenantId = null: vai trò hệ thống (không sửa được).
+model Role {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String?         @map("tenant_id") @db.Uuid
+  code        String
+  name        String
+  scope       PermissionScope @default(TENANT)
+  isSystem    Boolean         @default(false) @map("is_system")
+  require2fa  Boolean         @default(false) @map("require_2fa")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  members     MembershipRole[]
+
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+model Permission {
+  code  String          @id
+  group String
+  label String
+  scope PermissionScope
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code])
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+/// Gán vai trò cho thành viên. branchId = null: áp dụng mọi chi nhánh.
+model MembershipRole {
+  id           String  @id @default(uuid()) @db.Uuid
+  membershipId String  @map("membership_id") @db.Uuid
+  roleId       String  @map("role_id") @db.Uuid
+  branchId     String? @map("branch_id") @db.Uuid
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id])
+  branch     Branch?    @relation(fields: [branchId], references: [id])
+
+  @@unique([membershipId, roleId, branchId])
+  @@index([membershipId])
+  @@map("membership_roles")
+}
+
+/// Phiên đăng nhập: lưu băm của refresh token, xoay vòng mỗi lần làm mới.
+model Session {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  membershipId String    @map("membership_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  userAgent    String?   @map("user_agent")
+  ip           String?
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Nhật ký thao tác: chỉ được thêm. Trigger trong migration chặn UPDATE/DELETE.
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model FileObject {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  storageKey String   @unique @map("storage_key")
+  mime       String
+  size       Int
+  name       String
+  uploadedBy String   @map("uploaded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("files")
 }

@@ -8,7 +8,7 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @cardiy/garage...
-RUN pnpm --filter @cardiy/garage build
+RUN pnpm --filter "@cardiy/garage..." build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { Public } from '../common/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -16,6 +17,7 @@ export interface HealthReport {
  * GET /api/health: dùng cho giám sát (Uptime Kuma, Coolify) và cho web hiển thị trạng thái.
  * Trả 200 khi mọi thành phần chạy, 503 khi có thành phần lỗi.
  */
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
