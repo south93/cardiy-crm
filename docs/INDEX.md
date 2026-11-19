@@ -12,6 +12,7 @@ Phần mềm quản lý chuỗi garage ô tô + sàn trung gian kết nối ch�
 | [06-mo-hinh-du-lieu.md](06-mo-hinh-du-lieu.md) | ERD 5 nhóm D1–D5, khoảng 70 bảng |
 | [07-ke-hoach-xay-dung.md](07-ke-hoach-xay-dung.md) | Pha P0–P5, tiêu chí nghiệm thu, cách giao cho AI, mô hình kinh doanh đã chốt |
 | [08-lo-trinh.md](08-lo-trinh.md) | Lộ trình 22 vòng, cách làm việc, hạ tầng theo thời gian |
+| [09-trien-khai-vps.md](09-trien-khai-vps.md) | Triển khai lên VPS: Docker Compose + Caddy, sao lưu, cập nhật |
 
 **Cách xem sơ đồ:**
 - Mở `so-do-he-thong.html` (các sơ đồ đã được vẽ sẵn, xem không cần mạng).

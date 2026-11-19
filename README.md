@@ -57,7 +57,11 @@ pnpm --filter @cardiy/garage test:e2e   # test giao diện bằng trình duyệt
 
 CI trên GitHub chạy đủ các bước trên và build Docker image cho mỗi Pull Request.
 
-## Chạy bằng Docker (giống VPS)
+## Triển khai lên VPS
+
+Xem [docs/09-trien-khai-vps.md](docs/09-trien-khai-vps.md): Docker Compose + Caddy, một tên miền, sao lưu mỗi đêm, cập nhật bằng `bash deploy/update.sh`.
+
+## Chạy bằng Docker trên máy
 
 ```bash
 docker compose --profile app up -d --build

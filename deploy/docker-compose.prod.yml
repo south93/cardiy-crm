@@ -1,0 +1,77 @@
+# Chạy CARDIY trên VPS. Caddy trên máy chủ nhận HTTPS và chuyển vào 127.0.0.1:3000 / 127.0.0.1:4000.
+# Dùng: cd /opt/cardiy && docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d --build
+name: cardiy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cardiy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong deploy/.env}
+      POSTGRES_DB: cardiy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardiy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Không mở cổng ra ngoài: chỉ API trong mạng nội bộ Docker truy cập được
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://cardiy:${POSTGRES_PASSWORD}@postgres:5432/cardiy?schema=public
+      REDIS_URL: redis://redis:6379
+      API_PORT: 4000
+      PUBLIC_API_URL: https://${DOMAIN:?Thiếu DOMAIN trong deploy/.env}
+      CORS_ORIGINS: https://${DOMAIN}
+      JWT_SECRET: ${JWT_SECRET:?Thiếu JWT_SECRET trong deploy/.env}
+      AUTH_ENFORCE_2FA: ${AUTH_ENFORCE_2FA:-true}
+      FILE_STORAGE: local
+      FILE_LOCAL_DIR: /app/storage
+      SEED_DEMO: ${SEED_DEMO:-false}
+    volumes:
+      - files:/app/storage
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  garage:
+    build:
+      context: ..
+      dockerfile: apps/garage/Dockerfile
+      args:
+        # Web và API chung một tên miền (Caddy chia theo đường dẫn /api)
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  files:

@@ -59,7 +59,20 @@ describe('Đăng nhập & phiên', () => {
     expect(me2.body.permissions).not.toContain('ro.manage');
   });
 
-  it('làm mới phiên xoay vòng token; dùng lại token cũ thì mọi phiên bị thu hồi', async () => {
+  it('mở nhiều tab: 2 lần làm mới cùng lúc bằng cùng một cookie đều thành công, không bị đăng xuất', async () => {
+    const { cookie } = await login(app, PHONES.sales);
+    const [a, b] = await Promise.all([
+      request(http).post('/api/auth/refresh').set('Cookie', cookie),
+      request(http).post('/api/auth/refresh').set('Cookie', cookie),
+    ]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    const next = ([] as string[]).concat(b.headers['set-cookie'] ?? []).find((c) => c.startsWith('cardiy_rt='))!;
+    await request(http).post('/api/auth/refresh').set('Cookie', next).expect(200);
+  });
+
+  it('làm mới phiên xoay vòng token; dùng lại token cũ (quá thời gian ân hạn) thì mọi phiên bị thu hồi', async () => {
+    const strict = await createApp({ REFRESH_REUSE_GRACE_SECONDS: 0 });
+    const http = strict.getHttpServer();
     const { cookie } = await login(app, PHONES.sales);
     const r1 = await request(http).post('/api/auth/refresh').set('Cookie', cookie).expect(200);
     const cookie2 = ([] as string[]).concat(r1.headers['set-cookie'] ?? []).find((c) => c.startsWith('cardiy_rt='))!;
@@ -68,6 +81,7 @@ describe('Đăng nhập & phiên', () => {
     await request(http).post('/api/auth/refresh').set('Cookie', cookie).expect(401);
     // Token mới cũng bị thu hồi theo
     await request(http).post('/api/auth/refresh').set('Cookie', cookie2).expect(401);
+    await strict.close();
   });
 
   it('đăng xuất thu hồi refresh token', async () => {
