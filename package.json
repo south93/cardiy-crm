@@ -1,0 +1,33 @@
+{
+  "name": "cardiy",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e --concurrency=1",
+    "db:generate": "pnpm --filter @cardiy/api prisma:generate",
+    "db:migrate": "pnpm --filter @cardiy/api prisma:migrate",
+    "db:deploy": "pnpm --filter @cardiy/api prisma:deploy",
+    "db:seed": "pnpm --filter @cardiy/api prisma:seed"
+  },
+  "devDependencies": {
+    "turbo": "2.11.13",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

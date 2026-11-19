@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kiem-tra:
+    name: Kiểm tra kiểu · Test · Build · E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cardiy
+          POSTGRES_PASSWORD: cardiy
+          POSTGRES_DB: cardiy
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cardiy" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://cardiy:cardiy@localhost:5432/cardiy?schema=public
+      REDIS_URL: redis://localhost:6379
+      API_PORT: 4000
+      GARAGE_PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      CORS_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Chạy migration + dữ liệu mẫu
+        run: pnpm db:deploy && pnpm db:seed
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: E2E API
+        run: pnpm --filter @cardiy/api test:e2e
+      - name: Cài trình duyệt Chromium
+        run: pnpm --filter @cardiy/garage exec playwright install --with-deps chromium
+      - name: E2E giao diện (máy tính + điện thoại)
+        run: pnpm --filter @cardiy/garage test:e2e
+
+  docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        app: [api, garage]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          tags: cardiy-${{ matrix.app }}:ci
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-slate-800 antialiased;
+    background: linear-gradient(135deg, #e8ecfb 0%, #eef2fb 45%, #e9f4f1 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: #cdd5e6;
+    border-radius: 3px;
+  }
+}
