@@ -12,9 +12,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// PLATFORM: sàn CARDIY · GARAGE: garage PLG dùng CRM · PARTNER: đối tác (chỉ cổng đối tác, 1 tài khoản)
 enum TenantType {
   PLATFORM
   GARAGE
+  PARTNER
 }
 
 /// Trạng thái đối tác theo máy trạng thái S4
@@ -38,6 +40,7 @@ enum UserStatus {
 enum PermissionScope {
   PLATFORM
   TENANT
+  PARTNER
 }
 
 model Tenant {

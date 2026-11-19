@@ -1,5 +1,8 @@
+import { rmSync } from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { bearer, createApp, login, PHONES } from './helpers';
 
 /** PNG 1x1 hợp lệ */
@@ -33,6 +36,14 @@ describe('Tải file & ảnh đại diện', () => {
     const url = new URL(up.body.url);
     await request(http).get(`${url.pathname}?exp=${url.searchParams.get('exp')}&sig=sai`).expect(403);
     await request(http).get(`${url.pathname}?exp=1000&sig=${url.searchParams.get('sig')}`).expect(403);
+  });
+
+  it('file mất khỏi ổ lưu trữ → 404, không lỗi 500', async () => {
+    const up = await request(http).post('/api/files').set(bearer(owner)).attach('file', PNG, 'mat.png').expect(201);
+    const row = await app.get(PrismaService).fileObject.findUniqueOrThrow({ where: { id: up.body.id } });
+    rmSync(path.resolve(process.env.FILE_LOCAL_DIR ?? './storage', row.storageKey));
+    const url = new URL(up.body.url);
+    await request(http).get(url.pathname + url.search).expect(404);
   });
 
   it('từ chối file không phải ảnh/PDF dù đặt tên .png', async () => {

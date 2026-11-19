@@ -104,36 +104,44 @@ describe('Nhân viên, vai trò, chi nhánh, phân quyền', () => {
     expect(s.body.mustChangePassword).toBe(true);
   });
 
-  describe('Cách ly dữ liệu giữa các garage', () => {
-    it('Chủ garage đối tác chỉ thấy nhân viên của garage mình', async () => {
-      const res = await request(http).get('/api/staff').set(bearer(partner)).expect(200);
-      expect(res.body.map((s: { phone: string }) => s.phone)).toEqual([PHONES.partnerOwner]);
+  describe('Đối tác: 1 tài khoản, chỉ cổng đối tác, cách ly với dữ liệu PLG', () => {
+    it('/me: không gian Đối tác, chỉ có quyền cổng đối tác', async () => {
+      const me = await request(http).get('/api/me').set(bearer(partner)).expect(200);
+      expect(me.body.workspace.tenantType).toBe('PARTNER');
+      expect(me.body.permissions).toContain('partner.listing.manage');
+      expect(me.body.permissions).toContain('partner.request.manage');
+      expect(me.body.permissions).not.toContain('ro.view');
+      expect(me.body.permissions).not.toContain('staff.view');
     });
 
-    it('Chủ garage đối tác không thao tác được nhân viên của PLG (404)', async () => {
+    it('không xem, không thêm được nhân viên (đối tác chỉ có 1 tài khoản)', async () => {
+      await request(http).get('/api/staff').set(bearer(partner)).expect(403);
+      await request(http).post('/api/staff').set(bearer(partner)).send({ fullName: 'X', phone: randomPhone(), roles: [{ roleId: role.DT, branchId: null }] }).expect(403);
+    });
+
+    it('không thao tác được nhân viên PLG, không xem được nhật ký, vai trò, chi nhánh PLG', async () => {
       const plgStaff = (await request(http).get('/api/staff').set(bearer(owner))).body as { membershipId: string; phone: string }[];
       const target = plgStaff.find((s) => s.phone === PHONES.tech)!;
-      await request(http).post(`/api/staff/${target.membershipId}/lock`).set(bearer(partner)).expect(404);
-      await request(http).post(`/api/staff/${target.membershipId}/reset-password`).set(bearer(partner)).expect(404);
+      await request(http).post(`/api/staff/${target.membershipId}/lock`).set(bearer(partner)).expect(403);
+      await request(http).post(`/api/staff/${target.membershipId}/reset-password`).set(bearer(partner)).expect(403);
+      await request(http).get('/api/audit-logs').set(bearer(partner)).expect(403);
+      await request(http).get('/api/roles').set(bearer(partner)).expect(403);
+      const branches = await request(http).get('/api/branches').set(bearer(partner)).expect(200);
+      expect(branches.body.map((b: { name: string }) => b.name)).toEqual(['Minh Phát · Hà Đông']);
     });
 
-    it('không gán được chi nhánh hay vai trò tuỳ chỉnh của garage khác', async () => {
-      await request(http).post('/api/staff').set(bearer(partner)).send({ fullName: 'X', phone: randomPhone(), roles: [{ roleId: role.BH, branchId: branch.CN1 }] }).expect(400);
+    it('Chủ garage PLG không cấp được vai trò Đối tác cho nhân viên PLG', async () => {
+      await request(http).post('/api/staff').set(bearer(owner)).send({ fullName: 'X', phone: randomPhone(), roles: [{ roleId: role.DT, branchId: null }] }).expect(400);
     });
 
-    it('thêm nhân viên đã có tài khoản ở garage khác: không đổi mật khẩu của họ, không cho đặt lại mật khẩu', async () => {
-      const res = await request(http).post('/api/staff').set(bearer(partner)).send({ fullName: 'Lê Bán Hàng', phone: PHONES.sales, roles: [{ roleId: role.BH, branchId: null }] }).expect(201);
-      expect(res.body).toMatchObject({ existingAccount: true, tempPassword: null });
-      await request(http).post(`/api/staff/${res.body.membershipId}/reset-password`).set(bearer(partner)).expect(409);
-      await request(http).post(`/api/staff/${res.body.membershipId}/lock`).set(bearer(partner)).expect(200);
-    });
-
-    it('nhật ký thao tác chỉ chứa dữ liệu của garage mình', async () => {
-      const res = await request(http).get('/api/audit-logs?limit=100').set(bearer(partner)).expect(200);
-      const plg = await prisma.tenant.findUniqueOrThrow({ where: { taxCode: 'PLG-DEMO-0001' } });
-      const ids = res.body.items.map((i: { id: number }) => BigInt(i.id));
-      const rows = await prisma.auditLog.findMany({ where: { id: { in: ids } } });
-      expect(rows.every((r) => r.tenantId !== plg.id)).toBe(true);
+    it('không đặt lại được mật khẩu của tài khoản còn làm ở nơi khác (chống chiếm tài khoản)', async () => {
+      const phone = randomPhone();
+      const created = await request(http).post('/api/staff').set(bearer(owner)).send({ fullName: 'Hai nơi', phone, roles: [{ roleId: role.CS, branchId: null }] }).expect(201);
+      const user = await prisma.user.findUniqueOrThrow({ where: { phone } });
+      const partnerTenant = await prisma.tenant.findUniqueOrThrow({ where: { taxCode: 'DOITAC-DEMO-0001' } });
+      await prisma.membership.create({ data: { userId: user.id, tenantId: partnerTenant.id } });
+      await request(http).post(`/api/staff/${created.body.membershipId}/reset-password`).set(bearer(owner)).expect(409);
+      await prisma.membership.deleteMany({ where: { userId: user.id, tenantId: partnerTenant.id } });
     });
   });
 
@@ -145,10 +153,10 @@ describe('Nhân viên, vai trò, chi nhánh, phân quyền', () => {
       expect(list.body.find((r: { id: string }) => r.id === res.body.id)).toMatchObject({ name: 'Rửa xe', isSystem: false });
     });
 
-    it('vai trò hệ thống không sửa được; garage khác không thấy vai trò tuỳ chỉnh của PLG', async () => {
+    it('vai trò hệ thống không sửa được; đối tác không xem, không sửa được vai trò của PLG', async () => {
       await request(http).patch(`/api/roles/${role.KTV}`).set(bearer(owner)).send({ name: 'Đổi tên' }).expect(404);
-      const partnerRoles = await request(http).get('/api/roles').set(bearer(partner)).expect(200);
-      expect(partnerRoles.body.some((r: { name: string }) => r.name === 'Rửa xe')).toBe(false);
+      await request(http).get('/api/roles').set(bearer(partner)).expect(403);
+      await request(http).patch(`/api/roles/${role.KTV}`).set(bearer(partner)).send({ name: 'X' }).expect(403);
     });
 
     it('Quản lý (không có role.manage) không tạo được vai trò', async () => {

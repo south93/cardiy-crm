@@ -258,7 +258,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       >
                         <Repeat className="h-4 w-4 text-slate-400" />
                         <span className="flex-1">{m.tenantName}</span>
-                        <span className="text-[11px] text-slate-400">{m.tenantType === 'PLATFORM' ? 'Sàn' : 'Garage'}</span>
+                        <span className="text-[11px] text-slate-400">{m.tenantType === 'PLATFORM' ? 'Sàn' : m.tenantType === 'PARTNER' ? 'Đối tác' : 'Garage'}</span>
                       </button>
                     ))}
                   </div>

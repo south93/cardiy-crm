@@ -22,11 +22,13 @@ flowchart LR
 
 ## 2. Các giai đoạn
 
-### P0 · Nền móng (2 vòng)
+### P0 · Nền móng (4 vòng) ✅
 | Vòng | Nội dung | Kết quả |
 |---|---|---|
 | 0.1 | Monorepo (Next.js, NestJS, PostgreSQL, Redis), Docker Compose, CI trên GitHub, design system theo bản thiết kế pastel | `pnpm dev` chạy được, khung giao diện giống bản thiết kế |
 | 0.2 | Đăng nhập SĐT + mật khẩu/OTP, multi-tenant, chi nhánh, vai trò & phân quyền, nhật ký thao tác, upload ảnh | Đăng nhập theo từng vai trò thấy menu khác nhau |
+| 0.3 | Triển khai VPS: Docker Compose + Caddy, sao lưu, cập nhật một lệnh | Bản demo chạy trên tên miền thật |
+| 0.4 | Tách **Đối tác**: loại tài khoản riêng, 1 tài khoản / đối tác, khung **Cổng đối tác** (A7) | Đối tác đăng nhập chỉ thấy gian hàng, sản phẩm, dịch vụ, yêu cầu của khách |
 
 ### P1 · Vận hành garage (5 vòng)
 | Vòng | Nội dung |
@@ -51,16 +53,16 @@ flowchart LR
 ### P3 · Sàn trung gian & đối tác garage (5 vòng)
 | Vòng | Nội dung |
 |---|---|
-| 3.1 | Đăng ký đối tác, duyệt hồ sơ, gói đối tác, hoá đơn phí (Admin sàn) |
-| 3.2 | Danh mục sản phẩm/dịch vụ chuẩn, gian hàng, tin đăng, đồng bộ tồn kho |
+| 3.1 | Đăng ký đối tác, duyệt hồ sơ, gói đối tác, hoá đơn phí (Admin sàn); tạo tài khoản Cổng đối tác |
+| 3.2 | Danh mục chuẩn; **Cổng đối tác**: hồ sơ gian hàng, sản phẩm (tồn nhập tay), dịch vụ; tin đăng của PLG đồng bộ tồn từ CRM |
 | 3.3 | Web sàn công khai: tìm garage, trang sản phẩm nhiều garage cùng bán, trang garage |
-| 3.4 | Yêu cầu đặt hàng + lịch lắp gửi tới garage, voucher của garage |
+| 3.4 | Yêu cầu đặt hàng + lịch lắp gửi tới đối tác (Cổng đối tác) hoặc PLG (CRM), voucher |
 | 3.5 | Đánh giá, phản ánh & xử lý vi phạm, thống kê gian hàng (lượt xem, yêu cầu) |
 
 🎯 **Mốc demo 3:** một garage đối tác thật đăng ký và nhận yêu cầu đầu tiên từ sàn.
 
 ### P4 · Dịch vụ mở rộng của garage (4 vòng)
-SOS: sàn chuyển yêu cầu tới đội cứu hộ của garage · Thuê xe của garage · Xe cũ & kiểm định · Cộng đồng · Quản lý chuỗi (KPI)
+SOS, thuê xe, kiểm định xe cũ: đối tác xử lý trong Cổng đối tác, PLG xử lý trong CRM · Cộng đồng · Quản lý chuỗi (KPI)
 
 ### P5 · Marketing & AI (3 vòng)
 Phân khúc khách, chiến dịch, tích điểm · Trợ lý AI: tóm tắt lịch sử xe, gợi ý báo giá, chatbot đặt lịch

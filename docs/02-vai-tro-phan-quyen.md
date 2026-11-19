@@ -16,8 +16,12 @@ flowchart TB
     P5["GS · Giám sát chất lượng<br/>phản ánh, cứu hộ, vi phạm"]:::p
   end
 
-  subgraph T["CẤP GARAGE / TENANT · phạm vi: garage của mình"]
-    T1["CG · Chủ garage<br/>toàn quyền trong tenant"]:::t
+  subgraph D["CẤP ĐỐI TÁC · 1 tài khoản / đối tác"]
+    D1["DT · Đối tác<br/>Cổng đối tác: gian hàng, sản phẩm, dịch vụ,<br/>yêu cầu của khách, cứu hộ, thuê xe, kiểm định"]:::c
+  end
+
+  subgraph T["CẤP GARAGE PLG · CRM"]
+    T1["CG · Chủ garage (chủ PLG)<br/>toàn quyền CRM"]:::t
     T2["QL · Quản lý chi nhánh<br/>phạm vi: chi nhánh"]:::t
     T3["BH · Bán hàng / Cố vấn dịch vụ"]:::t
     T4["KTV · Kỹ thuật viên<br/>phạm vi: việc được giao"]:::t
@@ -34,14 +38,15 @@ flowchart TB
   end
 
   P1 --> P2 & P3 & P4 & P5
-  P2 -->|"duyệt / khoá"| T1
+  P2 -->|"duyệt / khoá"| D1
   T1 --> T2 --> T3 & T4 & T5 & T6 & T7 & T8
   C1 -.->|"đặt lịch, mua hàng"| T3
   C2 -.-> T3
 ```
 
 **Quy tắc:**
-- Một người có thể giữ **nhiều vai trò** và làm ở **nhiều chi nhánh**. Ví dụ: Quản lý kiêm Bán hàng.
+- **Chủ garage** là chủ garage PLG (kiêm Super Admin sàn). **Đối tác** chỉ có **1 tài khoản**, không thêm được nhân viên, không có CRM; mọi dịch vụ (cứu hộ, thuê xe, kiểm định…) xử lý trong Cổng đối tác.
+- Nhân sự PLG có thể giữ **nhiều vai trò** và làm ở **nhiều chi nhánh**. Ví dụ: Quản lý kiêm Bán hàng.
 - Một tài khoản chủ xe có thể đồng thời là nhân sự garage. Hai vai trò dùng chung đăng nhập, tách theo "không gian làm việc".
 - Chủ garage tự tạo **vai trò tuỳ chỉnh** từ danh sách quyền có sẵn.
 
@@ -79,7 +84,22 @@ Ký hiệu: **Q** toàn quyền · **T** tạo/sửa · **D** duyệt · **X** c
 | Cấu hình sàn | Q | X | T (phí) | — | — | — | — | — | — | — | — | — |
 | Nhật ký thao tác | X | X | X | X (tenant) | X (CN) | — | — | — | — | — | — | — |
 
-## 2.3 Ngưỡng duyệt (cấu hình được theo tenant)
+## 2.3 Quyền của Đối tác (Cổng đối tác A7)
+
+| Quyền | Nội dung |
+|---|---|
+| `partner.shop.manage` | Hồ sơ gian hàng, địa chỉ, giờ mở cửa, chính sách đổi trả / huỷ |
+| `partner.listing.manage` | Đăng sản phẩm (kèm số lượng tồn) và dịch vụ: bảo dưỡng, cứu hộ, thuê xe, kiểm định… |
+| `partner.request.manage` | Nhận, xác nhận, từ chối yêu cầu của khách: đặt hàng, đặt lịch, ca cứu hộ, thuê xe, kiểm định |
+| `partner.promotion.manage` | Voucher của đối tác |
+| `partner.review.reply` | Trả lời đánh giá |
+| `partner.report.view` | Thống kê lượt xem, yêu cầu |
+| `partner.billing.view` | Gói đối tác, hoá đơn phí |
+| `file.upload` | Ảnh sản phẩm, giấy tờ |
+
+Đối tác **không** có: CRM (lệnh sửa chữa, kho, khách hàng, thu chi), quản lý nhân viên, nhật ký, cài đặt garage.
+
+## 2.4 Ngưỡng duyệt (cấu hình được theo tenant)
 
 | Hành động | Ai tạo | Ai duyệt | Mặc định |
 |---|---|---|---|

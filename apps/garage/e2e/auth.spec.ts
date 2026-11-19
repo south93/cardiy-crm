@@ -61,13 +61,23 @@ test.describe('Đăng nhập & phân quyền', () => {
     await expect(page.getByTestId('workspace-name')).toHaveText('Garage PLG');
   });
 
-  test('Chủ garage đối tác chỉ thấy dữ liệu garage của mình', async ({ page, isMobile }) => {
+  test('Đối tác: chỉ thấy Cổng đối tác (gian hàng, sản phẩm, dịch vụ, yêu cầu), không có CRM, không quản lý nhân viên', async ({ page, isMobile }) => {
     test.skip(isMobile, 'luồng giống trên máy tính');
     await loginUI(page, PHONES.partnerOwner);
+    await expect(page).toHaveURL(/\/trang-chu$/);
+    await expect(page.getByTestId('workspace-name')).toHaveText('Minh Phát Auto (đối tác demo)');
+    const sidebar = page.getByTestId('sidebar');
+    for (const name of ['Hồ sơ gian hàng', 'Sản phẩm', 'Dịch vụ', 'Đặt hàng & đặt lịch', 'Cứu hộ', 'Thuê xe', 'Kiểm định xe cũ', 'Phí & hoá đơn']) {
+      await expect(sidebar.getByRole('link', { name, exact: true })).toBeVisible();
+    }
+    for (const name of ['Tổng quan', 'Đơn đang xử lý', 'Khách hàng', 'Nhân viên', 'Cài đặt', 'Đối tác garage']) {
+      await expect(sidebar.getByRole('link', { name, exact: true })).toHaveCount(0);
+    }
+    await sidebar.getByRole('link', { name: 'Cứu hộ', exact: true }).click();
+    await expect(page.getByTestId('placeholder')).toContainText('A7.21');
     await page.goto('/nhan-vien');
-    const rows = page.getByTestId('staff-row');
-    await expect(rows.first()).toBeVisible();
-    await expect(page.getByTestId('staff-table')).not.toContainText('Phạm Kỹ Thuật');
-    await expect(page.getByTestId('staff-table')).toContainText('Chủ Garage Minh Phát');
+    await expect(page.getByTestId('forbidden')).toBeVisible();
+    await page.goto('/don-dang-xu-ly');
+    await expect(page.getByTestId('forbidden')).toBeVisible();
   });
 });

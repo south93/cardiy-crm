@@ -1,6 +1,8 @@
 # 01 · Tổng quan hệ thống CARDIY
 
-> Nền tảng gồm **2 phía**: (1) CRM vận hành cho garage (garage PLG và các garage đối tác dùng chung, mỗi garage là một *tenant*), (2) Sàn & app cho chủ xe. Garage đối tác tự đăng ký, được duyệt, rồi đăng bán **sản phẩm** và **dịch vụ** trên sàn.
+> Nền tảng gồm **3 phía**: (1) **CRM** vận hành garage, **chỉ dành cho garage PLG**; (2) **Sàn & app** cho chủ xe; (3) **Cổng đối tác**: garage, đại lý khác đăng ký làm **đối tác**, mỗi đối tác **1 tài khoản**, quản trị sản phẩm, dịch vụ và xử lý **mọi yêu cầu** của khách (đặt hàng, đặt lịch, cứu hộ, thuê xe, kiểm định) ngay trên web của PLG. Đối tác **không có CRM**.
+>
+> Thuật ngữ: **Chủ garage** = chủ garage PLG. **Đối tác** = garage, đại lý khác bán hàng và dịch vụ qua sàn.
 >
 > **Sàn chỉ là trung gian hiển thị và kết nối.** Sàn không thu tiền hộ, không giữ tiền, không chi trả cho garage. Khách thanh toán **trực tiếp cho garage**. Đội cứu hộ, thuê xe, kiểm định… đều là **dịch vụ của garage**. Doanh thu của sàn đến từ **phí gói đối tác** mà garage trả.
 
@@ -16,17 +18,18 @@ flowchart LR
   subgraph U["NGƯỜI DÙNG"]
     U1["Khách vãng lai"]:::user
     U2["Chủ xe"]:::user
-    U3["Nhân sự garage<br/>Chủ garage · Quản lý · Bán hàng<br/>Kế toán · Thủ kho · CSKH"]:::user
+    U3["Nhân sự garage PLG<br/>Chủ garage · Quản lý · Bán hàng<br/>Kế toán · Thủ kho · CSKH"]:::user
     U4["Kỹ thuật viên"]:::user
-    U5["Đội cứu hộ của garage"]:::user
-    U6["Garage muốn làm đối tác"]:::user
+    U5["Đội cứu hộ của PLG"]:::user
+    U6["Đối tác<br/>garage, đại lý khác · 1 tài khoản"]:::user
     U7["Đội ngũ sàn CARDIY<br/>Admin · Kế toán sàn · Kiểm duyệt"]:::user
   end
 
   subgraph A["ỨNG DỤNG"]
     A1["A1 · Web công khai / Sàn<br/>SEO, tìm garage, mua hàng"]:::app
     A2["A2 · App chủ xe<br/>PWA → iOS/Android"]:::app
-    A3["A3 · Web quản trị Garage<br/>CRM + Kênh người bán"]:::app
+    A3["A3 · CRM garage PLG<br/>+ Kênh người bán của PLG"]:::app
+    A7["A7 · Cổng đối tác<br/>sản phẩm, dịch vụ, yêu cầu của khách"]:::app
     A4["A4 · App kỹ thuật viên<br/>PWA"]:::app
     A5["A5 · App cứu hộ<br/>PWA"]:::app
     A6["A6 · Admin sàn"]:::app
@@ -38,11 +41,11 @@ flowchart LR
   U4 --> A4
   U5 --> A5
   U6 -->|"Đăng ký đối tác"| A1
-  U6 -.->|"Sau khi được duyệt"| A3
+  U6 -.->|"Sau khi được duyệt"| A7
   U7 --> A6
 
   API["API Gateway<br/>REST + WebSocket realtime"]:::core
-  A1 & A2 & A3 & A4 & A5 & A6 --> API
+  A1 & A2 & A3 & A4 & A5 & A6 & A7 --> API
   API --> BE["Backend<br/>Modular monolith"]:::core
 
   X["TÍCH HỢP BÊN NGOÀI<br/>Zalo OA / ZNS · SMS · Email · Push<br/>VietQR · Cổng thanh toán<br/>Hoá đơn điện tử · Phần mềm kế toán<br/>Bản đồ · Định vị · Tổng đài<br/>eKYC · Ký số hợp đồng<br/>Dịch vụ AI / LLM"]:::ext
@@ -60,7 +63,7 @@ flowchart TB
   subgraph FE["Frontend · Next.js + TypeScript (một monorepo)"]
     W1["apps/web<br/>A1 Sàn công khai · SSR/SEO"]:::app
     W2["apps/customer<br/>A2 App chủ xe · PWA"]:::app
-    W3["apps/garage<br/>A3 CRM garage + A4 KTV + A5 Cứu hộ"]:::app
+    W3["apps/garage<br/>A3 CRM PLG + A4 KTV + A5 Cứu hộ<br/>+ A7 Cổng đối tác + A6 Admin sàn"]:::app
     W4["apps/admin<br/>A6 Admin sàn"]:::app
     UI["packages/ui · design system dùng chung"]:::app
   end
@@ -150,7 +153,7 @@ flowchart LR
 
 | # | Nguyên tắc | Cách làm |
 |---|---|---|
-| 1 | **Multi-tenant** | Mọi bảng nghiệp vụ có `tenant_id` (garage) và `branch_id` khi cần. Dùng Postgres Row-Level Security cùng tenant guard ở API. Garage PLG cũng là một tenant. |
+| 1 | **Multi-tenant** | 3 loại tenant: `PLATFORM` (sàn), `GARAGE` (PLG, dùng CRM), `PARTNER` (đối tác, chỉ Cổng đối tác, 1 tài khoản). Mọi bảng nghiệp vụ có `tenant_id`; dữ liệu đối tác và PLG tách hẳn nhau. |
 | 2 | **Phân quyền RBAC** | Quyền dạng `module.action` (ví dụ `ro.approve`). Vai trò là tập quyền, gán theo phạm vi: sàn / tenant / chi nhánh / bản thân. |
 | 3 | **API-first** | Mọi ứng dụng dùng chung REST API (OpenAPI) và WebSocket. Không có logic nghiệp vụ ở frontend. |
 | 4 | **Realtime** | Đổi trạng thái RO, đơn hàng, SOS được đẩy qua WebSocket tới app chủ xe và CRM. |
