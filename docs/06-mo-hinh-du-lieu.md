@@ -29,8 +29,7 @@ erDiagram
     string type "PLATFORM|GARAGE"
     string name
     string tax_code UK
-    string status "theo S4"
-    int commission_override_bp }
+    string status "theo S4" }
   branches { uuid id PK
     uuid tenant_id FK
     string name
@@ -247,7 +246,7 @@ erDiagram
   categories { uuid id PK
     uuid parent_id
     string name
-    int commission_bp "hoa hồng sàn" }
+    int sort_order }
   products { uuid id PK
     uuid tenant_id FK
     string internal_code
@@ -296,102 +295,63 @@ erDiagram
     uuid branch_id FK }
 ```
 
-## D4 · Đơn hàng sàn, thanh toán, ví, đối soát, khuyến mại
+## D4 · Yêu cầu đặt hàng, thanh toán tại garage, voucher, phí đối tác
+
+> Sàn **không** có ví, sổ cái thu hộ, đối soát hay chi trả. `payments` là tiền **garage thu** (thuộc tenant). `platform_invoices` là phí gói **sàn thu của garage**.
 
 ```mermaid
 erDiagram
-  users ||--o{ carts : ""
-  carts ||--o{ cart_items : ""
-  users ||--o{ orders : "đặt"
-  orders ||--o{ order_items : ""
-  offers ||--o{ order_items : ""
-  orders |o--o| bookings : "lịch lắp"
-  orders |o--o| repair_orders : "RO lắp đặt"
-  orders ||--o{ payments : ""
-  repair_orders ||--o{ payments : ""
-  payments ||--o{ refunds : ""
-  wallets ||--o{ ledger_entries : ""
-  payments ||--o{ ledger_entries : "sinh bút toán"
-  tenants ||--|| wallets : "ví người bán"
-  users ||--o| wallets : "ví khách"
-  tenants ||--o{ settlements : "kỳ đối soát"
-  settlements ||--o{ settlement_lines : ""
-  order_items ||--o{ settlement_lines : ""
-  wallets ||--o{ payouts : "rút tiền"
+  users ||--o{ order_requests : "gửi"
+  tenants ||--o{ order_requests : "nhận"
+  order_requests ||--o{ order_request_items : ""
+  offers ||--o{ order_request_items : ""
+  order_requests |o--o| bookings : "lịch lắp"
+  order_requests |o--o| repair_orders : "RO lắp đặt"
+  repair_orders ||--o{ payments : "garage thu"
+  payments ||--o| cash_book_entries : "vào sổ quỹ"
+  tenants ||--o{ cash_book_entries : ""
+  tenants ||--o{ vouchers : "phát hành"
   vouchers ||--o{ voucher_redemptions : ""
-  orders ||--o{ voucher_redemptions : ""
-  orders ||--o{ disputes : ""
-  orders ||--o{ reviews : ""
+  repair_orders ||--o{ voucher_redemptions : ""
+  order_requests ||--o{ reports : "phản ánh"
+  tenants ||--o{ reports : "bị phản ánh"
   repair_orders ||--o{ reviews : ""
-  repair_orders ||--o{ invoices : ""
-  orders ||--o{ invoices : ""
+  repair_orders ||--o{ invoices : "garage xuất"
+  subscriptions ||--o{ platform_invoices : "phí theo kỳ"
+  platform_invoices ||--o{ platform_fee_payments : ""
 
-  orders { uuid id PK
+  order_requests { uuid id PK
     string code UK
     uuid buyer_id FK
     uuid seller_tenant_id FK
     uuid branch_id FK
     string status "theo S3"
-    bigint subtotal
-    bigint discount_seller
-    bigint discount_platform
-    bigint total
-    string payment_mode "PREPAID|PAY_AT_GARAGE" }
-  order_items { uuid id PK
-    uuid order_id FK
+    bigint estimated_total
+    bigint final_total "garage chốt"
+    datetime expires_at }
+  order_request_items { uuid id PK
+    uuid order_request_id FK
     uuid offer_id FK
     int qty
-    bigint unit_price
-    int commission_bp }
-  carts { uuid id PK
-    uuid user_id FK }
-  cart_items { uuid id PK
-    uuid cart_id FK
-    uuid offer_id FK
-    int qty }
+    bigint unit_price }
   payments { uuid id PK
-    string ref_type "ORDER|RO|RENTAL|SOS|SUBSCRIPTION"
+    uuid tenant_id FK "garage thu"
+    string ref_type "RO|ORDER_REQUEST|RENTAL|SOS"
     uuid ref_id
-    string method "VIETQR|CARD|WALLET|CASH"
+    string method "VIETQR|CARD|CASH|TRANSFER"
     bigint amount
-    string gateway_txn_id UK
+    uuid recorded_by FK
     string status }
-  refunds { uuid id PK
-    uuid payment_id FK
-    bigint amount
-    string reason
-    string status }
-  wallets { uuid id PK
-    string owner_type "USER|TENANT|PLATFORM"
-    uuid owner_id
-    bigint pending
-    bigint available }
-  ledger_entries { bigint id PK
-    uuid wallet_id FK
-    uuid txn_id "nhóm bút toán kép"
-    bigint debit
-    bigint credit
-    string memo }
-  settlements { uuid id PK
+  cash_book_entries { uuid id PK
     uuid tenant_id FK
-    date period_from
-    date period_to
-    bigint gross
-    bigint commission
-    bigint net
-    string status }
-  settlement_lines { uuid id PK
-    uuid settlement_id FK
-    uuid order_item_id FK
-    bigint amount }
-  payouts { uuid id PK
-    uuid wallet_id FK
+    uuid branch_id FK
+    string type "THU|CHI"
     bigint amount
-    string bank_account
-    string status "theo S7" }
+    string category
+    uuid payment_id FK }
   vouchers { uuid id PK
-    string issuer "PLATFORM|TENANT"
-    uuid tenant_id
+    uuid tenant_id FK "garage phát hành"
+    uuid campaign_id "chương trình chung của sàn, nếu có"
     string code
     string type "PERCENT|AMOUNT"
     bigint value
@@ -400,10 +360,13 @@ erDiagram
     datetime expires_at }
   voucher_redemptions { uuid id PK
     uuid voucher_id FK
-    uuid order_id FK
+    uuid ro_id FK
     bigint amount }
-  disputes { uuid id PK
-    uuid order_id FK
+  reports { uuid id PK
+    uuid reporter_id FK
+    uuid tenant_id FK
+    string ref_type
+    uuid ref_id
     string reason
     string status
     string resolution }
@@ -414,11 +377,26 @@ erDiagram
     string content
     string status }
   invoices { uuid id PK
+    uuid tenant_id FK
     string ref_type
     uuid ref_id
     string provider_no
     string pdf_url
     string status }
+  platform_invoices { uuid id PK
+    uuid tenant_id FK
+    uuid subscription_id FK
+    date period_from
+    date period_to
+    bigint amount
+    date due_date
+    string status "theo S7" }
+  platform_fee_payments { uuid id PK
+    uuid platform_invoice_id FK
+    bigint amount
+    string method
+    uuid recorded_by FK
+    datetime paid_at }
 ```
 
 ## D5 · Mở rộng: cứu hộ, thuê xe, xe cũ, cộng đồng, thông báo, AI
@@ -449,7 +427,7 @@ erDiagram
     string issue_type
     uuid assigned_tenant_id FK
     uuid assigned_staff_id FK
-    bigint quoted_price
+    bigint quoted_price "garage báo"
     string status "theo S6" }
   sos_tracks { bigint id PK
     uuid sos_id FK
@@ -461,7 +439,7 @@ erDiagram
     uuid vehicle_id FK
     bigint daily_price
     bigint deposit
-    string owner_type "GARAGE|CONSIGN" }
+    string owner_type "GARAGE|CONSIGN do garage quản lý" }
   rental_contracts { uuid id PK
     uuid rental_vehicle_id FK
     uuid renter_id FK

@@ -29,7 +29,7 @@ sequenceDiagram
     API->>K: Tạo hợp đồng điện tử theo gói
     G->>K: Ký số hợp đồng
     K-->>API: Đã ký
-    API->>API: Tạo tenant, chi nhánh, tài khoản Chủ garage, ví người bán
+    API->>API: Tạo tenant, chi nhánh, tài khoản Chủ garage, hoá đơn phí kỳ đầu
     API->>N: Gửi thông tin đăng nhập A3 + hướng dẫn
   else Từ chối
     AV->>API: Từ chối + lý do
@@ -50,7 +50,7 @@ sequenceDiagram
   actor BH as Bán hàng A3
   actor KTV as Kỹ thuật viên A4
   participant KHO as Kho M13
-  participant PAY as Payment M24
+  participant PAY as Thanh toán garage M24
 
   CX->>API: Đặt lịch: xe, dịch vụ, garage, giờ, mô tả lỗi
   API-->>BH: Booking mới, realtime
@@ -78,17 +78,17 @@ sequenceDiagram
   KTV->>API: Hoàn tất
   BH->>API: Kiểm tra chất lượng + chạy thử
   API-->>CX: Xe xong, mời thanh toán
-  CX->>PAY: Thanh toán VietQR / thẻ / ví / tiền mặt tại quầy
-  PAY-->>API: Đã thanh toán
-  API->>API: Xuất hoá đơn điện tử, kích hoạt bảo hành
+  CX->>PAY: Trả trực tiếp cho garage: VietQR của garage / thẻ / tiền mặt
+  PAY-->>API: Garage ghi nhận đã thu, vào sổ quỹ garage
+  API->>API: Garage xuất hoá đơn điện tử, kích hoạt bảo hành
   BH->>CX: Giao xe
   API->>API: Tạo lịch nhắc bảo dưỡng + lịch gọi chăm sóc sau 3 ngày
   CX->>API: Đánh giá
 ```
 
-## F3 · Mua sản phẩm trên sàn + lắp tại garage
+## F3 · Đặt sản phẩm trên sàn + lắp tại garage
 
-Theo mẫu trang lốp: một sản phẩm chuẩn có nhiều garage cùng bán.
+Theo mẫu trang lốp: một sản phẩm chuẩn có nhiều garage cùng bán. **Sàn chỉ chuyển yêu cầu, khách trả tiền trực tiếp cho garage.**
 
 ```mermaid
 sequenceDiagram
@@ -96,83 +96,80 @@ sequenceDiagram
   actor CX as Chủ xe
   participant W as A1/A2
   participant API as Backend M22-M23
-  participant PROMO as Voucher M26
-  participant PAY as Payment M24
   actor G as Garage bán A3
 
   CX->>W: Mở trang sản phẩm chuẩn, ví dụ Lốp 265/60R18
   W->>API: Lấy danh sách offer của các garage
-  API-->>W: Giá, có gồm lắp đặt không, khoảng cách, đánh giá, đã bán, voucher
-  CX->>W: Chọn garage, năm sản xuất, số lượng
-  W->>PROMO: Áp voucher garage + voucher sàn
-  PROMO-->>W: Giá cuối
-  CX->>W: Chọn khung giờ lắp đặt
-  W->>API: Tạo đơn hàng + booking lắp đặt
-  API->>API: Giữ tồn kho của offer
-  CX->>PAY: Thanh toán trước, hoặc trả tại garage nếu được bật
-  PAY-->>API: Tiền vào tài khoản tạm giữ của sàn
-  API-->>G: Đơn mới
-  G->>API: Xác nhận, chuẩn bị hàng
-  CX->>G: Đến lắp đặt
-  G->>API: Tạo RO lắp đặt từ đơn, hoàn tất
-  API->>API: Đơn hoàn thành, tính hoa hồng sàn
-  Note over API: Sau thời gian khiếu nại, ví dụ 3 ngày, tiền chuyển sang "có thể rút" của garage
+  API-->>W: Giá, có gồm lắp đặt không, khoảng cách, đánh giá, đã bán, voucher của garage
+  CX->>W: Chọn garage, năm sản xuất, số lượng, khung giờ lắp
+  W->>API: Gửi yêu cầu đặt hàng + lịch lắp
+  API->>API: Giữ tồn tạm của offer trong 24 giờ
+  API-->>G: Yêu cầu mới, realtime + Zalo
+  alt Garage xác nhận
+    G->>API: Xác nhận, chốt giá cuối
+    API-->>CX: Xác nhận + thông tin thanh toán của garage
+  else Garage từ chối hoặc quá 24 giờ
+    API->>API: Huỷ, nhả tồn
+    API-->>CX: Gợi ý garage khác đang bán sản phẩm này
+  end
+  CX->>G: Đến garage lắp đặt
+  G->>API: Tạo RO lắp đặt từ yêu cầu
+  CX->>G: Thanh toán trực tiếp cho garage
+  G->>API: Ghi nhận đã thu, hoàn tất
+  Note over API: Sàn không nhận, không giữ tiền của khách
   CX->>API: Đánh giá sản phẩm + garage
 ```
 
-## F4 · Dòng tiền: thanh toán, tạm giữ, đối soát, chi trả
+## F4 · Dòng tiền
 
 ```mermaid
 flowchart LR
-  classDef m fill:#e3f4e6,stroke:#3e8a4f,color:#1e293b
-  classDef w fill:#fff0e0,stroke:#b8692a,color:#1e293b
-  CX["Chủ xe thanh toán"] --> GW["Cổng thanh toán / VietQR"]
-  GW --> ESC["Tài khoản tạm giữ của sàn"]:::w
-  ESC -->|"đơn hoàn thành + hết hạn khiếu nại"| SPLIT{"Chia tiền"}
-  SPLIT -->|"Giá trị đơn − hoa hồng − phí cổng"| WS["Ví người bán: số dư chờ"]:::m
-  SPLIT -->|"Hoa hồng theo danh mục"| REV["Doanh thu sàn"]
-  SPLIT -->|"Voucher sàn tài trợ"| PROMO["Chi phí khuyến mại sàn"]
-  WS -->|"kỳ đối soát T+7"| AV["Ví người bán: có thể rút"]:::m
-  AV -->|"Garage yêu cầu rút"| KS{"Kế toán sàn duyệt"}
-  KS -->|"Duyệt"| BANK["Chuyển khoản ngân hàng garage"]
-  KS -->|"Từ chối / giữ lại"| AV
-  ESC -->|"Huỷ / hoàn tiền"| REF["Hoàn tiền về ví hoặc nguồn"]
-  CASH["Thanh toán tại garage: RO thường"] --> GL["Sổ quỹ garage, không qua sàn"]
-  GL -->|"Đơn từ sàn trả tại garage"| DEBT["Công nợ hoa hồng garage → sàn<br/>trừ vào kỳ đối soát"]
+  classDef g fill:#e3f4e6,stroke:#3e8a4f,color:#1e293b
+  classDef p fill:#dce6f6,stroke:#1f4e9c,color:#1e293b
+  CX["Chủ xe"] -->|"Tiền hàng, dịch vụ, cứu hộ, thuê xe<br/>VietQR của garage · thẻ · tiền mặt"| G["Garage"]:::g
+  G --> SQ["Sổ quỹ garage M15<br/>garage tự xuất hoá đơn điện tử"]:::g
+  G -->|"Phí gói đối tác theo kỳ"| P["Sàn CARDIY"]:::p
+  P --> HD["Hoá đơn phí M25<br/>sàn xuất hoá đơn điện tử phí"]:::p
+  HD -->|"Quá hạn 15 ngày"| K["Tạm ẩn gian hàng trên sàn"]
+  HD -->|"Đã thanh toán"| OK["Gian hàng hoạt động bình thường"]
 ```
 
-## F5 · Cứu hộ SOS
+> Tiền của khách **không bao giờ** đi qua sàn. Hoàn tiền, đổi trả và bảo hành do garage xử lý theo chính sách garage công bố trên gian hàng. Sàn tiếp nhận **phản ánh**, yêu cầu garage giải trình, và có thể ẩn hoặc khoá gian hàng vi phạm.
+
+## F5 · Cứu hộ SOS: sàn kết nối, garage thực hiện
 
 ```mermaid
 sequenceDiagram
   autonumber
   actor CX as Chủ xe A2
   participant API as Backend M33
-  actor DP as Điều phối A6 / Garage A3
-  actor CH as Cứu hộ A5
+  actor G as Garage có dịch vụ cứu hộ A3
+  actor CH as Đội cứu hộ của garage A5
 
   CX->>API: Bấm SOS: vị trí GPS, loại sự cố, ảnh
-  API->>API: Tìm garage hoặc đội cứu hộ gần nhất đang trực
-  API-->>CH: Mời nhận ca, đồng thời gửi vài đội trong bán kính
-  alt Có đội nhận trong 2 phút
-    CH->>API: Nhận ca
-  else Không ai nhận
-    API-->>DP: Chuyển điều phối thủ công
-    DP->>CH: Gán ca
+  API->>API: Tìm garage có dịch vụ cứu hộ, đang trực, trong bán kính
+  API-->>G: Gửi yêu cầu cho các garage phù hợp
+  alt Một garage nhận trong 3 phút
+    G->>API: Nhận ca, báo giá dự kiến
+    G->>CH: Điều đội cứu hộ của garage
+    API-->>CX: Garage, đội, ETA, giá dự kiến
+  else Không garage nào nhận
+    API-->>CX: Danh sách hotline cứu hộ của các garage gần nhất để gọi trực tiếp
   end
-  API-->>CX: Thông tin đội, ETA, giá dự kiến
   loop Mỗi 10 giây
     CH->>API: Cập nhật GPS
     API-->>CX: Vị trí trên bản đồ
   end
   CH->>API: Đến nơi, ảnh hiện trường, chốt giá
   alt Xử lý tại chỗ
-    CH->>API: Hoàn thành, thu tiền
+    CH->>API: Hoàn thành
+    CX->>CH: Thanh toán trực tiếp cho garage
   else Kéo về garage
-    CH->>API: Kéo về garage
-    API->>API: Tạo booking / RO tại garage nhận xe
+    CH->>API: Kéo về garage của mình
+    API->>API: Tạo RO tại garage đó
   end
-  CX->>API: Đánh giá
+  CX->>API: Đánh giá garage
+  Note over API: Sàn chỉ kết nối và hiển thị. Đội, giá, thu tiền thuộc garage
 ```
 
 ## F6 · Bảo dưỡng thông minh & Lịch gọi
@@ -212,7 +209,7 @@ flowchart LR
 ```mermaid
 flowchart TB
   A["Chủ xe hoặc garage tạo tin: ảnh, giá, giấy tờ"] --> B{"Có kiểm định?"}
-  B -->|"Đặt kiểm định"| C["Booking kiểm định tại garage đối tác"]
+  B -->|"Đặt kiểm định"| C["Booking kiểm định: dịch vụ của garage đối tác, khách trả cho garage"]
   C --> D["KTV chấm checklist ~150 điểm + ảnh"]
   D --> E["Báo cáo kiểm định gắn vào tin, có huy hiệu"]
   B -->|"Không"| F["Tin thường"]
@@ -227,12 +224,12 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  A["Garage đăng xe cho thuê: giá ngày, cọc, điều kiện"] --> B["Khách tìm và đặt"]
+  A["Garage đăng xe cho thuê của garage: giá ngày, cọc, điều kiện<br/>sàn chỉ hiển thị"] --> B["Khách tìm và đặt"]
   B --> C["Xác minh GPLX + CCCD qua eKYC"]
-  C --> D["Ký hợp đồng điện tử + đặt cọc"]
+  C --> D["Ký hợp đồng với garage + đặt cọc cho garage"]
   D --> E["Bàn giao: km, nhiên liệu, ảnh 8 góc"]
   E --> F["Đang thuê"]
   F --> G["Trả xe: đối chiếu ảnh, km, phát sinh"]
   G --> H["Quyết toán: hoàn cọc, trừ phát sinh"]
-  H --> I["Chia doanh thu: garage, chủ xe ký gửi, sàn"]
+  H --> I["Garage thu tiền trực tiếp, ghi sổ quỹ garage"]
 ```
