@@ -1,16 +1,21 @@
+'use client';
+
 import { Card, IconTile } from '@cardiy/ui';
 import { ArrowUpRight } from 'lucide-react';
-import type { Metadata } from 'next';
 import Link from 'next/link';
-import { NAV } from '@/lib/nav';
+import { useAuth } from '@/lib/auth';
+import { visibleNav } from '@/lib/nav';
 
-export const metadata: Metadata = { title: 'Trang chủ' };
-
-/** Lưới chức năng giữ bố cục quen thuộc của hệ thống cũ (A3.02). */
+/** Lưới chức năng giữ bố cục quen thuộc của hệ thống cũ (A3.02). Chỉ hiện mục người dùng có quyền. */
 export default function HomeGridPage() {
-  const groups = NAV.filter((g) => g.label !== null);
+  const { me } = useAuth();
+  if (!me) return null;
+  const groups = visibleNav(me.permissions, me.workspace.tenantType).filter((g) => g.label !== null);
   return (
     <div className="space-y-6" data-testid="home-grid">
+      <p className="text-sm text-slate-500">
+        Xin chào <span className="font-medium text-slate-700">{me.user.fullName}</span> · {me.workspace.tenantName}
+      </p>
       {groups.map((group, gi) => (
         <section key={group.label}>
           <h2 className="mb-2.5 text-sm font-semibold text-slate-500">

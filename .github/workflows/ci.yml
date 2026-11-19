@@ -11,9 +11,9 @@ concurrency:
 
 jobs:
   kiem-tra:
-    name: Kiểm tra kiểu · Test · Build · E2E
+    name: Lint · Kiểm tra kiểu · Test · Build · E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine
@@ -35,7 +35,15 @@ jobs:
       API_PORT: 4000
       GARAGE_PORT: 3000
       NEXT_PUBLIC_API_URL: http://localhost:4000
+      PUBLIC_API_URL: http://localhost:4000
       CORS_ORIGINS: http://localhost:3000
+      # Chỉ dùng cho CI, không phải bí mật thật
+      JWT_SECRET: ci-only-secret-khong-dung-o-dau-khac-0123456789
+      AUTH_ENFORCE_2FA: "false"
+      FILE_STORAGE: local
+      FILE_LOCAL_DIR: ./storage
+      SEED_DEMO: "true"
+      S3_TEST_ENDPOINT: http://localhost:9000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -43,13 +51,23 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Chạy MinIO (kiểm tra lưu file S3)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=cardiy -e MINIO_ROOT_PASSWORD=cardiy-secret \
+            minio/minio:latest server /data
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - name: Build package dùng chung
+        run: pnpm --filter @cardiy/shared build
       - name: Chạy migration + dữ liệu mẫu
         run: pnpm db:deploy && pnpm db:seed
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: E2E API
+      - name: Chờ MinIO sẵn sàng
+        run: for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
+      - name: E2E API (gồm lưu file S3)
         run: pnpm --filter @cardiy/api test:e2e
       - name: Cài trình duyệt Chromium
         run: pnpm --filter @cardiy/garage exec playwright install --with-deps chromium

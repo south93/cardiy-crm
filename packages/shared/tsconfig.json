@@ -1,0 +1,14 @@
+{
+  "extends": "@cardiy/tsconfig/base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "isolatedModules": false,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

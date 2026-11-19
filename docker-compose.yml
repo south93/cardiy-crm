@@ -41,6 +41,14 @@ services:
       REDIS_URL: redis://redis:6379
       API_PORT: 4000
       CORS_ORIGINS: http://localhost:3000
+      PUBLIC_API_URL: http://localhost:4000
+      # Chạy thật trên VPS: đặt JWT_SECRET riêng (openssl rand -base64 48) trong Coolify, không ghi vào file
+      JWT_SECRET: ${JWT_SECRET:-chi-dung-de-chay-thu-tren-may-0123456789abcdef}
+      AUTH_ENFORCE_2FA: ${AUTH_ENFORCE_2FA:-false}
+      FILE_STORAGE: local
+      FILE_LOCAL_DIR: /app/storage
+    volumes:
+      - files:/app/storage
     ports:
       - "4000:4000"
     depends_on:
@@ -63,3 +71,4 @@ services:
 
 volumes:
   pgdata:
+  files:

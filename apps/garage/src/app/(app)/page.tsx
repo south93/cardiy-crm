@@ -1,6 +1,12 @@
+'use client';
+
 import { Badge, Card, CardTitle } from '@cardiy/ui';
 import { Banknote, Car, CircleCheck, Clock, Smile, TrendingUp, UserPlus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { SystemStatus } from '@/components/system-status';
+import { useAuth } from '@/lib/auth';
+import { homeFor } from '@/lib/nav';
 
 const KPIS = [
   { title: 'Doanh thu tháng', value: '1,24 tỷ', note: '+17% tháng này', icon: Banknote, noteIcon: TrendingUp, noteClass: 'text-mint-700' },
@@ -19,6 +25,15 @@ const ROADMAP = [
 ] as const;
 
 export default function DashboardPage() {
+  const { me, can } = useAuth();
+  const router = useRouter();
+  const allowed = !!me && me.workspace.tenantType === 'GARAGE' && can('dashboard.view');
+  // Không có quyền Tổng quan (VD: KTV) hoặc đang ở không gian Sàn: chuyển về trang phù hợp
+  useEffect(() => {
+    if (me && !allowed) router.replace(homeFor(me.permissions, me.workspace.tenantType));
+  }, [me, allowed, router]);
+  if (!allowed) return null;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

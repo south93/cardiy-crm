@@ -1,15 +1,14 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
+import { AppConfigModule } from './config/config.module';
+import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
+import { OrgModule } from './org/org.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
-    PrismaModule,
-    RedisModule,
-    HealthModule,
-  ],
+  imports: [AppConfigModule, PrismaModule, RedisModule, AuditModule, AuthModule, FilesModule, OrgModule, HealthModule],
 })
 export class AppModule {}

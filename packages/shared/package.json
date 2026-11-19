@@ -1,0 +1,21 @@
+{
+  "name": "@cardiy/shared",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Mã dùng chung API + web: danh mục quyền, vai trò hệ thống, chuẩn hoá dữ liệu",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test \"dist/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@cardiy/tsconfig": "workspace:*",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  },
+  "files": [
+    "dist"
+  ]
+}
