@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CARDIY Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --brand:#1f4e9c; --ink:#1e293b; --muted:#5b6475; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Inter,system-ui,sans-serif; color:var(--ink); min-height:100vh;
+         background:linear-gradient(135deg,#e8ecfb 0%,#eef2fb 45%,#e9f4f1 100%); }
+  .wrap { max-width:960px; margin:0 auto; padding:48px 16px; }
+  .top { display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.5px; }
+  .logo { background:var(--brand); color:#fff; font-style:italic; font-weight:800; border-radius:12px; width:46px; height:46px; display:grid; place-items:center; font-size:13px; }
+  h1 { font-size:32px; margin:28px 0 8px; }
+  .lead { color:var(--muted); font-size:16px; line-height:1.6; max-width:640px; margin:0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:32px; }
+  a.card { display:block; text-decoration:none; color:inherit; background:rgba(255,255,255,.85); border-radius:22px; padding:22px;
+           box-shadow:0 1px 2px rgba(31,78,156,.04),0 6px 20px rgba(31,78,156,.06); transition:transform .15s; }
+  a.card:hover { transform:translateY(-2px); }
+  .ic { width:48px; height:48px; border-radius:16px; display:grid; place-items:center; font-size:22px; margin-bottom:14px; }
+  .card h2 { font-size:18px; margin:0 0 6px; }
+  .card p { margin:0; color:var(--muted); font-size:14px; line-height:1.55; }
+  .tag { display:inline-block; margin-top:12px; font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; }
+  .note { margin-top:32px; font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="logo">PLG</span>BOOKING CARDIY</div>
+  <h1>Bản demo hệ thống quản lý garage</h1>
+  <p class="lead">Phần mềm quản lý chuỗi garage ô tô, sàn dịch vụ cho chủ xe và kênh đối tác garage. Đây là bản thiết kế giao diện và tài liệu đặc tả để xem trước và góp ý; dữ liệu trong demo là dữ liệu mẫu.</p>
+  <div class="grid">
+    <a class="card" href="prototype/">
+      <div class="ic" style="background:#e4effd">🖥️</div>
+      <h2>Giao diện quản trị</h2>
+      <p>Tổng quan, Trang chủ, Đơn đang xử lý (Kanban), Hồ sơ khách hàng. Menu thu gọn được, xem được trên điện thoại.</p>
+      <span class="tag" style="background:#e3f4e6;color:#3e8a4f">Bấm thử được</span>
+    </a>
+    <a class="card" href="docs/so-do-he-thong.html">
+      <div class="ic" style="background:#eceefe">🗺️</div>
+      <h2>Sơ đồ hệ thống</h2>
+      <p>32 sơ đồ: kiến trúc, vai trò & phân quyền, sitemap 6 ứng dụng, luồng nghiệp vụ, trạng thái, mô hình dữ liệu.</p>
+      <span class="tag" style="background:#eceefe;color:#5b63c7">Tài liệu kỹ thuật</span>
+    </a>
+    <a class="card" href="proposal/De-xuat-CRM-Gara-o-to.pdf">
+      <div class="ic" style="background:#fff0e0">📄</div>
+      <h2>Đề xuất giải pháp</h2>
+      <p>Tầm nhìn, công nghệ, lộ trình triển khai, vận hành và các điểm cần thống nhất (PDF).</p>
+      <span class="tag" style="background:#fff0e0;color:#b8692a">PDF</span>
+    </a>
+  </div>
+  <p class="note">Phiên bản thiết kế v2 · 19/11/2026 · Góp ý xin gửi trực tiếp cho đội dự án.</p>
+</div>
+</body>
+</html>

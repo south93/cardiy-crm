@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Booking Cardiy CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Inter','sans-serif'] },
+  colors: {
+    brand: { 50:'#eef3fb',100:'#dce6f6',200:'#bccfee',500:'#2f63b8',600:'#1f4e9c',700:'#183e7d' },
+    mint:  { 100:'#e3f4e6', 300:'#a9dcb3', 500:'#6fbf7f', 700:'#3e8a4f' },
+    lav:   { 100:'#eceefe', 300:'#c3c8fa', 500:'#9aa2f2', 700:'#5b63c7' },
+    peach: { 100:'#fff0e0', 300:'#fbd2a6', 500:'#f4ad6a', 700:'#b8692a' },
+    sky:   { 100:'#e4effd', 300:'#b4d2f7', 500:'#7fb0ef', 700:'#3d75bf' },
+    rose:  { 100:'#fdeaea', 300:'#f6bfbf', 500:'#ec8a8a', 700:'#b84b4b' },
+  },
+  boxShadow: { soft:'0 1px 2px rgba(31,78,156,.04), 0 4px 16px rgba(31,78,156,.05)' }
+}}};
+</script>
+<style>
+  body { background: linear-gradient(135deg,#e8ecfb 0%,#eef2fb 45%,#e9f4f1 100%); background-attachment: fixed; }
+  .card { background: rgba(255,255,255,.82); border:1px solid rgba(255,255,255,.9); border-radius: 22px; box-shadow: 0 1px 2px rgba(31,78,156,.04), 0 6px 20px rgba(31,78,156,.05); }
+  .scroll-thin::-webkit-scrollbar { width:6px; height:6px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background:#cdd5e6; border-radius:3px; }
+  .page { display:none; } .page.active { display:block; }
+
+  /* Sidebar collapse */
+  #sidebar { width: 248px; transition: width .2s ease, transform .2s ease; }
+  #sidebar .lbl, #sidebar .grp, #sidebar .brand-txt, #sidebar .badge { transition: opacity .15s; }
+  @media (min-width:1024px){
+    body.collapsed #sidebar { width: 84px; }
+    body.collapsed #sidebar .lbl, body.collapsed #sidebar .grp, body.collapsed #sidebar .brand-txt, body.collapsed #sidebar .user-txt { display:none; }
+    body.collapsed #sidebar .nav-item { justify-content:center; padding-left:0; padding-right:0; width:44px; height:44px; margin-left:auto; margin-right:auto; border-radius:9999px; }
+    body.collapsed #sidebar .badge { position:absolute; top:2px; right:0; transform:scale(.85); }
+    body.collapsed #sidebar .grp-sep { display:block; }
+    body.collapsed #collapseIcon { transform: rotate(180deg); }
+  }
+  .grp-sep { display:none; height:1px; background:#e3e8f2; margin:10px 18px; }
+  .nav-item { position:relative; }
+  .nav-item.active { background:#1f4e9c; color:#fff; }
+  .nav-item.active svg { color:#fff !important; }
+  .nav-item:not(.active):hover { background:#eef3fb; }
+
+  .seg button.on { background:#fff; color:#1f4e9c; font-weight:600; box-shadow:0 1px 3px rgba(31,78,156,.12); }
+  .tab.on { background:#dce6f6; color:#1f4e9c; font-weight:600; }
+  .acc-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows .2s; }
+  .acc.closed .acc-body { grid-template-rows:0fr; }
+  .acc.closed .acc-chev { transform:rotate(180deg); }
+  .acc-body > div { overflow:hidden; }
+</style>
+</head>
+<body class="font-sans text-slate-800 antialiased">
+<div class="flex h-screen overflow-hidden p-0 lg:p-3 lg:gap-3">
+
+  <!-- ===== Sidebar ===== -->
+  <aside id="sidebar" class="card fixed inset-y-0 left-0 z-40 -translate-x-full flex flex-col !rounded-none lg:!rounded-[22px] lg:static lg:translate-x-0 shrink-0">
+    <div class="h-[68px] flex items-center gap-2.5 px-5 shrink-0">
+      <span class="bg-brand-600 text-white font-extrabold italic text-xs rounded-xl w-11 h-11 grid place-items-center shrink-0">PLG</span>
+      <span class="brand-txt font-semibold tracking-wide text-[15px] whitespace-nowrap">BOOKING CARDIY</span>
+    </div>
+    <nav id="nav" class="flex-1 overflow-y-auto overflow-x-hidden scroll-thin px-3 pb-3 text-sm"></nav>
+    <div class="p-3 space-y-1 shrink-0 border-t border-slate-100">
+      <button id="collapseBtn" class="nav-item hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500" title="Thu gọn / mở rộng menu">
+        <i id="collapseIcon" data-lucide="panel-left-close" class="w-[18px] h-[18px] transition-transform"></i><span class="lbl">Thu gọn menu</span>
+      </button>
+      <div class="flex items-center gap-3 p-1.5 rounded-xl">
+        <div class="w-10 h-10 shrink-0 rounded-full bg-lav-100 text-lav-700 grid place-items-center font-semibold text-sm mx-auto">QL</div>
+        <div class="user-txt flex-1 text-xs leading-tight"><div class="font-semibold">Quản lý chi nhánh</div><div class="text-slate-500">quanly@plg.vn</div></div>
+      </div>
+    </div>
+  </aside>
+  <div id="backdrop" class="fixed inset-0 z-30 bg-slate-900/30 hidden lg:hidden"></div>
+
+  <!-- ===== Main ===== -->
+  <div class="flex-1 flex flex-col min-w-0">
+    <header class="h-[68px] flex items-center gap-3 px-4 lg:px-3 shrink-0">
+      <button id="menuBtn" class="lg:hidden p-2 -ml-1 rounded-xl hover:bg-white/70"><i data-lucide="menu" class="w-5 h-5"></i></button>
+      <h1 id="pageTitle" class="text-xl lg:text-2xl font-semibold whitespace-nowrap">Tổng quan</h1>
+      <div class="flex-1"></div>
+      <div class="relative hidden md:block w-72">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input class="w-full bg-white/80 rounded-full pl-10 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-200" placeholder="Biển số, SĐT, mã đơn…">
+      </div>
+      <button class="w-10 h-10 grid place-items-center rounded-full bg-white/80 relative"><i data-lucide="bell" class="w-[18px] h-[18px] text-slate-600"></i><span class="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full"></span></button>
+      <button class="hidden sm:flex items-center gap-2 bg-white/80 rounded-full pl-1.5 pr-3 py-1.5 text-sm">
+        <span class="w-7 h-7 rounded-full bg-brand-600 text-white grid place-items-center"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i></span>
+        <span class="font-medium">CN1 · Cầu Giấy</span><i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-slate-400"></i>
+      </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto scroll-thin px-4 lg:px-3 pb-6">
+
+      <!-- ===== DASHBOARD ===== -->
+      <section id="page-dashboard" class="page space-y-4">
+        <div id="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+
+        <div class="grid xl:grid-cols-3 gap-4">
+          <div class="card xl:col-span-2 p-5 lg:p-6 flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 class="text-lg font-semibold">Lệnh sửa chữa</h2>
+              <div class="seg flex bg-slate-100/80 rounded-full p-1 text-sm text-slate-500">
+                <button class="px-3.5 py-1 rounded-full">Tuần</button><button class="px-3.5 py-1 rounded-full on">Tháng</button><button class="px-3.5 py-1 rounded-full">Năm</button>
+              </div>
+            </div>
+            <div class="flex-1 min-h-[18rem] relative"><canvas id="roChart"></canvas></div>
+          </div>
+          <div class="card p-5 lg:p-6 flex flex-col">
+            <h2 class="text-lg font-semibold">Cơ cấu doanh thu</h2>
+            <div class="relative h-56 my-3"><canvas id="mixChart"></canvas>
+              <div class="absolute inset-0 grid place-items-center pointer-events-none"><span class="w-12 h-12 rounded-full bg-white shadow-soft grid place-items-center"><i data-lucide="wallet" class="w-5 h-5 text-brand-600"></i></span></div>
+            </div>
+            <ul id="mixLegend" class="space-y-2 text-sm"></ul>
+            <div class="mt-4 flex items-center gap-2 text-sm bg-lav-100 text-lav-700 rounded-xl px-3 py-2.5"><i data-lucide="trending-up" class="w-4 h-4"></i>Doanh thu đồng sơn tăng 12% so với tháng trước</div>
+          </div>
+        </div>
+
+        <div class="grid xl:grid-cols-3 gap-4">
+          <div class="card xl:col-span-2 p-5 lg:p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold">Xe sắp đến</h2>
+              <div class="flex items-center gap-2">
+                <button class="w-8 h-8 rounded-full border border-slate-200 grid place-items-center bg-white"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                <button class="w-8 h-8 rounded-full border border-slate-200 grid place-items-center bg-white"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                <a href="#lich-sua-chua" class="flex items-center gap-1 text-sm border border-slate-200 bg-white rounded-full px-3 py-1.5">Xem tất cả <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></a>
+              </div>
+            </div>
+            <div id="upcoming" class="grid sm:grid-cols-3 gap-3"></div>
+          </div>
+          <div class="card p-5 lg:p-6">
+            <div class="flex items-center justify-between mb-3"><h2 class="text-lg font-semibold">Cần gọi hôm nay</h2><span class="text-xs font-semibold bg-peach-100 text-peach-700 rounded-full px-2 py-0.5">8</span></div>
+            <ul id="calls" class="space-y-2"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== HOME ===== -->
+      <section id="page-home" class="page">
+        <div id="homeGrid" class="space-y-6"></div>
+      </section>
+
+      <!-- ===== KANBAN ===== -->
+      <section id="page-don-dang-xu-ly" class="page">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p class="text-sm text-slate-500">12 xe trong xưởng · kéo thẻ để chuyển trạng thái</p>
+          <div class="flex gap-2">
+            <button class="flex items-center gap-1.5 text-sm bg-white/80 rounded-full px-3.5 py-2"><i data-lucide="filter" class="w-4 h-4"></i>Lọc</button>
+            <button class="flex items-center gap-1.5 text-sm bg-white/80 rounded-full px-3.5 py-2"><i data-lucide="list" class="w-4 h-4"></i>Dạng bảng</button>
+          </div>
+        </div>
+        <div id="kanban" class="flex gap-4 overflow-x-auto scroll-thin pb-4"></div>
+      </section>
+
+      <!-- ===== HỒ SƠ KHÁCH HÀNG ===== -->
+      <section id="page-khach-hang" class="page space-y-4">
+        <div class="text-sm text-slate-500 flex items-center gap-2">Khách hàng <span>/</span> <span class="text-slate-800 font-medium flex items-center gap-1">Nguyễn Văn An <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5"></i></span></div>
+        <div class="card p-4 lg:p-5 flex flex-wrap items-center gap-4">
+          <div class="w-16 h-16 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xl font-semibold ring-4 ring-white">NA</div>
+          <div class="flex-1 min-w-[180px]">
+            <div class="flex items-center gap-2"><h2 class="text-xl font-semibold">Nguyễn Văn An</h2><span class="text-xs font-semibold bg-peach-100 text-peach-700 rounded-full px-2 py-0.5">Hạng Vàng</span></div>
+            <div class="text-sm text-slate-500 mt-0.5">0912 345 678 · Khách từ 03/2023 · 2 xe</div>
+          </div>
+          <button class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-full px-4 py-2.5"><i data-lucide="message-circle" class="w-4 h-4"></i>Nhắn Zalo</button>
+          <button class="w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center"><i data-lucide="phone" class="w-4 h-4"></i></button>
+          <button class="w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+        </div>
+
+        <div class="card !rounded-2xl p-1.5 inline-flex flex-wrap gap-1 text-sm">
+          <button class="tab px-3.5 py-2 rounded-xl">Thông tin</button>
+          <button class="tab px-3.5 py-2 rounded-xl">Xe (2)</button>
+          <button class="tab on px-3.5 py-2 rounded-xl">Lịch sử sửa chữa</button>
+          <button class="tab px-3.5 py-2 rounded-xl">Báo giá</button>
+          <button class="tab px-3.5 py-2 rounded-xl">Lịch hẹn</button>
+          <button class="tab px-3.5 py-2 rounded-xl">Tài liệu</button>
+        </div>
+
+        <div class="grid xl:grid-cols-3 gap-4">
+          <div id="history" class="xl:col-span-2 space-y-4"></div>
+          <div class="card p-5 lg:p-6 space-y-6 self-start">
+            <div>
+              <h3 class="text-lg font-semibold">Tổng chi tiêu <span class="text-slate-400 font-normal">· 2023–2026</span></h3>
+              <div class="flex items-center gap-4 mt-3">
+                <ul class="flex-1 space-y-2.5 text-sm" id="spendList"></ul>
+                <svg id="rings" viewBox="0 0 120 120" class="w-32 h-32 shrink-0"></svg>
+              </div>
+              <div class="mt-3 text-2xl font-semibold">38,4 tr <span class="text-sm font-normal text-slate-500">· 9 lần sửa chữa</span></div>
+            </div>
+            <div class="border-t border-dashed border-slate-200"></div>
+            <div>
+              <h3 class="text-lg font-semibold">Nhắc nhở sắp tới <span class="text-slate-400 font-normal">(3)</span></h3>
+              <div id="reminders" class="space-y-3 mt-3"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PLACEHOLDER ===== -->
+      <section id="page-placeholder" class="page">
+        <div class="card p-12 text-center">
+          <span class="w-14 h-14 mx-auto rounded-2xl bg-lav-100 grid place-items-center"><i data-lucide="pencil-ruler" class="w-6 h-6 text-lav-700"></i></span>
+          <h2 id="phTitle" class="text-lg font-semibold mt-4"></h2>
+          <p class="text-sm text-slate-500 mt-1">Màn hình này sẽ được thiết kế ở các bước tiếp theo.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const NAV = [
+  { group:null, items:[ ['dashboard','Tổng quan','layout-grid'], ['home','Trang chủ','house'] ] },
+  { group:'Kinh doanh', items:[ ['ban-hang','Bán hàng','shopping-cart'], ['don-dang-xu-ly','Đơn đang xử lý','wrench',12], ['don-hoan-thanh','Đơn hoàn thành','circle-check'] ] },
+  { group:'Kho hàng', items:[ ['danh-muc','Danh mục sản phẩm','boxes'], ['ton-kho','Tồn kho chi nhánh','warehouse'] ] },
+  { group:'Đối tác', items:[ ['khach-hang','Khách hàng','users'], ['xe','Xe','car'], ['nha-cung-cap','Nhà cung cấp','truck'] ] },
+  { group:'Nhân sự & Tài chính', items:[ ['nhan-vien','Nhân viên','id-card'], ['thu-chi','Thu chi & công nợ','wallet'] ] },
+  { group:'Dịch vụ', items:[ ['lich-sua-chua','Lịch sửa chữa','calendar-days'], ['lich-goi','Lịch gọi','phone-call',8] ] },
+  { group:'Phân tích', items:[ ['bao-cao','Báo cáo','chart-column'], ['marketing','Marketing','megaphone'], ['ai','Trợ lý AI','sparkles'] ] },
+  { group:'Hệ thống', items:[ ['cai-dat','Cài đặt','settings'] ] },
+];
+const TITLES = Object.fromEntries(NAV.flatMap(g=>g.items.map(i=>[i[0],i[1]])));
+TITLES['khach-hang'] = 'Hồ sơ khách hàng';
+
+$('nav').innerHTML = NAV.map((g,gi) => `
+  ${g.group ? `<div class="grp px-3 mt-5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">${g.group}</div><div class="grp-sep"></div>` : ''}
+  ${g.items.map(([id,label,icon,badge]) => `
+    <a href="#${id}" data-id="${id}" title="${label}" class="nav-item flex items-center gap-3 px-3 py-2.5 my-0.5 rounded-xl text-slate-600 whitespace-nowrap">
+      <i data-lucide="${icon}" class="w-[18px] h-[18px] text-slate-400 shrink-0"></i><span class="lbl flex-1">${label}</span>
+      ${badge ? `<span class="badge text-[11px] font-semibold bg-peach-300 text-peach-700 rounded-full px-1.5 min-w-5 text-center">${badge}</span>` : ''}
+    </a>`).join('')}`).join('');
+
+/* ---- mini visuals ---- */
+const miniBars = (vals, on, off) => `<div class="flex items-end gap-1 h-12">${vals.map((v,i)=>`<span class="w-1.5 rounded-full" style="height:${v}%;background:${i%3===1?off:on}"></span>`).join('')}</div>`;
+const spark = (pts, color) => { const w=96,h=44,mx=Math.max(...pts),mn=Math.min(...pts);
+  const p=pts.map((v,i)=>`${(i/(pts.length-1)*w).toFixed(1)},${(h-4-(v-mn)/(mx-mn)*(h-8)).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" class="w-24 h-11"><polyline points="${p}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; };
+const gauge = pct => { const r=34, c=Math.PI*r; return `<svg viewBox="0 0 84 48" class="w-24 h-14"><path d="M8 44 A34 34 0 0 1 76 44" fill="none" stroke="#eceefe" stroke-width="9" stroke-linecap="round"/><path d="M8 44 A34 34 0 0 1 76 44" fill="none" stroke="#9aa2f2" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c*pct/100} ${c}"/></svg>`; };
+
+const KPIS = [
+  ['Doanh thu tháng','1,24 tỷ','+17% tháng này','up','banknote', miniBars([40,70,55,85,60,95,75,100],'#6fbf7f','#e3f4e6')],
+  ['Xe đang trong xưởng','12','3 xe chờ phụ tùng','warn','car', miniBars([50,80,35,65,90,45,70,60],'#7fb0ef','#e4effd')],
+  ['Khách mới','+86','−4% tháng này','down','user-plus', spark([20,26,22,30,27,35,31,44,38,40],'#9aa2f2')],
+  ['Mức hài lòng','92%','+3% tháng này','up','smile', gauge(92)],
+];
+const trend = { up:['trending-up','text-mint-700'], down:['trending-down','text-rose-700'], warn:['clock','text-peach-700'] };
+$('kpis').innerHTML = KPIS.map(([t,v,s,tr,ic,viz]) => `
+  <div class="card p-5">
+    <div class="flex items-center justify-between"><span class="font-medium text-slate-700">${t}</span>
+      <span class="w-9 h-9 rounded-full bg-white border border-slate-100 grid place-items-center"><i data-lucide="${ic}" class="w-4 h-4 text-slate-500"></i></span></div>
+    <div class="flex items-end justify-between mt-4 gap-2">
+      <div><div class="text-[28px] leading-none font-semibold">${v}</div>
+        <div class="flex items-center gap-1 text-xs mt-2 ${trend[tr][1]}"><i data-lucide="${trend[tr][0]}" class="w-3.5 h-3.5"></i>${s}</div></div>
+      ${viz}
+    </div>
+  </div>`).join('');
+
+/* ---- charts ---- */
+Chart.defaults.font.family = 'Inter'; Chart.defaults.color = '#94a3b8';
+const months = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+const ro = [182,165,240,198,215,170,160,262,190,228,246,0];
+const cap = 300;
+new Chart($('roChart'), { type:'bar',
+  data:{ labels:months, datasets:[
+    { data:ro.map(v=>v||null), backgroundColor:'#a9dcb3', hoverBackgroundColor:'#6fbf7f', borderRadius:14, borderSkipped:false, barPercentage:.55, stack:'s' },
+    { data:ro.map(v=>cap-v), backgroundColor:'#eef1f6', borderRadius:14, borderSkipped:false, barPercentage:.55, stack:'s' } ]},
+  options:{ maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ filter:i=>i.datasetIndex===0, callbacks:{ label:c=>` ${c.raw} lệnh` } } },
+    scales:{ x:{ stacked:true, grid:{display:false}, border:{display:false} }, y:{ stacked:true, max:cap, ticks:{stepSize:100}, grid:{color:'#eef1f6'}, border:{display:false} } } }
+});
+const MIX = [['Sửa chữa chung',33,'#c3c8fa'],['Bảo dưỡng',24,'#a9dcb3'],['Phụ tùng bán lẻ',19,'#b4d2f7'],['Đồng sơn',15,'#fbd2a6'],['Khác',9,'#e2e6ee']];
+new Chart($('mixChart'), { type:'doughnut',
+  data:{ labels:MIX.map(m=>m[0]), datasets:[{ data:MIX.map(m=>m[1]), backgroundColor:MIX.map(m=>m[2]), borderWidth:0, borderRadius:14, spacing:6 }] },
+  options:{ maintainAspectRatio:false, cutout:'58%', plugins:{ legend:{display:false} } } });
+$('mixLegend').innerHTML = MIX.map(([n,v,c]) => `<li class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${c}"></span><span class="flex-1 text-slate-600">${n}</span><span class="font-medium">${v}%</span></li>`).join('');
+
+/* ---- upcoming & calls ---- */
+const AV = ['bg-sky-100 text-sky-700','bg-mint-100 text-mint-700','bg-peach-100 text-peach-700','bg-lav-100 text-lav-700','bg-rose-100 text-rose-700'];
+const initials = n => n.split(' ').slice(-2).map(w=>w[0]).join('');
+$('upcoming').innerHTML = [
+  ['Trần Thị Bình','30A-123.45 · Toyota Vios','Bảo dưỡng 40.000 km','Hôm nay, 10:00','KTV Hùng'],
+  ['Lê Minh Châu','29H-678.90 · Mazda CX-5','Thay má phanh + đĩa','Hôm nay, 13:30','KTV Nam'],
+  ['Phạm Quốc Dũng','30K-135.79 · Kia Seltos','Sơn cản sau','Hôm nay, 15:00','KTV Tuấn'],
+].map(([n,car,svc,t,k],i) => `
+  <div class="rounded-2xl bg-white/90 border border-slate-100 p-4">
+    <div class="flex items-center gap-3"><span class="w-11 h-11 rounded-full grid place-items-center font-semibold text-sm ${AV[i]}">${initials(n)}</span>
+      <div class="min-w-0"><div class="font-semibold truncate">${n}</div><div class="text-xs text-slate-500 truncate">${svc}</div></div></div>
+    <div class="border-t border-dashed border-slate-200 my-3"></div>
+    <div class="space-y-1.5 text-xs text-slate-600">
+      <div class="flex items-center gap-2"><i data-lucide="car" class="w-3.5 h-3.5 text-slate-400"></i>${car}</div>
+      <div class="flex items-center gap-2"><i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>${t}</div>
+      <div class="flex items-center gap-2"><i data-lucide="wrench" class="w-3.5 h-3.5 text-slate-400"></i>${k}</div>
+    </div>
+  </div>`).join('');
+const TAG = { 'Bảo dưỡng':'bg-sky-100 text-sky-700','Chăm sóc':'bg-mint-100 text-mint-700','Đăng kiểm':'bg-peach-100 text-peach-700','Báo giá':'bg-rose-100 text-rose-700' };
+$('calls').innerHTML = [
+  ['Nguyễn Văn An','Vios 30A-111.22 · đến hạn bảo dưỡng','Bảo dưỡng'],
+  ['Hoàng Thu Hà','Gọi lại sau sửa chữa 3 ngày','Chăm sóc'],
+  ['Vũ Đức Minh','Hạn đăng kiểm 25/11','Đăng kiểm'],
+  ['Đỗ Thanh Tùng','Báo giá chưa duyệt 2 ngày','Báo giá'],
+].map(([n,d,t],i) => `<li class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white">
+  <span class="w-9 h-9 shrink-0 rounded-full grid place-items-center text-xs font-semibold ${AV[(i+3)%5]}">${initials(n)}</span>
+  <div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">${n}</div><div class="text-xs text-slate-500 truncate">${d}</div></div>
+  <span class="text-[11px] font-medium rounded-full px-2 py-0.5 ${TAG[t]}">${t}</span></li>`).join('');
+
+/* ---- home grid ---- */
+const HOME = [
+  ['Kinh doanh',[['ban-hang','Bán hàng','shopping-cart','sky'],['don-dang-xu-ly','Đơn đang xử lý','wrench','peach'],['don-hoan-thanh','Đơn hoàn thành','shield-check','mint']]],
+  ['Kho hàng',[['danh-muc','Danh mục sản phẩm','boxes','lav'],['ton-kho','Tồn kho chi nhánh','warehouse','sky']]],
+  ['Đối tác',[['khach-hang','Khách hàng','users','mint'],['xe','Xe','car','sky'],['nha-cung-cap','Nhà cung cấp','truck','peach']]],
+  ['Nhân sự & Tài chính',[['nhan-vien','Nhân viên','id-card','lav'],['thu-chi','Thu chi & công nợ','wallet','mint']]],
+  ['Dịch vụ',[['lich-sua-chua','Lịch sửa chữa','calendar-days','peach'],['lich-goi','Lịch gọi','phone-call','rose']]],
+];
+$('homeGrid').innerHTML = HOME.map(([g,items],gi) => `
+  <div><h2 class="text-sm font-semibold text-slate-500 mb-2.5">${gi+1}. ${g}</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">${items.map(([id,l,ic,c]) => `
+    <a href="#${id}" class="card !rounded-2xl p-4 flex items-center gap-4 hover:-translate-y-0.5 transition">
+      <span class="w-12 h-12 rounded-2xl bg-${c}-100 grid place-items-center"><i data-lucide="${ic}" class="w-6 h-6 text-${c}-700"></i></span>
+      <span class="font-medium flex-1">${l}</span><i data-lucide="arrow-up-right" class="w-4 h-4 text-slate-300"></i></a>`).join('')}</div></div>`).join('');
+
+/* ---- kanban ---- */
+const COLS = [
+  ['Tiếp nhận','slate',[['RO-1042','30A-987.65','Toyota Innova','Kiểm tra tiếng kêu gầm','Chưa giao']]],
+  ['Báo giá','sky',[['RO-1039','29H-678.90','Mazda CX-5','Thay má phanh + đĩa','Hùng'],['RO-1040','30G-246.80','Honda City','Điều hoà không mát','Nam']]],
+  ['Chờ KH duyệt','peach',[['RO-1036','30K-135.79','Kia Seltos','Sơn cản sau · 4,2 tr','Tuấn']]],
+  ['Đang sửa','lav',[['RO-1031','30A-123.45','Toyota Vios','Bảo dưỡng 40.000 km','Hùng'],['RO-1033','51F-222.33','Ford Ranger','Thay dầu hộp số','Long'],['RO-1035','30E-456.12','Hyundai Accent','Thay ắc quy','Nam']]],
+  ['Chờ phụ tùng','rose',[['RO-1028','30H-777.88','Mitsubishi Xpander','Chờ cảm biến ABS · dự kiến 20/11','Long']]],
+  ['Kiểm tra chất lượng','sky',[['RO-1029','29A-314.15','VinFast VF 5','Cân chỉnh thước lái','Tuấn']]],
+  ['Hoàn thành','mint',[['RO-1025','30F-202.26','Toyota Camry','Bảo dưỡng 20.000 km · 3,1 tr','Hùng']]],
+];
+$('kanban').innerHTML = COLS.map(([name,c,cards]) => `
+  <div class="w-72 shrink-0 card !rounded-2xl p-2.5">
+    <div class="flex items-center gap-2 px-1.5 py-1.5 mb-1"><span class="w-2.5 h-2.5 rounded-full ${c==='slate'?'bg-slate-300':`bg-${c}-500`}"></span><span class="text-sm font-semibold flex-1">${name}</span><span class="text-xs font-medium rounded-full px-2 py-0.5 ${c==='slate'?'bg-slate-100 text-slate-600':`bg-${c}-100 text-${c}-700`}">${cards.length}</span></div>
+    <div class="space-y-2">${cards.map(([code,plate,car,desc,tech]) => `
+      <div class="bg-white rounded-xl border border-slate-100 p-3 cursor-grab">
+        <div class="flex justify-between items-center"><span class="font-semibold text-sm">${plate}</span><span class="text-[11px] text-slate-400">${code}</span></div>
+        <div class="text-xs text-slate-500 mt-0.5">${car}</div>
+        <div class="text-sm mt-2">${desc}</div>
+        <div class="border-t border-dashed border-slate-200 mt-2.5 pt-2 flex items-center gap-1.5 text-xs text-slate-500"><i data-lucide="user-round" class="w-3.5 h-3.5"></i>${tech}</div>
+      </div>`).join('')}</div>
+  </div>`).join('');
+
+/* ---- hồ sơ khách hàng ---- */
+const HIST = [
+  ['THÁNG 10/2026', 'RO-0987', 'Bảo dưỡng 30.000 km', 'Toyota Vios · 30A-111.22 · 30.240 km', '3.250.000', false, [
+    ['Dầu động cơ Castrol 5W-30 (4L)','1','980.000','ok'],['Lọc dầu','1','150.000','ok'],['Lọc gió điều hoà','1','220.000','ok'],
+    ['Má phanh trước','—','Còn 30%, nên thay trong 3.000 km','warn'],['Công bảo dưỡng','1','1.900.000','ok']]],
+  ['THÁNG 5/2026', 'RO-0812', 'Thay ắc quy', 'Toyota Vios · 30A-111.22 · 24.800 km', '2.100.000', true, [
+    ['Ắc quy GS 45Ah','1','1.850.000','ok'],['Công thay','1','250.000','ok']]],
+  ['THÁNG 1/2026', 'RO-0655', 'Sơn cửa trước trái', 'Honda CR-V · 30G-555.66 · 41.200 km', '4.800.000', true, []],
+];
+$('history').innerHTML = HIST.map(([m,code,title,car,total,closed,items]) => `
+  <div class="card p-4 lg:p-5">
+    <div class="text-xs font-semibold tracking-wide text-slate-500 mb-3">${m}</div>
+    <div class="acc ${closed?'closed':''} rounded-2xl bg-white border border-slate-100">
+      <div class="flex flex-wrap items-center gap-3 p-4">
+        <span class="w-10 h-10 rounded-full bg-brand-50 grid place-items-center"><i data-lucide="wrench" class="w-4 h-4 text-brand-600"></i></span>
+        <div class="flex-1 min-w-[180px]"><div class="font-semibold">${title} <span class="text-slate-400 font-normal text-sm">#${code}</span></div><div class="text-xs text-slate-500">${car}</div></div>
+        <span class="font-semibold">${total} đ</span>
+        <button class="flex items-center gap-1.5 text-sm border border-slate-200 rounded-full px-3 py-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>Tải phiếu</button>
+        <button class="acc-toggle w-9 h-9 rounded-full border border-slate-200 grid place-items-center" title="Đóng / mở"><i data-lucide="chevron-up" class="acc-chev w-4 h-4 transition-transform"></i></button>
+      </div>
+      <div class="acc-body"><div>
+        ${items.length ? `<div class="px-4 pb-3">${items.map(([n,q,p,s]) => `
+          <div class="flex items-center gap-3 py-3 border-t border-dashed border-slate-200 text-sm">
+            <span class="flex-1">${n}</span><span class="w-10 text-center text-slate-500">${q}</span>
+            <span class="w-48 text-right ${s==='warn'?'text-peach-700':''} flex items-center justify-end gap-1.5">${s==='warn'?'<i data-lucide="triangle-alert" class="w-4 h-4"></i>':''}${p}${s==='ok'?' đ':''}</span>
+          </div>`).join('')}</div>` : `<div class="px-4 pb-4 text-sm text-slate-500">Chưa có chi tiết hạng mục.</div>`}
+      </div></div>
+    </div>
+  </div>`).join('');
+document.querySelectorAll('.acc-toggle').forEach(b => b.onclick = () => b.closest('.acc').classList.toggle('closed'));
+
+const SPEND = [['Bảo dưỡng','14,2 tr','#a9dcb3',.82],['Sửa chữa','11,6 tr','#c3c8fa',.66],['Đồng sơn','8,4 tr','#fbd2a6',.48],['Phụ tùng','4,2 tr','#b4d2f7',.3]];
+$('spendList').innerHTML = SPEND.map(([n,v,c]) => `<li class="flex items-center gap-2 border-l-2 pl-2" style="border-color:${c}"><span class="flex-1">${n}</span><span class="font-medium">${v}</span></li>`).join('');
+$('rings').innerHTML = SPEND.map(([,,c,p],i) => { const r=54-i*10, C=2*Math.PI*r;
+  return `<circle cx="60" cy="60" r="${r}" fill="none" stroke="#eef1f6" stroke-width="5"/><circle cx="60" cy="60" r="${r}" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 60 60)"/>`; }).join('')
+  + `<circle cx="60" cy="60" r="13" fill="#1f4e9c"/><path d="M54 61l4 4 8-9" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+const ring = (pct,color) => { const r=20, C=2*Math.PI*r; return `<svg viewBox="0 0 50 50" class="w-14 h-14 shrink-0"><circle cx="25" cy="25" r="${r}" fill="none" stroke="#eef1f6" stroke-width="4"/><circle cx="25" cy="25" r="${r}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C*pct/100} ${C}" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">${pct}%</text></svg>`; };
+$('reminders').innerHTML = [
+  ['Bảo dưỡng 40.000 km','Vios: còn ~1.500 km',85,'#7fb0ef'],
+  ['Thay má phanh trước','Vios: còn 30% độ dày',70,'#f4ad6a'],
+  ['Đăng kiểm','CR-V: còn 42 ngày',35,'#9aa2f2'],
+].map(([t,d,p,c]) => `<div class="rounded-2xl bg-white border border-slate-100 p-3.5 flex items-center gap-3">
+  <div class="flex-1 min-w-0"><div class="font-medium">${t}</div><div class="text-xs text-slate-500 flex items-center gap-1.5 mt-1"><i data-lucide="info" class="w-3.5 h-3.5"></i>${d}</div></div>${ring(p,c)}</div>`).join('');
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); t.classList.add('on'); });
+document.querySelectorAll('.seg button').forEach(t => t.onclick = () => { t.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('on')); t.classList.add('on'); });
+
+/* ---- sidebar collapse ---- */
+const sidebar = $('sidebar'), backdrop = $('backdrop');
+try { if (localStorage.getItem('sidebar') === 'collapsed') document.body.classList.add('collapsed'); } catch(e) {}
+$('collapseBtn').onclick = () => {
+  const c = document.body.classList.toggle('collapsed');
+  try { localStorage.setItem('sidebar', c ? 'collapsed' : 'open'); } catch(e) {}
+  setTimeout(() => Object.values(Chart.instances).forEach(ch => ch.resize()), 220);
+};
+function closeMenu(){ sidebar.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); }
+$('menuBtn').onclick = () => { sidebar.classList.remove('-translate-x-full'); backdrop.classList.remove('hidden'); };
+backdrop.onclick = closeMenu;
+
+/* ---- router ---- */
+function route(){
+  const id = location.hash.slice(1) || 'dashboard';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const page = $('page-'+id);
+  if (page) page.classList.add('active'); else { $('phTitle').textContent = TITLES[id] || id; $('page-placeholder').classList.add('active'); }
+  $('pageTitle').textContent = TITLES[id] || 'Tổng quan';
+  document.querySelectorAll('.nav-item[data-id]').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
+  closeMenu();
+}
+window.addEventListener('hashchange', route);
+route();
+lucide.createIcons();
+</script>
+</body>
+</html>
