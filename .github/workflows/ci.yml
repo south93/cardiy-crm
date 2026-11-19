@@ -67,20 +67,40 @@ jobs:
         run: pnpm --filter @cardiy/garage test:e2e
 
   docker:
-    name: Build Docker image
+    name: Docker · chạy thử đúng cấu hình VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      matrix:
-        app: [api, garage]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/${{ matrix.app }}/Dockerfile
-          push: false
-          tags: cardiy-${{ matrix.app }}:ci
-          cache-from: type=gha,scope=${{ matrix.app }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+      - name: Tạo cấu hình giống VPS
+        run: |
+          {
+            echo "DOMAIN=localhost"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "SEED_DEMO=true"
+            echo "AUTH_ENFORCE_2FA=false"
+          } > deploy/.env
+      - name: Build + chạy (docker compose production)
+        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d --build
+      - name: API khởi động, migration chạy, sức khoẻ ok
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4000/api/health; then echo; exit 0; fi
+            sleep 2
+          done
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env ps
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env logs api --tail 100
+          exit 1
+      - name: Tạo dữ liệu demo + đăng nhập thử
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm api node dist-seed/seed.js
+          curl -sf -X POST http://127.0.0.1:4000/api/auth/login -H 'content-type: application/json' \
+            -d '{"phone":"0900000001","password":"Cardiy2026"}' | grep -q accessToken
+      - name: Web trả trang đăng nhập
+        run: curl -sf http://127.0.0.1:3000/dang-nhap | grep -q "BOOKING CARDIY"
+      - name: Sao lưu chạy được
+        run: BACKUP_DIR=$PWD/backups bash deploy/backup.sh && ls -la backups
+      - name: Log khi lỗi
+        if: failure()
+        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env logs --tail 80
