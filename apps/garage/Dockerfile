@@ -13,7 +13,8 @@ RUN pnpm --filter "@cardiy/garage..." build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
-COPY --from=build /repo/apps/garage/.next/standalone ./
-COPY --from=build /repo/apps/garage/.next/static ./apps/garage/.next/static
+COPY --from=build --chown=node:node /repo/apps/garage/.next/standalone ./
+COPY --from=build --chown=node:node /repo/apps/garage/.next/static ./apps/garage/.next/static
+USER node
 EXPOSE 3000
 CMD ["node", "apps/garage/server.js"]

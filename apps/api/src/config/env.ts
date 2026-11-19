@@ -17,6 +17,8 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET cần ít nhất 32 ký tự'),
   ACCESS_TOKEN_TTL: z.string().default('15m'),
   REFRESH_TOKEN_DAYS: z.coerce.number().default(30),
+  /** Cho phép dùng lại refresh token vừa xoay vòng trong N giây (nhiều tab mở cùng lúc) */
+  REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().min(0).max(300).default(30),
   BCRYPT_ROUNDS: z.coerce.number().min(4).max(14).default(11),
   /** Bắt buộc bật 2FA cho vai trò Chủ garage, Quản lý, Admin sàn */
   AUTH_ENFORCE_2FA: bool.default(true),

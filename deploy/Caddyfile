@@ -1,0 +1,33 @@
+# Caddy trên VPS: tự xin chứng chỉ HTTPS (Let's Encrypt) cho tên miền.
+# Cài: sudo cp deploy/Caddyfile /etc/caddy/Caddyfile, sửa tên miền, rồi: sudo systemctl reload caddy
+#
+# Thay demo.tencongty.vn bằng đúng giá trị DOMAIN trong deploy/.env
+
+demo.tencongty.vn {
+	encode zstd gzip
+
+	# API
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# Web quản trị
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/cardiy.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+	}
+}

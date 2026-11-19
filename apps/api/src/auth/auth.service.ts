@@ -155,14 +155,22 @@ export class AuthService {
     const session = await this.prisma.session.findUnique({ where: { tokenHash: sha256(refreshToken) } });
     if (!session) throw new UnauthorizedException('Phiên đăng nhập không hợp lệ');
     if (session.revokedAt) {
-      await this.prisma.session.updateMany({ where: { userId: session.userId, revokedAt: null }, data: { revokedAt: new Date() } });
-      this.logger.warn(`Phát hiện dùng lại refresh token của user ${session.userId}: đã thu hồi mọi phiên`);
-      throw new UnauthorizedException('Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại');
+      // Nhiều tab cùng làm mới một lúc: token vừa xoay vòng trong vài giây → vẫn cấp phiên mới.
+      const graceMs = this.config.get('REFRESH_REUSE_GRACE_SECONDS') * 1000;
+      const benign = !!session.rotatedAt && Date.now() - session.rotatedAt.getTime() <= graceMs;
+      if (!benign) {
+        await this.prisma.session.updateMany({ where: { userId: session.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+        this.logger.warn(`Phát hiện dùng lại refresh token của user ${session.userId}: đã thu hồi mọi phiên`);
+        throw new UnauthorizedException('Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại');
+      }
     }
     if (session.expiresAt < new Date()) throw new UnauthorizedException('Phiên đăng nhập đã hết hạn');
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
     if (user.status !== 'ACTIVE') throw new UnauthorizedException('Tài khoản đã bị khoá');
-    await this.prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
+    if (!session.revokedAt) {
+      const now = new Date();
+      await this.prisma.session.update({ where: { id: session.id }, data: { revokedAt: now, rotatedAt: now } });
+    }
     return this.issueSession(session.userId, session.membershipId, client);
   }
 
