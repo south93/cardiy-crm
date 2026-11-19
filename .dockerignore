@@ -12,3 +12,6 @@
 docs
 prototype
 proposal
+**/storage
+**/storage-*
+**/dist-seed
