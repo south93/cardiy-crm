@@ -43,7 +43,6 @@ jobs:
       FILE_STORAGE: local
       FILE_LOCAL_DIR: ./storage
       SEED_DEMO: "true"
-      S3_TEST_ENDPOINT: http://localhost:9000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -51,11 +50,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Chạy MinIO (kiểm tra lưu file S3)
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=cardiy -e MINIO_ROOT_PASSWORD=cardiy-secret \
-            minio/minio:latest server /data
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - name: Build package dùng chung
@@ -65,9 +59,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: Chờ MinIO sẵn sàng
-        run: for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
-      - name: E2E API (gồm lưu file S3)
+      - name: E2E API (gồm lưu file S3 qua s3rver giả lập)
         run: pnpm --filter @cardiy/api test:e2e
       - name: Cài trình duyệt Chromium
         run: pnpm --filter @cardiy/garage exec playwright install --with-deps chromium

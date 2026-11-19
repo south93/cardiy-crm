@@ -1,24 +1,39 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { bearer, createApp, login, PHONES } from './helpers';
 
-/**
- * Lưu file qua S3/MinIO. Chỉ chạy khi có MinIO thật (CI bật S3_TEST_ENDPOINT).
- * Chạy trên máy: docker run -p 9000:9000 -e MINIO_ROOT_USER=cardiy -e MINIO_ROOT_PASSWORD=cardiy-secret minio/minio server /data
- */
-const endpoint = process.env.S3_TEST_ENDPOINT;
-const d = endpoint ? describe : describe.skip;
+// s3rver không có type đi kèm
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const S3rver = require('s3rver') as new (opts: Record<string, unknown>) => { run(): Promise<AddressInfo>; close(): Promise<void> };
 
+/**
+ * Lưu file qua chuẩn S3 (driver dùng cho MinIO / SeaweedFS / Cloudflare R2 trên VPS).
+ * Mặc định chạy với s3rver giả lập ngay trong test. Muốn thử với máy chủ S3 thật: đặt S3_TEST_ENDPOINT.
+ */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
-d('Lưu file trên S3 / MinIO', () => {
+describe('Lưu file trên S3', () => {
   let app: INestApplication;
-  const accessKeyId = process.env.S3_TEST_ACCESS_KEY ?? 'cardiy';
-  const secretAccessKey = process.env.S3_TEST_SECRET_KEY ?? 'cardiy-secret';
+  let fake: { close(): Promise<void> } | null = null;
+  let dir = '';
+  let endpoint = process.env.S3_TEST_ENDPOINT ?? '';
+  const accessKeyId = process.env.S3_TEST_ACCESS_KEY ?? 'S3RVER';
+  const secretAccessKey = process.env.S3_TEST_SECRET_KEY ?? 'S3RVER';
   const bucket = 'cardiy-test';
 
   beforeAll(async () => {
+    if (!endpoint) {
+      dir = mkdtempSync(path.join(tmpdir(), 'cardiy-s3-'));
+      const server = new S3rver({ port: 0, address: '127.0.0.1', silent: true, directory: dir });
+      const addr = await server.run();
+      fake = server;
+      endpoint = `http://127.0.0.1:${addr.port}`;
+    }
     const s3 = new S3Client({ endpoint, region: 'us-east-1', forcePathStyle: true, credentials: { accessKeyId, secretAccessKey } });
     try {
       await s3.send(new CreateBucketCommand({ Bucket: bucket }));
@@ -27,9 +42,14 @@ d('Lưu file trên S3 / MinIO', () => {
     }
     app = await createApp({ FILE_STORAGE: 's3', S3_ENDPOINT: endpoint, S3_BUCKET: bucket, S3_ACCESS_KEY: accessKeyId, S3_SECRET_KEY: secretAccessKey, S3_FORCE_PATH_STYLE: true });
   });
-  afterAll(() => app?.close());
 
-  it('tải ảnh lên MinIO, link ký sẵn (presigned) tải về đúng nội dung', async () => {
+  afterAll(async () => {
+    await app?.close();
+    await fake?.close();
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('tải ảnh lên S3, link ký sẵn (presigned) tải về đúng nội dung', async () => {
     const { token } = await login(app, PHONES.owner);
     const up = await request(app.getHttpServer()).post('/api/files').set(bearer(token)).attach('file', PNG, 's3.png').expect(201);
     expect(up.body.url).toContain(`${endpoint}/${bucket}/`);
