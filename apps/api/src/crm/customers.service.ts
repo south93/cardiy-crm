@@ -135,9 +135,18 @@ export class CustomersService {
       toDate: o.toDate,
     });
     const { ownerships, searchText: _s, openingDebt, ...rest } = c;
+    // Công nợ = đơn đã hoàn thành / đã giao chưa thu đủ + công nợ ban đầu (từ AppSheet)
+    const [agg, orderCount] = await Promise.all([
+      this.prisma.repairOrder.aggregate({ where: { tenantId: actor.tenantId, customerId: id, status: { in: ['HOAN_THANH', 'DA_GIAO'] } }, _sum: { total: true, paid: true } }),
+      this.prisma.repairOrder.count({ where: { tenantId: actor.tenantId, customerId: id, status: { not: 'HUY' } } }),
+    ]);
+    const orderDebt = Number(agg._sum.total ?? 0n) - Number(agg._sum.paid ?? 0n);
     return {
       ...rest,
       openingDebt: Number(openingDebt),
+      orderDebt,
+      debt: orderDebt + Number(openingDebt),
+      orderCount,
       branch,
       vehicles: ownerships.filter((o) => !o.toDate && !o.vehicle.deletedAt).map(toVehicle),
       pastVehicles: ownerships.filter((o) => o.toDate).map(toVehicle),
