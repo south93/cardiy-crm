@@ -4,6 +4,7 @@ import { Prisma, type OrderItemKind, type PaymentMethod } from '@prisma/client';
 import { AccessService, type Access } from '../auth/access.service';
 import { AuditService } from '../audit/audit.service';
 import { reserveNumbers } from '../crm/counters';
+import { applyMovement } from '../inventory/stock';
 import { PrismaService } from '../prisma/prisma.service';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type OrderStatus } from './order-rules';
 
@@ -88,6 +89,14 @@ export class OrdersService {
         throw new BadRequestException(`Dòng ${i + 1} (${it.name}): ${(e as Error).message}`);
       }
     });
+  }
+
+  /** Hạng mục chọn từ danh mục: sản phẩm phải thuộc garage */
+  private async assertProducts(tx: Tx, tenantId: string, items: OrderItemInput[]) {
+    const ids = [...new Set(items.map((i) => i.productId).filter((x): x is string => !!x))];
+    if (!ids.length) return;
+    const n = await tx.product.count({ where: { id: { in: ids }, tenantId, deletedAt: null } });
+    if (n !== ids.length) throw new BadRequestException('Có hạng mục chọn sản phẩm không hợp lệ');
   }
 
   private totals(items: OrderItemInput[], orderDiscount: number) {
@@ -303,6 +312,7 @@ export class OrdersService {
       }
       await this.assertStaff(tx, a.tenantId, dto.advisorId);
       await this.assertStaff(tx, a.tenantId, dto.technicianId);
+      await this.assertProducts(tx, a.tenantId, items);
 
       // Số km lúc tiếp nhận
       if (vehicle && dto.odometerKm != null) {
@@ -393,6 +403,7 @@ export class OrdersService {
       const orderDiscount = Math.min(num(o.orderDiscount), subtotal);
       const total = subtotal - orderDiscount;
       if (total < num(o.paid)) throw new ConflictException('Tổng tiền mới nhỏ hơn số đã thu. Huỷ bớt phiếu thu trước.');
+      await this.assertProducts(tx, a.tenantId, items);
       await tx.orderItem.deleteMany({ where: { orderId: id } });
       await tx.orderItem.createMany({ data: items.map((it, i) => ({ ...this.itemRow(it, i), orderId: id })) });
       await tx.repairOrder.update({ where: { id }, data: { subtotal: BigInt(subtotal), orderDiscount: BigInt(orderDiscount), total: BigInt(total) } });
@@ -425,6 +436,11 @@ export class OrdersService {
         const due = num(o.total) - num(o.paid);
         if (due > 0 && !dto.allowDebt) throw new ConflictException(`Khách còn nợ ${due.toLocaleString('vi-VN')} đ. Thu đủ hoặc xác nhận ghi công nợ.`);
         data.deliveredAt = now;
+        // Giao xe: trừ kho chi nhánh cho phụ tùng chọn từ danh mục
+        const stocked = await tx.orderItem.findMany({ where: { orderId: id, kind: 'PHU_TUNG', product: { kind: 'PHU_TUNG' } } });
+        for (const it of stocked) {
+          await applyMovement(tx, { tenantId: a.tenantId, branchId: o.branchId, productId: it.productId!, kind: 'XUAT_BAN', quantity: it.quantity.neg(), orderId: id, note: `Xuất bán theo đơn ${o.code}`, actorId: a.userId });
+        }
       }
       await tx.repairOrder.update({ where: { id }, data });
       const note = dto.to === 'HUY' ? dto.reason!.trim() : dto.to === 'DA_GIAO' && num(o.total) > num(o.paid) ? `Ghi công nợ ${(num(o.total) - num(o.paid)).toLocaleString('vi-VN')} đ` : dto.note?.trim() || null;
