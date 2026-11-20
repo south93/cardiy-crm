@@ -1,11 +1,12 @@
 'use client';
 
 import { Alert, Badge, Button, Card, CardTitle, Checkbox, Dialog, Field, Input, Spinner } from '@cardiy/ui';
-import { ArrowRightLeft, ChevronLeft, Gauge, Pencil, UserRound } from 'lucide-react';
+import { ArrowRightLeft, ChevronLeft, Gauge, Pencil, Plus, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { VehicleFields, vehiclePayload, type VehicleFormValue } from '@/components/crm-forms';
+import { OrderHistory } from '@/components/order-history';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -106,6 +107,14 @@ function VehicleDetail() {
           <div className="text-sm text-slate-500">{fmtKm(v.odometerKm)}{v.color ? ` · ${v.color}` : ''}</div>
         </div>
         {!v.plateValid && <Badge tone="peach">Biển số cần xem lại</Badge>}
+        {can('ro.manage') && v.owners.some((o) => !o.toDate) && (
+          <Link href={`/ban-hang?customerId=${v.owners.find((o) => !o.toDate)!.customer.id}&vehicleId=${v.id}`}>
+            <Button data-testid="new-order-for-vehicle">
+              <Plus className="h-4 w-4" />
+              Tạo đơn
+            </Button>
+          </Link>
+        )}
         {(can('vehicle.manage') || can('ro.task.update')) && (
           <Button variant="outline" onClick={() => { setKm(''); setCorrection(false); setDError(null); setDialog('km'); }} data-testid="add-km">
             <Gauge className="h-4 w-4" />
@@ -133,6 +142,7 @@ function VehicleDetail() {
             </div>
             {v.note && <p className="mt-3 whitespace-pre-line rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">{v.note}</p>}
           </Card>
+          {can('ro.view') && <OrderHistory vehicleId={v.id} />}
           <Card className="p-4 lg:p-5">
             <CardTitle className="mb-3">Lịch sử số km</CardTitle>
             <ul className="space-y-1.5 text-sm" data-testid="odometer-list">

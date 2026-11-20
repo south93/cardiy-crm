@@ -7,25 +7,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { QuickSearch } from '@/components/quick-search';
+import { readStore, setCurrentBranch, useCurrentBranch, writeStore } from '@/lib/branch';
 import { homeFor, sectionOf, visibleNav } from '@/lib/nav';
 
 const SIDEBAR_KEY = 'cardiy.sidebar';
-const BRANCH_KEY = 'cardiy.branch';
-
-function readStore(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function writeStore(key: string, value: string): void {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    /* trình duyệt chặn lưu trữ: bỏ qua */
-  }
-}
 
 /** Đường dẫn vẫn mở được khi tài khoản đang bị giới hạn (chưa bật 2FA bắt buộc). */
 const LIMITED_OK = ['/bao-mat'];
@@ -47,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [branchId, setBranchId] = useState<string>('');
+  const branchId = useCurrentBranch();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setCollapsed(readStore(SIDEBAR_KEY) === 'collapsed'), []);
@@ -62,13 +47,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     else if (status === 'authed' && auth.mustChangePassword) router.replace('/doi-mat-khau');
     else if (status === 'authed' && auth.mustSetup2fa && !LIMITED_OK.includes(pathname)) router.replace('/bao-mat?batbuoc=1');
   }, [status, auth.mustChangePassword, auth.mustSetup2fa, pathname, router]);
-
-  // Chi nhánh đang làm việc: nhớ theo trình duyệt, chỉ trong phạm vi được phép
-  useEffect(() => {
-    if (!me?.branches.length) return;
-    const saved = readStore(BRANCH_KEY);
-    setBranchId(me.branches.some((b) => b.id === saved) ? saved! : me.branches[0]!.id);
-  }, [me]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -199,10 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-label="Chi nhánh đang làm việc"
                 data-testid="branch-select"
                 value={branchId}
-                onChange={(e) => {
-                  setBranchId(e.target.value);
-                  writeStore(BRANCH_KEY, e.target.value);
-                }}
+                onChange={(e) => setCurrentBranch(e.target.value)}
                 className="max-w-[180px] cursor-pointer bg-transparent font-medium outline-none"
               >
                 {me.branches.map((b) => (

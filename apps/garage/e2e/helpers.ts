@@ -4,6 +4,7 @@ export const DEMO_PASSWORD = 'Cardiy2026';
 export const PHONES = {
   owner: '0900000001',
   managerCn1: '0900000002',
+  sales: '0900000003',
   tech: '0900000004',
   partnerOwner: '0900000010',
 };

@@ -68,9 +68,9 @@ export const NAV: NavGroup[] = [
   {
     label: 'Kinh doanh',
     items: [
-      { href: '/ban-hang', label: 'Bán hàng', icon: ShoppingCart, screen: 'A3.10', round: '1.2', tone: 'sky', permission: 'ro.manage' },
-      { href: '/don-dang-xu-ly', label: 'Đơn đang xử lý', icon: Wrench, screen: 'A3.11', round: '1.2', tone: 'peach', permission: 'ro.view' },
-      { href: '/don-hoan-thanh', label: 'Đơn hoàn thành', icon: CircleCheck, screen: 'A3.13', round: '1.3', tone: 'mint', permission: 'ro.view' },
+      { href: '/ban-hang', label: 'Bán hàng', icon: ShoppingCart, screen: 'A3.10', round: '1.2', tone: 'sky', permission: 'ro.manage', built: true },
+      { href: '/don-dang-xu-ly', label: 'Đơn đang xử lý', icon: Wrench, screen: 'A3.11', round: '1.2', tone: 'peach', permission: 'ro.view', built: true },
+      { href: '/don-hoan-thanh', label: 'Đơn hoàn thành', icon: CircleCheck, screen: 'A3.13', round: '1.2', tone: 'mint', permission: 'ro.view', built: true },
     ],
   },
   {
@@ -164,6 +164,8 @@ export function findNavItem(pathname: string): NavItem | undefined {
 
 /** Mục menu chứa trang này (VD /khach-hang/abc thuộc mục Khách hàng). */
 export function sectionOf(pathname: string): NavItem | undefined {
+  // Chi tiết đơn nằm ở /don-hang/:id, thuộc mục "Đơn đang xử lý"
+  if (pathname.startsWith('/don-hang/')) return findNavItem('/don-dang-xu-ly');
   return findNavItem(pathname) ?? NAV_ITEMS.filter((i) => i.href !== '/' && pathname.startsWith(i.href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
 }
 

@@ -1,11 +1,12 @@
 'use client';
 
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Spinner, Tabs } from '@cardiy/ui';
-import { CalendarClock, Car, ChevronLeft, MessageCircle, Pencil, Phone, Plus, ShieldCheck, Trash2, Wrench } from 'lucide-react';
+import { CalendarClock, Car, ChevronLeft, MessageCircle, Pencil, Phone, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { CustomerForm, VehicleFields, customerPayload, emptyVehicle, vehiclePayload, type CustomerFormValue } from '@/components/crm-forms';
+import { OrderHistory } from '@/components/order-history';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -42,6 +43,9 @@ interface Customer {
   note: string | null;
   marketingConsent: boolean;
   openingDebt: number;
+  orderDebt: number;
+  debt: number;
+  orderCount: number;
   createdAt: string;
   branch: { id: string; name: string } | null;
   vehicles: VehicleRow[];
@@ -114,9 +118,22 @@ function CustomerProfile() {
             {c.type === 'COMPANY' && <Badge tone="lav">Doanh nghiệp</Badge>}
           </div>
           <div className="mt-0.5 text-sm text-slate-500">
-            {c.phone ?? 'Chưa có SĐT'} · {c.code} · Khách từ {fmtDate(c.createdAt)} · {c.vehicles.length} xe
+            {c.phone ?? 'Chưa có SĐT'} · {c.code} · Khách từ {fmtDate(c.createdAt)} · {c.vehicles.length} xe · {c.orderCount} đơn
           </div>
+          {c.debt > 0 && (
+            <div className="mt-1" data-testid="customer-debt">
+              <Badge tone="rose">Công nợ {fmtMoney(c.debt)}</Badge>
+            </div>
+          )}
         </div>
+        {can('ro.manage') && (
+          <Link href={`/ban-hang?customerId=${c.id}`}>
+            <Button variant="outline" data-testid="new-order-for-customer">
+              <Plus className="h-4 w-4" />
+              Tạo đơn
+            </Button>
+          </Link>
+        )}
         {c.phone && (
           <>
             <a href={`https://zalo.me/${c.phone}`} target="_blank" rel="noreferrer">
@@ -141,7 +158,7 @@ function CustomerProfile() {
         tabs={[
           { value: 'xe', label: `Xe (${c.vehicles.length})` },
           { value: 'thong-tin', label: 'Thông tin' },
-          { value: 'lich-su', label: 'Lịch sử sửa chữa' },
+          { value: 'lich-su', label: `Lịch sử sửa chữa (${c.orderCount})` },
         ]}
         value={tab}
         onChange={setTab}
@@ -202,12 +219,7 @@ function CustomerProfile() {
               <Info label="Ghi chú">{c.note}</Info>
             </Card>
           )}
-          {tab === 'lich-su' && (
-            <Card className="p-10 text-center">
-              <Wrench className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-3 text-sm text-slate-500">Lịch sử sửa chữa hiển thị từ vòng 1.2, khi có lệnh sửa chữa.</p>
-            </Card>
-          )}
+          {tab === 'lich-su' && <OrderHistory customerId={c.id} />}
         </div>
 
         <div className="space-y-4">

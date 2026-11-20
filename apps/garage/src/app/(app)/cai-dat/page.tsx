@@ -283,6 +283,12 @@ const ACTION_LABEL: Record<string, string> = {
   'role.deleted': 'Xoá vai trò',
   'branch.created': 'Thêm chi nhánh',
   'branch.updated': 'Sửa chi nhánh',
+  'order.created': 'Tạo đơn',
+  'order.updated': 'Sửa thông tin đơn',
+  'order.items': 'Sửa hạng mục đơn',
+  'order.status': 'Đổi trạng thái đơn',
+  'payment.created': 'Thu tiền',
+  'payment.voided': 'Huỷ phiếu thu',
   'file.uploaded': 'Tải file lên',
 };
 

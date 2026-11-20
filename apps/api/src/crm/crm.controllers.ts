@@ -180,13 +180,13 @@ export class LookupController {
             },
             take: 6,
             orderBy: { updatedAt: 'desc' },
-            select: { id: true, plateNo: true, make: true, model: true, ownerships: { where: { toDate: null }, select: { customer: { select: { name: true } } } } },
+            select: { id: true, plateNo: true, make: true, model: true, ownerships: { where: { toDate: null }, select: { customer: { select: { id: true, name: true } } } } },
           })
         : [],
     ]);
     return {
       customers,
-      vehicles: vehicles.map((v) => ({ id: v.id, plate: formatPlate(v.plateNo), make: v.make, model: v.model, ownerName: v.ownerships[0]?.customer.name ?? null })),
+      vehicles: vehicles.map((v) => ({ id: v.id, plate: formatPlate(v.plateNo), make: v.make, model: v.model, ownerName: v.ownerships[0]?.customer.name ?? null, ownerId: v.ownerships[0]?.customer.id ?? null })),
     };
   }
 }

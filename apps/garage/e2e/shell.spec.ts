@@ -21,7 +21,11 @@ test.describe('Khung giao diện quản trị (Chủ garage)', () => {
     await expect(grid.getByText('1. Kinh doanh')).toBeVisible();
     await grid.getByRole('link', { name: 'Đơn đang xử lý' }).click();
     await expect(page).toHaveURL(/\/don-dang-xu-ly$/);
-    await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng 1.2');
+    await expect(page.getByTestId('order-table')).toBeVisible();
+    // Màn hình chưa làm hiện trang chờ kèm vòng dự kiến
+    await page.goto('/trang-chu');
+    await grid.getByRole('link', { name: 'Danh mục sản phẩm' }).click();
+    await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng 1.4');
   });
 
   test('đường dẫn không có trong menu trả về 404', async ({ page }) => {
