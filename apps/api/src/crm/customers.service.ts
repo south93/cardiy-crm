@@ -87,7 +87,7 @@ export class CustomersService {
       this.prisma.customer.count({ where }),
       this.prisma.customer.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { code: 'desc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
         include: { ownerships: { where: { toDate: null, vehicle: { deletedAt: null } }, include: { vehicle: { select: { id: true, plateNo: true, make: true, model: true } } } } },
@@ -145,7 +145,8 @@ export class CustomersService {
   }
 
   async create(actor: Access, dto: CustomerInput & { vehicle?: VehicleInput | null }, ip?: string) {
-    const data = this.normalize(dto) as CustomerInput;
+    const { vehicle, ...fields } = dto;
+    const data = this.normalize(fields) as CustomerInput;
     if (!data.name) throw new BadRequestException('Cần nhập tên khách hàng');
     await this.assertBranch(actor.tenantId, data.branchId);
     if (data.phone && (await this.prisma.customer.findFirst({ where: { tenantId: actor.tenantId, phone: data.phone, deletedAt: null } }))) {
@@ -165,8 +166,8 @@ export class CustomersService {
             searchText: customerSearchText({ ...data, code }),
           },
         });
-        if (dto.vehicle) await this.vehicles.createInTx(tx, actor, { ...dto.vehicle, customerId: c.id });
-        await this.audit.log({ tenantId: actor.tenantId, actorId: actor.userId, action: 'customer.created', entity: 'customer', entityId: c.id, after: { code, name: c.name, phone: c.phone, vehicle: dto.vehicle?.plate ?? null }, ip }, tx);
+        if (vehicle) await this.vehicles.createInTx(tx, actor, { ...vehicle, customerId: c.id });
+        await this.audit.log({ tenantId: actor.tenantId, actorId: actor.userId, action: 'customer.created', entity: 'customer', entityId: c.id, after: { code, name: c.name, phone: c.phone, vehicle: vehicle?.plate ?? null }, ip }, tx);
         return c;
       });
       return { id: customer.id, code: customer.code };

@@ -86,3 +86,14 @@ export async function api<T>(path: string, opts: Options = {}): Promise<T> {
   if (!res.ok) throw toError(res.status, body);
   return body as T;
 }
+
+/** Tải file (CSV…) qua API: có token, tự làm mới phiên khi hết hạn. */
+export async function apiBlob(path: string, retry = true): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api${path}`, {
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (res.status === 401 && retry && (await refreshSession())) return apiBlob(path, false);
+  if (!res.ok) throw toError(res.status, await parse(res));
+  return res.blob();
+}
