@@ -8,6 +8,12 @@ import { ZodPipe } from '../common/zod.pipe';
 import { ImportsService } from './imports.service';
 
 /** Nhập dữ liệu từ AppSheet / Excel (CSV): xem trước → xác nhận. Chỉ người có quyền data.import. */
+const commitSchema = z.object({
+  createMissingBranches: z.boolean().default(true),
+  /** Mã chi nhánh trong file → id chi nhánh đã có (gộp) */
+  branchMap: z.record(z.string().max(40), z.string().uuid()).optional(),
+});
+
 @Controller('imports')
 export class ImportsController {
   constructor(private readonly imports: ImportsService) {}
@@ -46,7 +52,7 @@ export class ImportsController {
   commit(
     @CurrentAuth() auth: RequestAuth,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodPipe(z.object({ createMissingBranches: z.boolean().default(true) }))) dto: { createMissingBranches: boolean },
+    @Body(new ZodPipe(commitSchema)) dto: z.infer<typeof commitSchema>,
     @Req() req: Request,
   ) {
     return this.imports.commit(auth.access, id, dto, clientIp(req));

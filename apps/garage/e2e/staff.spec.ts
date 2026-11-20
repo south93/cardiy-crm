@@ -12,7 +12,7 @@ test.describe('Nhân viên, cài đặt, bảo mật', () => {
     const form = page.locator('#staff-form');
     await form.getByLabel('Họ và tên').fill('KTV Thử Nghiệm');
     await form.getByLabel('Số điện thoại (dùng để đăng nhập)').fill(phone);
-    await form.getByLabel('Làm việc tại').selectOption({ label: 'CN1 · Cầu Giấy' });
+    await form.getByLabel('Làm việc tại').selectOption({ label: 'Đồng Xoài – Bình Phước' });
     await form.getByLabel('Kỹ thuật viên').check();
     await form.getByRole('button', { name: 'Thêm nhân viên' }).click();
     const temp = (await page.getByTestId('temp-password-value').textContent())!.trim();
@@ -42,19 +42,31 @@ test.describe('Nhân viên, cài đặt, bảo mật', () => {
     await expect(form.getByLabel('Kỹ thuật viên')).toBeEnabled();
     await expect(form.getByLabel(/Kế toán garage/)).toBeDisabled();
     await expect(form.getByLabel(/Chủ garage/)).toBeDisabled();
-    await expect(form.getByLabel('Làm việc tại').locator('option')).toHaveText(['CN1 · Cầu Giấy']);
+    await expect(form.getByLabel('Làm việc tại').locator('option')).toHaveText(['Đồng Xoài – Bình Phước']);
   });
 
   test('Cài đặt: ma trận vai trò & quyền; nhật ký ghi lại thao tác', async ({ page }) => {
     await loginUI(page, PHONES.owner);
     await page.goto('/cai-dat');
-    await expect(page.getByTestId('branch-list')).toContainText('CN1 · Cầu Giấy');
+    await expect(page.getByTestId('branch-list')).toContainText('Đồng Xoài – Bình Phước');
     await page.getByRole('tab', { name: 'Vai trò & quyền' }).click();
     const matrix = page.getByTestId('role-matrix');
     await expect(matrix).toContainText('Kỹ thuật viên');
     await expect(matrix).toContainText('staff.manage');
     await page.getByRole('tab', { name: 'Nhật ký thao tác' }).click();
     await expect(page.getByTestId('audit-table')).toContainText('Đăng nhập');
+  });
+
+  test('Cài đặt: sửa thông tin chi nhánh', async ({ page }) => {
+    const phone = randomPhone();
+    await loginUI(page, PHONES.owner);
+    await page.goto('/cai-dat');
+    await page.getByRole('button', { name: 'Sửa chi nhánh CN3' }).click();
+    const form = page.locator('#branch-form');
+    await expect(form.getByLabel('Tên chi nhánh')).toHaveValue('Mỹ Phước – Tân Vạn');
+    await form.getByLabel('Điện thoại').fill(phone);
+    await page.getByRole('dialog').getByRole('button', { name: 'Lưu' }).click();
+    await expect(page.getByTestId('branch-list')).toContainText(phone);
   });
 
   test('Tài khoản & bảo mật: tải ảnh đại diện, hiện mã QR bật 2FA', async ({ page }) => {

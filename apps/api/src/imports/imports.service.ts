@@ -114,7 +114,7 @@ export class ImportsService {
   }
 
   /** Bước 2: ghi dữ liệu theo kết quả xem trước (một giao dịch: lỗi giữa chừng thì không ghi gì). */
-  async commit(actor: Access, id: string, opts: { createMissingBranches: boolean }, ip?: string) {
+  async commit(actor: Access, id: string, opts: { createMissingBranches: boolean; branchMap?: Record<string, string> }, ip?: string) {
     const b = await this.prisma.importBatch.findFirst({ where: { id, tenantId: actor.tenantId } });
     if (!b) throw new NotFoundException('Không tìm thấy lần nhập');
     if (b.status !== 'PREVIEW' || !b.plan) throw new ConflictException('Lần nhập này đã được thực hiện');
@@ -134,7 +134,13 @@ export class ImportsService {
 
         // Chi nhánh
         const branchByCode = new Map((await tx.branch.findMany({ where: { tenantId, deletedAt: null } })).map((x) => [x.code, x.id]));
+        const branchIds = new Set(branchByCode.values());
         let createdBranches = 0;
+        // Mã lạ gộp vào chi nhánh đã có (vd. CN5 cũ → CN1)
+        for (const [code, target] of Object.entries(opts.branchMap ?? {})) {
+          if (!branchIds.has(target)) throw new BadRequestException(`Chi nhánh gộp cho ${code} không hợp lệ`);
+          if (!branchByCode.has(code)) branchByCode.set(code, target);
+        }
         if (opts.createMissingBranches) {
           for (const code of plan.missingBranchCodes) {
             if (branchByCode.has(code)) continue;

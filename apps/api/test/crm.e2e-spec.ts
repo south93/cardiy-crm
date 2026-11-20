@@ -158,6 +158,22 @@ describe('Khách hàng & Xe', () => {
       expect(again.body.summary).toMatchObject({ newCustomers: 0, newVehicles: 0 });
     });
 
+    it('mã chi nhánh lạ trong file gộp vào chi nhánh đã có', async () => {
+      const phone = randomPhone();
+      const file = appsheetCsv([{ name: 'Khách Chi Nhánh Cũ', phone, plates: randomPlate(), branch: 'CNX9' }]);
+      const prev = await request(http).post('/api/imports/preview').set(bearer(owner)).attach('file', file, 'kh.csv').expect(201);
+      expect(prev.body.summary.missingBranchCodes).toEqual(['CNX9']);
+      const branches = await request(http).get('/api/branches').set(bearer(owner)).expect(200);
+      const cn1 = branches.body.find((b: { code: string }) => b.code === 'CN1');
+      await request(http).post(`/api/imports/${prev.body.id}/commit`).set(bearer(owner)).send({ branchMap: { CNX9: '00000000-0000-4000-8000-000000000000' } }).expect(400);
+      const done = await request(http).post(`/api/imports/${prev.body.id}/commit`).set(bearer(owner)).send({ branchMap: { CNX9: cn1.id } }).expect(200);
+      expect(done.body.createdBranches).toBe(0);
+      const found = await request(http).get('/api/customers').query({ q: phone }).set(bearer(owner)).expect(200);
+      expect(found.body.items[0].branchName).toBe(cn1.name);
+      const after = await request(http).get('/api/branches').set(bearer(owner));
+      expect(after.body.some((b: { code: string }) => b.code === 'CNX9')).toBe(false);
+    });
+
     it('file bảng mã cũ mất dấu → báo xuất lại; file lạ → báo không nhận ra', async () => {
       const legacy = Buffer.from('T\xEAn kh\xE1ch h\xE0ng\t?i?n tho?i\nTr?n V?n Ti?p\t909735299\n', 'latin1');
       const r1 = await request(http).post('/api/imports/preview').set(bearer(owner)).attach('file', legacy, 'cu.csv').expect(400);
