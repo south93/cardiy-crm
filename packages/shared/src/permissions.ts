@@ -80,6 +80,7 @@ export const PERMISSIONS = [
   P('role.manage', 'Cài đặt', 'Tạo / sửa vai trò tuỳ chỉnh'),
   P('settings.manage', 'Cài đặt', 'Cài đặt garage'),
   P('audit.view', 'Cài đặt', 'Xem nhật ký thao tác'),
+  P('data.import', 'Cài đặt', 'Nhập dữ liệu từ hệ thống cũ (AppSheet, Excel)'),
   P('file.upload', 'Chung', 'Tải ảnh, chứng từ lên'),
 ] as const satisfies readonly PermissionDef[];
 

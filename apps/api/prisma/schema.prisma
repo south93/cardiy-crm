@@ -260,14 +260,20 @@ enum CustomerTier {
   KIM_CUONG
 }
 
+/// Nguồn khách theo danh mục đang dùng ở AppSheet của PLG
 enum CustomerSource {
-  TAI_QUAY
-  GIOI_THIEU
   ZALO
   FACEBOOK
+  TIKTOK
+  GIOI_THIEU
+  KHACH_CU
+  VANG_LAI
   WEBSITE
+  CUOC_GOI
+  GARA
+  CHAM_SOC_XE
+  DAI_LY
   SAN_CARDIY
-  NHAP_FILE
   KHAC
 }
 
@@ -277,18 +283,25 @@ model Customer {
   code             String
   type             CustomerType   @default(PERSON)
   name             String
-  /// Số điện thoại chuẩn hoá 0xxxxxxxxx, không trùng trong một tenant
-  phone            String
+  /// Số điện thoại chuẩn hoá 0xxxxxxxxx, không trùng trong một tenant.
+  /// Có thể trống (khách vãng lai): khi đó nhận diện theo biển số xe.
+  phone            String?
   phone2           String?
   email            String?
   address          String?
   taxCode          String?        @map("tax_code")
+  representative   String?
+  /// Chi nhánh phục vụ đầu tiên (khách dùng chung mọi chi nhánh)
+  branchId         String?        @map("branch_id") @db.Uuid
   birthday         DateTime?      @db.Date
   tier             CustomerTier   @default(THUONG)
-  source           CustomerSource @default(TAI_QUAY)
+  source           CustomerSource @default(VANG_LAI)
   note             String?
   /// Khách đồng ý nhận tin chăm sóc / khuyến mại (Nghị định 13/2023)
   marketingConsent Boolean        @default(false) @map("marketing_consent")
+  /// Công nợ ban đầu khi chuyển từ hệ thống cũ (VND)
+  openingDebt      BigInt         @default(0) @map("opening_debt")
+  importBatchId    String?        @map("import_batch_id") @db.Uuid
   searchText       String         @default("") @map("search_text")
   createdBy        String?        @map("created_by") @db.Uuid
   createdAt        DateTime       @default(now()) @map("created_at")
@@ -314,6 +327,11 @@ model Vehicle {
   year               Int?
   color              String?
   fuel               String?
+  transmission       String?
+  tireSize           String?   @map("tire_size")
+  /// false: biển số chưa đúng mẫu (thiếu số…), cần xem lại
+  plateValid         Boolean   @default(true) @map("plate_valid")
+  importBatchId      String?   @map("import_batch_id") @db.Uuid
   odometerKm         Int?      @map("odometer_km")
   registrationExpiry DateTime? @map("registration_expiry") @db.Date
   insuranceExpiry    DateTime? @map("insurance_expiry") @db.Date
@@ -361,4 +379,33 @@ model OdometerReading {
 
   @@index([vehicleId, createdAt])
   @@map("odometer_readings")
+}
+
+enum ImportKind {
+  CUSTOMERS
+  VEHICLES
+}
+
+enum ImportStatus {
+  PREVIEW
+  DONE
+}
+
+/// Một lần nhập dữ liệu (xem trước → xác nhận). plan: kết quả phân tích, xoá sau khi nhập xong.
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  kind        ImportKind
+  status      ImportStatus @default(PREVIEW)
+  fileName    String       @map("file_name")
+  encoding    String
+  summary     Json
+  issues      Json
+  plan        Json?
+  createdBy   String       @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  committedAt DateTime?    @map("committed_at")
+
+  @@index([tenantId, createdAt])
+  @@map("import_batches")
 }
