@@ -24,6 +24,8 @@ echo "==> Kiểm tra sức khoẻ"
 for i in $(seq 1 60); do
   if curl -sf http://127.0.0.1:4000/api/health >/dev/null; then
     curl -s http://127.0.0.1:4000/api/health; echo
+    echo "==> Đồng bộ danh mục quyền + vai trò hệ thống (không đụng tài khoản demo)"
+    docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm -e SEED_DEMO=false api node dist-seed/seed.js
     echo "==> Xong. Phiên bản: $(git log -1 --format='%h %s')"
     exit 0
   fi
