@@ -98,6 +98,7 @@ function NewOrder() {
   const [newCustomer, setNewCustomer] = useState(false);
   const [km, setKm] = useState('');
   const [request, setRequest] = useState('');
+  const [note, setNote] = useState('');
   const [promisedAt, setPromisedAt] = useState('');
   const [technicianId, setTechnicianId] = useState('');
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -142,6 +143,7 @@ function NewOrder() {
           vehicleId,
           odometerKm: km ? Number(km.replace(/\D/g, '')) : null,
           request: request || null,
+          note: note || null,
           promisedAt: promisedAt ? new Date(promisedAt).toISOString() : null,
           technicianId: technicianId || null,
           orderDiscount: parseMoney(discount),
@@ -277,6 +279,9 @@ function NewOrder() {
               />
             )}
           </Field>
+        <Field label="Ghi chú" className="mt-3">
+          {(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: Mai khách lấy" />}
+        </Field>
         </Card>
 
         <Card className="p-4 lg:p-5">

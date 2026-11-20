@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, Card, Input, Spinner } from '@cardiy/ui';
+import { Badge, Button, Card, Input, Select, Spinner } from '@cardiy/ui';
 import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Pager } from '@/components/pager';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useCurrentBranch } from '@/lib/branch';
 import { fmtMoney } from '@/lib/crm';
 import { fmtDateTime, PAYMENT_STATE, STATUS, type OrderList, type OrderStatus } from '@/lib/orders';
 
@@ -19,19 +20,28 @@ const VIEWS = {
 /** Danh sách đơn có lọc theo trạng thái (đếm số đơn từng trạng thái) và tìm theo biển số / SĐT / tên / mã đơn. */
 export function OrderListView({ view }: { view: 'open' | 'done' }) {
   const router = useRouter();
-  const { can } = useAuth();
+  const { can, me } = useAuth();
+  const current = useCurrentBranch();
+  /** '' = tất cả chi nhánh được phép; mặc định theo chi nhánh đang làm việc ở thanh trên cùng */
+  const [branch, setBranch] = useState<string | null>(null);
+  useEffect(() => {
+    if (current) setBranch(current);
+    else if (me && !me.branches.length) setBranch('');
+  }, [current, me]);
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<OrderList | null>(null);
 
   useEffect(() => {
+    if (branch === null) return;
     const p = new URLSearchParams({ view, page: String(page), pageSize: '20' });
+    if (branch) p.set('branchId', branch);
     if (status) p.set('status', status);
     if (q.trim()) p.set('q', q.trim());
     const t = setTimeout(() => api<OrderList>(`/orders?${p}`).then(setData), q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [view, status, q, page]);
+  }, [view, branch, status, q, page]);
 
   const all = VIEWS[view].statuses.reduce((s, st) => s + (data?.counts[st] ?? 0), 0);
   const chip = (value: OrderStatus | '', label: string, n: number) => (
@@ -51,6 +61,16 @@ export function OrderListView({ view }: { view: 'open' | 'done' }) {
       <div className="flex flex-wrap items-center gap-2">
         {chip('', 'Tất cả', all)}
         {VIEWS[view].statuses.map((s) => chip(s, STATUS[s].label, data?.counts[s] ?? 0))}
+        {(me?.branches.length ?? 0) > 1 && (
+          <Select value={branch ?? ''} onChange={(e) => (setBranch(e.target.value), setPage(1))} className="w-auto rounded-full bg-white/80 md:ml-2" aria-label="Lọc chi nhánh">
+            <option value="">Tất cả chi nhánh</option>
+            {me!.branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="relative w-full md:ml-2 md:w-72">
           <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
           <Input value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} placeholder="Biển số, SĐT, tên, mã đơn…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm đơn" />
