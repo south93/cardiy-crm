@@ -28,9 +28,12 @@ const productSchema = z.object({
   costPrice: money.optional(),
   vehicleMakes: z.array(z.string().trim().min(1).max(40)).max(40).optional(),
   minStock: z.coerce.number().min(0).max(1_000_000).optional().nullable(),
+  mfgMonth: z.coerce.number().int().min(1, 'Tháng 1–12').max(12, 'Tháng 1–12').optional().nullable(),
+  mfgYear: z.coerce.number().int().min(1990, 'Năm sản xuất không hợp lệ').max(new Date().getFullYear() + 1, 'Năm sản xuất không hợp lệ').optional().nullable(),
   note: text(2000),
   active: z.boolean().optional(),
 });
+const productCreate = productSchema.refine((v) => !v.mfgMonth || v.mfgYear, { message: 'Có tháng sản xuất thì cần nhập năm', path: ['mfgYear'] });
 const listSchema = z.object({
   q: z.string().max(100).optional(),
   categoryId: z.string().uuid().optional(),
@@ -103,7 +106,7 @@ export class InventoryController {
 
   @RequirePermissions('inventory.manage')
   @Post('products')
-  create(@CurrentAuth() auth: RequestAuth, @Body(new ZodPipe(productSchema)) dto: z.infer<typeof productSchema>, @Req() req: Request) {
+  create(@CurrentAuth() auth: RequestAuth, @Body(new ZodPipe(productCreate)) dto: z.infer<typeof productSchema>, @Req() req: Request) {
     return this.inv.create(auth.access, dto, clientIp(req));
   }
 

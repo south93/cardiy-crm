@@ -581,6 +581,9 @@ model Product {
   costPrice    BigInt        @default(0) @map("cost_price")
   /// Hãng xe dùng được (rỗng = mọi hãng)
   vehicleMakes String[]      @default([]) @map("vehicle_makes")
+  /// Tháng / năm sản xuất (lốp, ắc quy…); tháng có thể trống
+  mfgMonth     Int?          @map("mfg_month")
+  mfgYear      Int?          @map("mfg_year")
   /// Cảnh báo khi tồn tại một chi nhánh xuống dưới mức này
   minStock     Decimal?      @map("min_stock") @db.Decimal(12, 2)
   note         String?

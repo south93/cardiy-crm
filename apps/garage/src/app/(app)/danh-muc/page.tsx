@@ -12,7 +12,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
 import { fmtMoney } from '@/lib/crm';
-import { fmtQty, type Category, type ProductRow } from '@/lib/inventory';
+import { fmtMfg, fmtQty, type Category, type ProductRow } from '@/lib/inventory';
 import type { Paged } from '@/lib/crm';
 
 function Catalog() {
@@ -148,6 +148,7 @@ function Catalog() {
                             <span className="font-mono">{p.code}</span>
                             {p.brand && ` · ${p.brand}`}
                             {p.kind === 'DICH_VU' && ' · Dịch vụ'}
+                            {fmtMfg(p.mfgMonth, p.mfgYear) && ` · SX ${fmtMfg(p.mfgMonth, p.mfgYear)}`}
                             {!p.active && ' · Ngừng bán'}
                           </div>
                         </td>

@@ -10,7 +10,7 @@ import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { fmtMoney } from '@/lib/crm';
-import { fmtQty, MOVE_KINDS, type Category } from '@/lib/inventory';
+import { fmtMfg, fmtQty, MOVE_KINDS, type Category } from '@/lib/inventory';
 import { fmtDateTime, moneyInput, type ItemKind } from '@/lib/orders';
 
 interface Product {
@@ -26,6 +26,8 @@ interface Product {
   costPrice: number | null;
   vehicleMakes: string[];
   minStock: number | null;
+  mfgMonth: number | null;
+  mfgYear: number | null;
   note: string | null;
   active: boolean;
   stock: { branch: { id: string; code: string; name: string }; quantity: number }[];
@@ -60,6 +62,8 @@ function ProductDetail() {
     costPrice: moneyInput(p.costPrice ?? 0),
     vehicleMakes: p.vehicleMakes,
     minStock: p.minStock === null ? '' : String(p.minStock),
+    mfgMonth: p.mfgMonth ? String(p.mfgMonth) : '',
+    mfgYear: p.mfgYear ? String(p.mfgYear) : '',
     note: p.note ?? '',
     active: p.active,
   };
@@ -84,6 +88,7 @@ function ProductDetail() {
             {p.category && ` · ${p.category}`}
             {p.brand && ` · ${p.brand}`}
             {p.unit && ` · ĐVT: ${p.unit}`}
+            {fmtMfg(p.mfgMonth, p.mfgYear) && <span data-testid="product-mfg"> · Sản xuất: {fmtMfg(p.mfgMonth, p.mfgYear)}</span>}
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             {p.vehicleMakes.length ? p.vehicleMakes.map((m) => <Badge key={m} tone="sky">{m}</Badge>) : <span className="text-xs text-slate-500">Dùng cho mọi xe</span>}

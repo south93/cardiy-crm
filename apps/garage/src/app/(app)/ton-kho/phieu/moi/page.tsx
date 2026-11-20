@@ -10,7 +10,7 @@ import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { fmtMoney } from '@/lib/crm';
-import { DOC_TYPES, fmtQty, type DocType, type ProductRow } from '@/lib/inventory';
+import { DOC_TYPES, fmtMfg, fmtQty, type DocType, type ProductRow } from '@/lib/inventory';
 import { moneyInput, parseMoney, parseQty } from '@/lib/orders';
 
 interface Line {
@@ -143,10 +143,12 @@ function NewDoc() {
           <ProductPicker label="Thêm hàng vào phiếu" placeholder="Gõ mã hoặc tên hàng để thêm vào phiếu…" kind="PHU_TUNG" branchId={branchId} onPick={add} />
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm" data-testid="doc-lines">
+          <table className="w-full min-w-[860px] text-sm" data-testid="doc-lines">
             <thead>
               <tr className="text-left text-xs text-slate-500">
-                <th className="pb-2 font-medium">Hàng hoá</th>
+                <th className="w-28 pb-2 font-medium">Mã hàng</th>
+                <th className="pb-2 font-medium">Tên hàng</th>
+                <th className="pb-2 font-medium">Nhóm hàng</th>
                 <th className="w-28 pb-2 text-right font-medium">Tồn hiện tại</th>
                 <th className="w-32 pb-2 text-right font-medium">{type === 'DIEU_CHINH' ? 'Số đếm thực tế' : 'Số lượng'}</th>
                 {type === 'NHAP' && <th className="w-36 pb-2 text-right font-medium">Giá nhập</th>}
@@ -161,10 +163,12 @@ function NewDoc() {
                 const diff = type === 'DIEU_CHINH' ? Number(l.qty.replace(',', '.') || 0) - (l.product.stock ?? 0) : 0;
                 return (
                   <tr key={l.product.id} className="border-t border-slate-50" data-testid="doc-line">
-                    <td className="py-1.5">
+                    <td className="py-1.5 pr-2 font-mono text-xs">{l.product.code}</td>
+                    <td className="py-1.5 pr-2">
                       <div className="font-medium">{l.product.name}</div>
-                      <div className="font-mono text-xs text-slate-500">{l.product.code}</div>
+                      {fmtMfg(l.product.mfgMonth, l.product.mfgYear) && <div className="text-xs text-slate-500">SX {fmtMfg(l.product.mfgMonth, l.product.mfgYear)}</div>}
                     </td>
+                    <td className="py-1.5 pr-2 text-slate-600">{l.product.category?.name ?? '—'}</td>
                     <td className="py-1.5 text-right tabular-nums text-slate-500">
                       {fmtQty(l.product.stock)} {l.product.unit}
                     </td>
@@ -188,7 +192,7 @@ function NewDoc() {
               })}
               {!lines.length && (
                 <tr>
-                  <td colSpan={6} className="rounded-xl bg-slate-50 p-4 text-center text-slate-500">
+                  <td colSpan={8} className="rounded-xl bg-slate-50 p-4 text-center text-slate-500">
                     Chưa có hàng. Gõ mã hoặc tên ở ô trên để thêm.
                   </td>
                 </tr>

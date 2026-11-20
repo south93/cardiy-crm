@@ -21,6 +21,8 @@ export interface ProductRow {
   vehicleMakes: string[];
   active: boolean;
   minStock: number | null;
+  mfgMonth: number | null;
+  mfgYear: number | null;
   stock: number | null;
 }
 
@@ -38,5 +40,8 @@ export const MOVE_KINDS: Record<string, string> = {
   CHUYEN_DEN: 'Chuyển đến',
   DIEU_CHINH: 'Kiểm kê',
 };
+
+/** Tháng / năm sản xuất: "09/2026" hoặc "2026" */
+export const fmtMfg = (m: number | null | undefined, y: number | null | undefined) => (y ? (m ? `${String(m).padStart(2, '0')}/${y}` : String(y)) : null);
 
 export const fmtQty = (n: number | null | undefined) => (n === null || n === undefined ? '—' : n.toLocaleString('vi-VN', { maximumFractionDigits: 2 }));

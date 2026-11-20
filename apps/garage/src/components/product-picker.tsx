@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
-import { fmtQty, type ProductRow } from '@/lib/inventory';
+import { fmtMfg, fmtQty, type ProductRow } from '@/lib/inventory';
 import type { ItemKind } from '@/lib/orders';
 
 /**
@@ -93,7 +93,7 @@ export function ProductPicker({
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{p.name}</span>
                 <span className="block truncate text-xs text-slate-500">
-                  {[p.brand, p.vehicleMakes.length ? p.vehicleMakes.join(', ') : null].filter(Boolean).join(' · ') || (p.kind === 'DICH_VU' ? 'Dịch vụ' : 'Dùng cho mọi xe')}
+                  {[p.brand, fmtMfg(p.mfgMonth, p.mfgYear) && `SX ${fmtMfg(p.mfgMonth, p.mfgYear)}`, p.vehicleMakes.length ? p.vehicleMakes.join(', ') : null].filter(Boolean).join(' · ') || (p.kind === 'DICH_VU' ? 'Dịch vụ' : 'Dùng cho mọi xe')}
                 </span>
               </span>
               <span className="text-right">
