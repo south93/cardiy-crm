@@ -65,3 +65,29 @@ test('chính sách mật khẩu', () => {
   assert.equal(checkPasswordPolicy('12345678'), 'Mật khẩu cần có cả chữ và số');
   assert.equal(checkPasswordPolicy('Garage2026'), null);
 });
+
+test('biển số: chuẩn hoá và định dạng', async () => {
+  const { normalizePlate, formatPlate, isCivilPlate } = await import('./vehicle');
+  assert.equal(normalizePlate('30a-123.45'), '30A12345');
+  assert.equal(normalizePlate(' 30A 123 45 '), '30A12345');
+  assert.equal(formatPlate('30A12345'), '30A-123.45');
+  assert.equal(formatPlate('51F2223'), '51F-2223');
+  assert.equal(formatPlate(normalizePlate('29h1-123.45')!), '29H1-123.45');
+  assert.equal(formatPlate(normalizePlate('30LD-123.45')!), '30LD-123.45');
+  assert.equal(isCivilPlate('NG12345'), false);
+  assert.equal(formatPlate('NG12345'), 'NG12345');
+  assert.equal(normalizePlate('30'), null);
+});
+
+test('VIN hợp lệ 17 ký tự, không có I/O/Q', async () => {
+  const { normalizeVin } = await import('./vehicle');
+  assert.equal(normalizeVin('mr0fz29g001234567'), 'MR0FZ29G001234567');
+  assert.equal(normalizeVin('MR0FZ29G00123456O'), null);
+  assert.equal(normalizeVin('ABC'), null);
+});
+
+test('tìm kiếm không dấu', async () => {
+  const { searchKey, removeDiacritics } = await import('./text');
+  assert.equal(removeDiacritics('Nguyễn Văn Đức'), 'Nguyen Van Duc');
+  assert.equal(searchKey('Trần  Thị Bình', '0912345678'), 'tran thi binh 0912345678');
+});
