@@ -75,8 +75,10 @@ async function main() {
   // Đối tác: chỉ có cổng đối tác, 1 tài khoản duy nhất
   const partner = await upsertTenant('DOITAC-DEMO-0001', 'Minh Phát Auto (đối tác demo)', TenantType.PARTNER);
 
-  const cn1 = await upsertBranch(plg.id, 'CN1', 'CN1 · Cầu Giấy', 6, 'Cầu Giấy, Hà Nội');
-  const cn2 = await upsertBranch(plg.id, 'CN2', 'CN2 · Long Biên', 4, 'Long Biên, Hà Nội');
+  // Chi nhánh thật của PLG (mã trùng với cột "Chi nhánh" trong AppSheet; CN5 cũ gộp vào CN1)
+  const cn1 = await upsertBranch(plg.id, 'CN1', 'Đồng Xoài – Bình Phước', 4, 'Đường Phú Riềng Đỏ, Bình Phước, Đồng Nai');
+  const cn2 = await upsertBranch(plg.id, 'CN2', 'Bình Phước – Đồng Nai', 4, '310 QL14, Bình Phước, Đồng Nai');
+  await upsertBranch(plg.id, 'CN3', 'Mỹ Phước – Tân Vạn', 4, 'Số 1692, đường Mỹ Phước Tân Vạn, Tổ 17, Khu 4, Phường Bình Dương, TP Hồ Chí Minh');
   await upsertBranch(partner.id, 'CN1', 'Minh Phát · Hà Đông', 3, 'Hà Đông, Hà Nội'); // địa điểm hiển thị trên bản đồ sàn
 
   // 3. Tài khoản demo

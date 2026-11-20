@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Spinner, Tabs } from '@cardiy/ui';
-import { Building2, Check, Minus, Plus, ShieldCheck } from 'lucide-react';
+import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -15,18 +15,35 @@ function BranchesTab() {
   const { can } = useAuth();
   const [rows, setRows] = useState<BranchRow[] | null>(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ code: '', name: '', address: '', phone: '', bays: '2' });
+  /** null = thêm mới; có id = đang sửa chi nhánh đó */
+  const [editing, setEditing] = useState<string | null>(null);
+  const empty = { code: '', name: '', address: '', phone: '', bays: '2' };
+  const [form, setForm] = useState(empty);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => setRows(await api<BranchRow[]>('/branches')), []);
   useEffect(() => void load(), [load]);
+
+  const startAdd = () => {
+    setEditing(null);
+    setForm(empty);
+    setError(null);
+    setOpen(true);
+  };
+  const startEdit = (b: BranchRow) => {
+    setEditing(b.id);
+    setForm({ code: b.code, name: b.name, address: b.address ?? '', phone: b.phone ?? '', bays: String(b.bays) });
+    setError(null);
+    setOpen(true);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
-      await api('/branches', { body: { ...form, bays: Number(form.bays), phone: form.phone || undefined, address: form.address || undefined } });
+      const body = { ...form, bays: Number(form.bays), phone: form.phone || undefined, address: form.address || undefined };
+      await api(editing ? `/branches/${editing}` : '/branches', { method: editing ? 'PATCH' : 'POST', body });
       setOpen(false);
-      setForm({ code: '', name: '', address: '', phone: '', bays: '2' });
+      setForm(empty);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được');
@@ -37,7 +54,7 @@ function BranchesTab() {
     <div className="space-y-4">
       {can('branch.manage') && (
         <div className="flex justify-end">
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={startAdd}>
             <Plus className="h-4 w-4" />
             Thêm chi nhánh
           </Button>
@@ -52,12 +69,17 @@ function BranchesTab() {
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-100 text-sky-700">
                 <Building2 className="h-6 w-6" />
               </span>
-              <div className="min-w-0 text-sm">
+              <div className="min-w-0 flex-1 text-sm">
                 <div className="font-semibold">{b.name}</div>
                 <div className="text-slate-500">Mã {b.code} · {b.bays} khoang sửa</div>
                 {b.address && <div className="mt-1 text-slate-600">{b.address}</div>}
                 {b.phone && <div className="text-slate-600">{b.phone}</div>}
               </div>
+              {can('branch.manage') && (
+                <button type="button" onClick={() => startEdit(b)} aria-label={`Sửa chi nhánh ${b.code}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </Card>
           ))}
         </div>
@@ -65,7 +87,7 @@ function BranchesTab() {
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Thêm chi nhánh"
+        title={editing ? 'Sửa chi nhánh' : 'Thêm chi nhánh'}
         footer={
           <>
             <Button variant="outline" onClick={() => setOpen(false)}>

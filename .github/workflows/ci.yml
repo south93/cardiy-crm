@@ -92,6 +92,9 @@ jobs:
           docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env ps
           docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env logs api --tail 100
           exit 1
+      - name: Đồng bộ quyền như update.sh (không tạo dữ liệu demo)
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm -e SEED_DEMO=false api node dist-seed/seed.js | grep -q "SEED_DEMO=false"
       - name: Tạo dữ liệu demo + đăng nhập thử
         run: |
           docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm api node dist-seed/seed.js

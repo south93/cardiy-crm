@@ -1,11 +1,12 @@
 'use client';
 
-import { Alert, Badge, Button, Card, CardTitle, Checkbox, Spinner } from '@cardiy/ui';
+import { Alert, Badge, Button, Card, CardTitle, Spinner } from '@cardiy/ui';
 import { CheckCircle2, ChevronLeft, Download, FileUp, Info, TriangleAlert, XCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RequirePermission } from '@/components/require-permission';
 import { api, apiBlob, ApiError } from '@/lib/api';
+import type { BranchRow } from '@/lib/org';
 
 interface Summary {
   rows: number;
@@ -45,7 +46,12 @@ function ImportWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [createBranches, setCreateBranches] = useState(true);
+  /** Mã chi nhánh lạ trong file → '' (tạo mới) hoặc id chi nhánh đã có (gộp) */
+  const [branchMap, setBranchMap] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<BranchRow[]>([]);
+  useEffect(() => {
+    api<BranchRow[]>('/branches').then(setBranches, () => setBranches([]));
+  }, []);
   const [filter, setFilter] = useState<'all' | Issue['level']>('all');
   const [result, setResult] = useState<Result | null>(null);
 
@@ -57,6 +63,7 @@ function ImportWizard() {
     try {
       const form = new FormData();
       form.append('file', file);
+      setBranchMap({});
       setPreview(await api<Preview>('/imports/preview', { form }));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Không đọc được file');
@@ -71,7 +78,9 @@ function ImportWizard() {
     setBusy(true);
     setError(null);
     try {
-      setResult(await api<Result>(`/imports/${preview.id}/commit`, { body: { createMissingBranches: createBranches } }));
+      setResult(await api<Result>(`/imports/${preview.id}/commit`, {
+          body: { createMissingBranches: true, branchMap: Object.fromEntries(Object.entries(branchMap).filter(([, v]) => v)) },
+        }));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Nhập dữ liệu không thành công');
     } finally {
@@ -184,7 +193,27 @@ function ImportWizard() {
 
           <Card className="space-y-3 p-4 lg:p-5">
             {s.missingBranchCodes.length > 0 && (
-              <Checkbox checked={createBranches} onChange={(e) => setCreateBranches(e.target.checked)} label={`Tạo chi nhánh còn thiếu: ${s.missingBranchCodes.join(', ')} (đổi tên sau trong Cài đặt)`} />
+              <div className="space-y-2" data-testid="branch-map">
+                <div className="text-sm font-medium text-slate-700">Mã chi nhánh trong file chưa có trên hệ thống</div>
+                {s.missingBranchCodes.map((code) => (
+                  <label key={code} className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="w-14 font-semibold">{code}</span>
+                    <select
+                      aria-label={`Chi nhánh cho ${code}`}
+                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                      value={branchMap[code] ?? ''}
+                      onChange={(e) => setBranchMap((m) => ({ ...m, [code]: e.target.value }))}
+                    >
+                      <option value="">Tạo chi nhánh mới “{code}” (đổi tên sau trong Cài đặt)</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          Gộp vào {b.code} · {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
             )}
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => void commit()} disabled={busy || (!s.newCustomers && !s.newVehicles && !s.updatedVehicles)} data-testid="import-commit">
