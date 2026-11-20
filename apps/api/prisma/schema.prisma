@@ -235,3 +235,177 @@ model FileObject {
   @@index([tenantId])
   @@map("files")
 }
+
+// ======================= Vòng 1.1: Khách hàng & Xe (D2) =======================
+
+/// Bộ đếm sinh mã theo tenant (KH000001, RO000001…). Tăng nguyên tử bằng SQL.
+model TenantCounter {
+  tenantId String @map("tenant_id") @db.Uuid
+  key      String
+  value    Int    @default(0)
+
+  @@id([tenantId, key])
+  @@map("tenant_counters")
+}
+
+enum CustomerType {
+  PERSON
+  COMPANY
+}
+
+enum CustomerTier {
+  THUONG
+  BAC
+  VANG
+  KIM_CUONG
+}
+
+/// Nguồn khách theo danh mục đang dùng ở AppSheet của PLG
+enum CustomerSource {
+  ZALO
+  FACEBOOK
+  TIKTOK
+  GIOI_THIEU
+  KHACH_CU
+  VANG_LAI
+  WEBSITE
+  CUOC_GOI
+  GARA
+  CHAM_SOC_XE
+  DAI_LY
+  SAN_CARDIY
+  KHAC
+}
+
+model Customer {
+  id               String         @id @default(uuid()) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  code             String
+  type             CustomerType   @default(PERSON)
+  name             String
+  /// Số điện thoại chuẩn hoá 0xxxxxxxxx, không trùng trong một tenant.
+  /// Có thể trống (khách vãng lai): khi đó nhận diện theo biển số xe.
+  phone            String?
+  phone2           String?
+  email            String?
+  address          String?
+  taxCode          String?        @map("tax_code")
+  representative   String?
+  /// Chi nhánh phục vụ đầu tiên (khách dùng chung mọi chi nhánh)
+  branchId         String?        @map("branch_id") @db.Uuid
+  birthday         DateTime?      @db.Date
+  tier             CustomerTier   @default(THUONG)
+  source           CustomerSource @default(VANG_LAI)
+  note             String?
+  /// Khách đồng ý nhận tin chăm sóc / khuyến mại (Nghị định 13/2023)
+  marketingConsent Boolean        @default(false) @map("marketing_consent")
+  /// Công nợ ban đầu khi chuyển từ hệ thống cũ (VND)
+  openingDebt      BigInt         @default(0) @map("opening_debt")
+  importBatchId    String?        @map("import_batch_id") @db.Uuid
+  searchText       String         @default("") @map("search_text")
+  createdBy        String?        @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
+
+  ownerships VehicleOwnership[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, phone])
+  @@index([tenantId, searchText])
+  @@map("customers")
+}
+
+model Vehicle {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  /// Biển số chuẩn hoá (30A12345), không trùng trong một tenant
+  plateNo            String    @map("plate_no")
+  vin                String?
+  make               String?
+  model              String?
+  year               Int?
+  color              String?
+  fuel               String?
+  transmission       String?
+  tireSize           String?   @map("tire_size")
+  /// false: biển số chưa đúng mẫu (thiếu số…), cần xem lại
+  plateValid         Boolean   @default(true) @map("plate_valid")
+  importBatchId      String?   @map("import_batch_id") @db.Uuid
+  odometerKm         Int?      @map("odometer_km")
+  registrationExpiry DateTime? @map("registration_expiry") @db.Date
+  insuranceExpiry    DateTime? @map("insurance_expiry") @db.Date
+  note               String?
+  searchText         String    @default("") @map("search_text")
+  createdBy          String?   @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  ownerships VehicleOwnership[]
+  odometers  OdometerReading[]
+
+  @@unique([tenantId, plateNo])
+  @@index([tenantId, searchText])
+  @@map("vehicles")
+}
+
+/// Lịch sử chủ xe. toDate = null: chủ hiện tại (mỗi xe tối đa 1).
+model VehicleOwnership {
+  id         String    @id @default(uuid()) @db.Uuid
+  vehicleId  String    @map("vehicle_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  fromDate   DateTime  @default(now()) @map("from_date")
+  toDate     DateTime? @map("to_date")
+
+  vehicle  Vehicle  @relation(fields: [vehicleId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([vehicleId])
+  @@index([customerId])
+  @@map("vehicle_ownerships")
+}
+
+model OdometerReading {
+  id        String   @id @default(uuid()) @db.Uuid
+  vehicleId String   @map("vehicle_id") @db.Uuid
+  km        Int
+  /// MANUAL: nhập tay · IMPORT: nhập file · RO: lúc tiếp nhận xe (vòng 1.2)
+  source    String   @default("MANUAL")
+  recordedBy String? @map("recorded_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId, createdAt])
+  @@map("odometer_readings")
+}
+
+enum ImportKind {
+  CUSTOMERS
+  VEHICLES
+}
+
+enum ImportStatus {
+  PREVIEW
+  DONE
+}
+
+/// Một lần nhập dữ liệu (xem trước → xác nhận). plan: kết quả phân tích, xoá sau khi nhập xong.
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  kind        ImportKind
+  status      ImportStatus @default(PREVIEW)
+  fileName    String       @map("file_name")
+  encoding    String
+  summary     Json
+  issues      Json
+  plan        Json?
+  createdBy   String       @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  committedAt DateTime?    @map("committed_at")
+
+  @@index([tenantId, createdAt])
+  @@map("import_batches")
+}

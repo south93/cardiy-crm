@@ -83,8 +83,8 @@ export const NAV: NavGroup[] = [
   {
     label: 'Đối tác',
     items: [
-      { href: '/khach-hang', label: 'Khách hàng', icon: Users, screen: 'A3.30', round: '1.1', tone: 'mint', permission: 'customer.view' },
-      { href: '/xe', label: 'Xe', icon: Car, screen: 'A3.32', round: '1.1', tone: 'sky', permission: 'vehicle.view' },
+      { href: '/khach-hang', label: 'Khách hàng', icon: Users, screen: 'A3.30', round: '1.1', tone: 'mint', permission: 'customer.view', built: true },
+      { href: '/xe', label: 'Xe', icon: Car, screen: 'A3.32', round: '1.1', tone: 'sky', permission: 'vehicle.view', built: true },
       { href: '/nha-cung-cap', label: 'Nhà cung cấp', icon: Truck, screen: 'A3.24', round: '1.4', tone: 'peach', permission: 'purchase.manage' },
     ],
   },
@@ -160,6 +160,11 @@ export const NAV_ITEMS: NavItem[] = NAV.flatMap((g) => g.items);
 
 export function findNavItem(pathname: string): NavItem | undefined {
   return NAV_ITEMS.find((i) => i.href === pathname);
+}
+
+/** Mục menu chứa trang này (VD /khach-hang/abc thuộc mục Khách hàng). */
+export function sectionOf(pathname: string): NavItem | undefined {
+  return findNavItem(pathname) ?? NAV_ITEMS.filter((i) => i.href !== '/' && pathname.startsWith(i.href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
 }
 
 /** Mục menu người dùng được thấy, theo quyền và không gian làm việc (garage PLG / đối tác / sàn). */

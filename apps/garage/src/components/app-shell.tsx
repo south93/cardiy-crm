@@ -1,12 +1,13 @@
 'use client';
 
 import { cn, Spinner } from '@cardiy/ui';
-import { Bell, ChevronsUpDown, KeyRound, LogOut, MapPin, Menu, PanelLeftClose, Repeat, Search, ShieldCheck } from 'lucide-react';
+import { Bell, ChevronsUpDown, KeyRound, LogOut, MapPin, Menu, PanelLeftClose, Repeat, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
-import { findNavItem, homeFor, visibleNav } from '@/lib/nav';
+import { QuickSearch } from '@/components/quick-search';
+import { homeFor, sectionOf, visibleNav } from '@/lib/nav';
 
 const SIDEBAR_KEY = 'cardiy.sidebar';
 const BRANCH_KEY = 'cardiy.branch';
@@ -86,8 +87,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const workspace = me.workspace.tenantType;
   const nav = visibleNav(me.permissions, workspace);
-  const item = findNavItem(pathname);
-  const title = item?.label ?? (pathname === '/bao-mat' ? 'Tài khoản & bảo mật' : 'Booking Cardiy');
+  const item = sectionOf(pathname);
+  const SUB_TITLES: Record<string, string> = { '/bao-mat': 'Tài khoản & bảo mật', '/khach-hang/nhap': 'Nhập dữ liệu từ AppSheet' };
+  const title = SUB_TITLES[pathname] ?? item?.label ?? 'Booking Cardiy';
 
   const toggleCollapsed = () =>
     setCollapsed((c) => {
@@ -133,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </>
               )}
               {group.items.map((it) => {
-                const active = it.href === pathname;
+                const active = it.href === item?.href;
                 const Icon = it.icon;
                 return (
                   <Link
@@ -184,10 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {title}
           </h1>
           <div className="flex-1" />
-          <div className="relative hidden w-64 xl:block">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input className="w-full rounded-full bg-white/80 py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-brand-200" placeholder="Biển số, SĐT, mã đơn…" aria-label="Tìm kiếm" />
-          </div>
+          <QuickSearch />
           <button type="button" className="hidden h-10 w-10 place-items-center rounded-full bg-white/80 sm:grid" aria-label="Thông báo">
             <Bell className="h-[18px] w-[18px] text-slate-600" />
           </button>
