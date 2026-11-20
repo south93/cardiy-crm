@@ -76,8 +76,8 @@ export const NAV: NavGroup[] = [
   {
     label: 'Kho hàng',
     items: [
-      { href: '/danh-muc', label: 'Danh mục sản phẩm', icon: Boxes, screen: 'A3.20', round: '1.4', tone: 'lav', permission: 'inventory.view' },
-      { href: '/ton-kho', label: 'Tồn kho chi nhánh', icon: Warehouse, screen: 'A3.21', round: '1.4', tone: 'sky', permission: 'inventory.view' },
+      { href: '/danh-muc', label: 'Danh mục sản phẩm', icon: Boxes, screen: 'A3.20', round: '1.4', tone: 'lav', permission: 'inventory.view', built: true },
+      { href: '/ton-kho', label: 'Tồn kho chi nhánh', icon: Warehouse, screen: 'A3.21', round: '1.4', tone: 'sky', permission: 'inventory.view', built: true },
     ],
   },
   {
@@ -85,7 +85,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/khach-hang', label: 'Khách hàng', icon: Users, screen: 'A3.30', round: '1.1', tone: 'mint', permission: 'customer.view', built: true },
       { href: '/xe', label: 'Xe', icon: Car, screen: 'A3.32', round: '1.1', tone: 'sky', permission: 'vehicle.view', built: true },
-      { href: '/nha-cung-cap', label: 'Nhà cung cấp', icon: Truck, screen: 'A3.24', round: '1.4', tone: 'peach', permission: 'purchase.manage' },
+      { href: '/nha-cung-cap', label: 'Nhà cung cấp', icon: Truck, screen: 'A3.24', round: '1.4', tone: 'peach', permission: 'purchase.manage', built: true },
     ],
   },
   {
