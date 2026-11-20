@@ -24,6 +24,7 @@ test.describe('Đơn hàng', () => {
 
     await page.getByLabel('Số km lúc nhận xe').fill('45000');
     await page.getByLabel('Khách yêu cầu / tình trạng xe').fill('Bảo dưỡng, thay lốp');
+    await page.getByLabel('Ghi chú', { exact: true }).fill('Mai khách lấy');
     await page.getByLabel('Tên hạng mục dòng 1').fill('Bảo dưỡng định kỳ');
     await page.getByLabel('Đơn giá dòng 1').fill('450000');
     await page.getByRole('button', { name: 'Thêm phụ tùng' }).click();
@@ -38,6 +39,7 @@ test.describe('Đơn hàng', () => {
     await expect(page.getByTestId('order-status')).toHaveText('Tiếp nhận');
     await expect(page.getByTestId('order-total')).toHaveText('6.650.000 đ');
     await expect(page.getByTestId('page-title')).toHaveText('Đơn đang xử lý');
+    await expect(page.getByLabel('Ghi chú đơn')).toHaveValue('Mai khách lấy');
 
     // Thu một phần
     await page.getByTestId('collect').click();
@@ -100,5 +102,27 @@ test.describe('Đơn hàng', () => {
     await page.getByTestId('to-DANG_SUA').click();
     await expect(page.getByTestId('order-status')).toHaveText('Đang sửa');
     await expect(page.getByTestId('to-DA_GIAO')).toHaveCount(0);
+  });
+
+  test('danh sách đơn lọc theo chi nhánh đang làm việc; chọn "Tất cả chi nhánh" thì thấy hết', async ({ page, request }) => {
+    const api = process.env.API_URL ?? 'http://localhost:4000';
+    const token = (await (await request.post(`${api}/api/auth/login`, { data: { phone: PHONES.owner, password: 'Cardiy2026' } })).json()).accessToken as string;
+    const h = { Authorization: `Bearer ${token}` };
+    const branches = await (await request.get(`${api}/api/branches`, { headers: h })).json();
+    const cn2 = branches.find((b: { code: string }) => b.code === 'CN2');
+    const plate = randomPlate();
+    const c = await (await request.post(`${api}/api/customers`, { headers: h, data: { name: 'Khách Chi Nhánh Hai', phone: randomPhone(), vehicle: { plate } } })).json();
+    const cd = await (await request.get(`${api}/api/customers/${c.id}`, { headers: h })).json();
+    await request.post(`${api}/api/orders`, { headers: h, data: { branchId: cn2.id, customerId: c.id, vehicleId: cd.vehicles[0].id } });
+
+    await loginUI(page, PHONES.owner);
+    await page.getByTestId('branch-select').selectOption({ label: branches.find((b: { code: string }) => b.code === 'CN1').name });
+    await page.goto('/don-dang-xu-ly');
+    await page.getByLabel('Tìm đơn').fill(plate);
+    await expect(page.getByTestId('order-table')).toContainText('Không có đơn khớp');
+    await page.getByLabel('Lọc chi nhánh').selectOption({ label: 'Tất cả chi nhánh' });
+    await expect(page.getByTestId('order-row')).toHaveCount(1);
+    await page.getByLabel('Lọc chi nhánh').selectOption({ label: cn2.name });
+    await expect(page.getByTestId('order-row')).toHaveCount(1);
   });
 });

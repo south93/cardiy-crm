@@ -113,11 +113,12 @@ export class OrdersService {
           ? { status: { in: ['DA_GIAO', 'HUY'] } }
           : {};
     const text = q.q?.trim();
+    if (q.branchId && !AccessService.canAccessBranch(a, q.branchId)) throw new ForbiddenException('Bạn không làm việc ở chi nhánh này');
     const where: Prisma.RepairOrderWhereInput = {
       tenantId: a.tenantId,
-      ...this.branchWhere(a),
+      // Lọc chi nhánh đã kiểm tra quyền ở trên; không có thì giới hạn theo phạm vi người dùng
+      ...(q.branchId ? { branchId: q.branchId } : this.branchWhere(a)),
       ...statusFilter,
-      ...(q.branchId ? { branchId: q.branchId } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
       ...(q.vehicleId ? { vehicleId: q.vehicleId } : {}),
       ...(text
@@ -210,6 +211,7 @@ export class OrdersService {
       request: o.request,
       note: o.note,
       advisor: o.advisorId ? (people.members.get(o.advisorId) ?? null) : null,
+      createdBy: o.createdBy ? (people.users.get(o.createdBy) ?? null) : null,
       technician: o.technicianId ? (people.members.get(o.technicianId) ?? null) : null,
       receivedAt: o.receivedAt,
       promisedAt: o.promisedAt,
@@ -251,9 +253,9 @@ export class OrdersService {
     };
   }
 
-  private async staffNamesByUserOrMembership(o: { advisorId: string | null; technicianId: string | null; payments: { createdBy: string | null }[]; history: { actorId: string | null }[] }) {
+  private async staffNamesByUserOrMembership(o: { advisorId: string | null; technicianId: string | null; createdBy: string | null; payments: { createdBy: string | null }[]; history: { actorId: string | null }[] }) {
     const members = await this.staffNames([o.advisorId, o.technicianId].filter((x): x is string => !!x));
-    const userIds = [...new Set([...o.payments.map((p) => p.createdBy), ...o.history.map((h) => h.actorId)].filter((x): x is string => !!x))];
+    const userIds = [...new Set([o.createdBy, ...o.payments.map((p) => p.createdBy), ...o.history.map((h) => h.actorId)].filter((x): x is string => !!x))];
     const users = new Map((await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } })).map((u) => [u.id, u.fullName]));
     return { members, users };
   }

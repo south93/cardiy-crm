@@ -24,6 +24,7 @@ interface Order {
   request: string | null;
   note: string | null;
   advisor: { id: string; name: string } | null;
+  createdBy: string | null;
   technician: { id: string; name: string } | null;
   receivedAt: string;
   promisedAt: string | null;
@@ -139,7 +140,7 @@ function OrderDetail() {
           </div>
           <div className="mt-1 text-sm text-slate-500">
             {o.branch.name} · Nhận xe {fmtDateTime(o.receivedAt)}
-            {o.advisor && ` · Phụ trách: ${o.advisor.name}`}
+            {o.createdBy && ` · Người tạo: ${o.createdBy}`}
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
             <Link href={`/khach-hang/${o.customer.id}`} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 hover:bg-slate-100">
@@ -245,17 +246,17 @@ function OrderDetail() {
                 {seesMoney && (
                   <dl className="ml-auto mt-3 w-full max-w-xs space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Tiền hàng</dt>
+                      <dt className="text-slate-500">Tổng tiền</dt>
                       <dd className="tabular-nums">{fmtMoney(o.subtotal ?? 0)}</dd>
                     </div>
                     {!!o.orderDiscount && (
                       <div className="flex justify-between">
-                        <dt className="text-slate-500">Giảm giá đơn</dt>
+                        <dt className="text-slate-500">Chiết khấu</dt>
                         <dd className="tabular-nums text-mint-700">−{fmtMoney(o.orderDiscount)}</dd>
                       </div>
                     )}
                     <div className="flex justify-between border-t border-slate-100 pt-1.5 text-base font-semibold">
-                      <dt>Tổng cộng</dt>
+                      <dt>Tổng sau CK</dt>
                       <dd className="tabular-nums" data-testid="order-total">
                         {fmtMoney(o.total ?? 0)}
                       </dd>
@@ -299,6 +300,25 @@ function OrderDetail() {
                 <dt className="text-xs text-slate-500">Hẹn giao</dt>
                 <dd>{fmtDateTime(o.promisedAt)}</dd>
               </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-slate-500">Ghi chú</dt>
+                <dd>
+                  {canEdit ? (
+                    <Input
+                      key={o.note ?? ''}
+                      aria-label="Ghi chú đơn"
+                      className="mt-1"
+                      defaultValue={o.note ?? ''}
+                      placeholder="VD: Mai khách lấy"
+                      onBlur={(e) => {
+                        if (e.target.value.trim() !== (o.note ?? '')) void run(() => api(`/orders/${o.id}`, { method: 'PATCH', body: { note: e.target.value } }), 'Không lưu được ghi chú');
+                      }}
+                    />
+                  ) : (
+                    <span className="whitespace-pre-line">{o.note ?? '—'}</span>
+                  )}
+                </dd>
+              </div>
             </dl>
           </Card>
         </div>
@@ -323,11 +343,11 @@ function OrderDetail() {
               </div>
               <dl className="mt-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Tổng cộng</dt>
+                  <dt className="text-slate-500">Tổng sau CK</dt>
                   <dd className="tabular-nums">{fmtMoney(o.total ?? 0)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Đã thu</dt>
+                  <dt className="text-slate-500">Đã thanh toán</dt>
                   <dd className="tabular-nums text-mint-700" data-testid="paid">
                     {fmtMoney(o.paid ?? 0)}
                   </dd>

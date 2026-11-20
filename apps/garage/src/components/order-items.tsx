@@ -100,17 +100,17 @@ export function OrderItemsEditor({
         </div>
         <dl className="w-full max-w-xs space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <dt className="text-slate-500">Tiền hàng</dt>
+            <dt className="text-slate-500">Tổng tiền</dt>
             <dd className="tabular-nums">{fmtMoney(subtotal)}</dd>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500">Giảm giá đơn</dt>
+            <dt className="text-slate-500">Chiết khấu</dt>
             <dd>
-              <input aria-label="Giảm giá đơn" inputMode="numeric" className={`${cell} w-32 text-right ${discount > subtotal ? 'border-rose-400' : ''}`} value={orderDiscount} onChange={(e) => onDiscountChange(moneyInput(parseMoney(e.target.value)))} />
+              <input aria-label="Chiết khấu" inputMode="numeric" className={`${cell} w-32 text-right ${discount > subtotal ? 'border-rose-400' : ''}`} value={orderDiscount} onChange={(e) => onDiscountChange(moneyInput(parseMoney(e.target.value)))} />
             </dd>
           </div>
           <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-semibold">
-            <dt>Tổng cộng</dt>
+            <dt>Tổng sau CK</dt>
             <dd className="tabular-nums" data-testid="draft-total">
               {fmtMoney(Math.max(0, subtotal - discount))}
             </dd>

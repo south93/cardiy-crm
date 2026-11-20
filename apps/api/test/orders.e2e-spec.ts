@@ -150,6 +150,13 @@ describe('Đơn hàng', () => {
     expect(done.body.total).toBe(0);
     const byVehicle = await request(http).get('/api/orders').query({ vehicleId }).set(bearer(owner)).expect(200);
     expect(byVehicle.body.total).toBe(1);
+
+    // Lọc theo chi nhánh: chủ garage lọc được từng chi nhánh; quản lý CN2 không lọc được CN1
+    const onlyCn2 = await request(http).get('/api/orders').query({ branchId: cn2, pageSize: 100 }).set(bearer(owner)).expect(200);
+    expect(onlyCn2.body.items.every((i: { branch: { id: string } }) => i.branch.id === cn2)).toBe(true);
+    await request(http).get('/api/orders').query({ branchId: cn1 }).set(bearer(managerCn2)).expect(403);
+    const mine = await request(http).get('/api/orders').query({ pageSize: 100 }).set(bearer(managerCn2)).expect(200);
+    expect(mine.body.items.every((i: { branch: { id: string } }) => i.branch.id === cn2)).toBe(true);
   });
 
   it('đối tác không truy cập được đơn của PLG', async () => {
