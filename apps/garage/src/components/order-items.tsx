@@ -2,6 +2,8 @@
 
 import { Button } from '@cardiy/ui';
 import { Package, Trash2, Wrench } from 'lucide-react';
+import { ProductPicker } from '@/components/product-picker';
+import { useAuth } from '@/lib/auth';
 import { fmtMoney } from '@/lib/crm';
 import { draftAmount, KINDS, moneyInput, newItem, parseMoney, parseQty, type ItemDraft } from '@/lib/orders';
 
@@ -13,18 +15,39 @@ export function OrderItemsEditor({
   onChange,
   orderDiscount,
   onDiscountChange,
+  make,
+  branchId,
 }: {
   rows: ItemDraft[];
   onChange: (rows: ItemDraft[]) => void;
   orderDiscount: string;
   onDiscountChange: (v: string) => void;
+  /** Hãng xe của đơn: gợi ý sản phẩm hợp xe */
+  make?: string | null;
+  branchId?: string;
 }) {
+  const { can } = useAuth();
   const set = (key: string, patch: Partial<ItemDraft>) => onChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const subtotal = rows.reduce((s, r) => s + draftAmount(r), 0);
   const discount = parseMoney(orderDiscount);
 
   return (
     <div className="space-y-3" data-testid="items-editor">
+      {can('inventory.view') && (
+        <div className="max-w-xl">
+          <ProductPicker
+            label="Thêm từ danh mục"
+            placeholder={make ? `Thêm từ danh mục (gợi ý hàng cho ${make})…` : 'Thêm từ danh mục: gõ mã hoặc tên sản phẩm, dịch vụ…'}
+            make={make}
+            branchId={branchId}
+            onPick={(p) => {
+              // Bỏ dòng trống mặc định nếu chưa gõ gì
+              const kept = rows.filter((r) => r.name.trim() || r.unitPrice);
+              onChange([...kept, { ...newItem(p.kind), productId: p.id, code: p.code, name: p.name, unit: p.unit ?? '', unitPrice: moneyInput(p.salePrice) }]);
+            }}
+          />
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
@@ -54,6 +77,7 @@ export function OrderItemsEditor({
                     </select>
                   </td>
                   <td className="py-1 pr-2">
+                    {r.code && <div className="mb-0.5 font-mono text-[11px] text-brand-600">{r.code}</div>}
                     <input aria-label={`Tên hạng mục dòng ${i + 1}`} className={cell} value={r.name} placeholder={r.kind === 'DICH_VU' ? 'VD: Thay dầu máy' : 'VD: Lốp Michelin 215/55R17'} onChange={(e) => set(r.key, { name: e.target.value })} />
                   </td>
                   <td className="py-1 pr-2">

@@ -61,6 +61,9 @@ export interface OrderList {
 /** Dòng hạng mục trong form: giữ số dạng chuỗi để gõ thoải mái */
 export interface ItemDraft {
   key: string;
+  /** Chọn từ danh mục (giao xe sẽ trừ kho); trống = nhập tay */
+  productId?: string | null;
+  code?: string | null;
   kind: ItemKind;
   name: string;
   unit: string;
@@ -92,7 +95,7 @@ export function draftAmount(d: ItemDraft): number {
 export function draftsToPayload(rows: ItemDraft[]) {
   return rows
     .filter((r) => r.name.trim())
-    .map((r) => ({ kind: r.kind, name: r.name.trim(), unit: r.unit.trim() || null, quantity: r.quantity.trim().replace(',', '.'), unitPrice: parseMoney(r.unitPrice), discount: parseMoney(r.discount) }));
+    .map((r) => ({ kind: r.kind, productId: r.productId ?? null, name: r.name.trim(), unit: r.unit.trim() || null, quantity: r.quantity.trim().replace(',', '.'), unitPrice: parseMoney(r.unitPrice), discount: parseMoney(r.discount) }));
 }
 
 export function fmtDateTime(d: string | null | undefined): string {

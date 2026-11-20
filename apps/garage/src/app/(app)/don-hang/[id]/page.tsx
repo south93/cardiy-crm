@@ -32,7 +32,7 @@ interface Order {
   deliveredAt: string | null;
   cancelReason: string | null;
   editable: boolean;
-  items: { id: string; kind: ItemKind; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null }[];
+  items: { id: string; kind: ItemKind; productId: string | null; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null }[];
   subtotal: number | null;
   orderDiscount: number | null;
   total: number | null;
@@ -108,7 +108,7 @@ function OrderDetail() {
   };
 
   const startEdit = () => {
-    setRows(o.items.map((i) => ({ key: i.id, kind: i.kind, name: i.name, unit: i.unit ?? '', quantity: i.quantity.replace(/\.0+$/, ''), unitPrice: moneyInput(i.unitPrice ?? 0), discount: moneyInput(i.discount ?? 0) })));
+    setRows(o.items.map((i) => ({ key: i.id, productId: i.productId, kind: i.kind, name: i.name, unit: i.unit ?? '', quantity: i.quantity.replace(/\.0+$/, ''), unitPrice: moneyInput(i.unitPrice ?? 0), discount: moneyInput(i.discount ?? 0) })));
     setDiscount(moneyInput(o.orderDiscount ?? 0));
     setEditing(true);
   };
@@ -207,7 +207,7 @@ function OrderDetail() {
             </div>
             {editing ? (
               <div className="mt-3 space-y-3">
-                <OrderItemsEditor rows={rows} onChange={setRows} orderDiscount={discount} onDiscountChange={setDiscount} />
+                <OrderItemsEditor rows={rows} onChange={setRows} orderDiscount={discount} onDiscountChange={setDiscount} make={o.vehicle?.make} branchId={o.branch.id} />
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setEditing(false)}>
                     Huỷ

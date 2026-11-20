@@ -287,7 +287,7 @@ function NewOrder() {
         <Card className="p-4 lg:p-5">
           <CardTitle>Hạng mục</CardTitle>
           <div className="mt-3">
-            <OrderItemsEditor rows={rows} onChange={setRows} orderDiscount={discount} onDiscountChange={setDiscount} />
+            <OrderItemsEditor rows={rows} onChange={setRows} orderDiscount={discount} onDiscountChange={setDiscount} make={vehicle?.make} branchId={branchId || undefined} />
           </div>
         </Card>
 
