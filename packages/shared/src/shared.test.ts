@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { PERMISSION_CODES, PERMISSIONS, SYSTEM_ROLES, checkPasswordPolicy, normalizeVnPhone } from './index';
+import { PERMISSION_CODES, PERMISSIONS, SYSTEM_ROLES, checkPasswordPolicy, moneyToWords, normalizeVnPhone } from './index';
 
 test('mã quyền không trùng nhau', () => {
   assert.equal(new Set(PERMISSION_CODES).size, PERMISSION_CODES.length);
@@ -90,4 +90,16 @@ test('tìm kiếm không dấu', async () => {
   const { searchKey, removeDiacritics } = await import('./text');
   assert.equal(removeDiacritics('Nguyễn Văn Đức'), 'Nguyen Van Duc');
   assert.equal(searchKey('Trần  Thị Bình', '0912345678'), 'tran thi binh 0912345678');
+});
+
+test('đọc số tiền thành chữ', () => {
+  assert.equal(moneyToWords(0), 'Không đồng');
+  assert.equal(moneyToWords(5_650_000), 'Năm triệu sáu trăm năm mươi nghìn đồng');
+  assert.equal(moneyToWords(1_000_005), 'Một triệu không trăm lẻ năm đồng');
+  assert.equal(moneyToWords(21_015), 'Hai mươi mốt nghìn không trăm mười lăm đồng');
+  assert.equal(moneyToWords(124_500), 'Một trăm hai mươi tư nghìn năm trăm đồng');
+  assert.equal(moneyToWords(105), 'Một trăm lẻ năm đồng');
+  assert.equal(moneyToWords(2_000_000_000), 'Hai tỷ đồng');
+  assert.equal(moneyToWords(1_200_000_000_000), 'Một nghìn tỷ hai trăm tỷ đồng');
+  assert.throws(() => moneyToWords(-1));
 });

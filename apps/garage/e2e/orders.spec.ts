@@ -125,4 +125,46 @@ test.describe('Đơn hàng', () => {
     await page.getByLabel('Lọc chi nhánh').selectOption({ label: cn2.name });
     await expect(page.getByTestId('order-row')).toHaveCount(1);
   });
+
+  test('in phiếu: cài tài khoản nhận tiền → hoá đơn có VietQR, số tiền bằng chữ; KTV chỉ in phiếu tiếp nhận', async ({ page, request }) => {
+    await loginUI(page, PHONES.owner);
+    await page.goto('/cai-dat');
+    await page.getByRole('tab', { name: 'Mẫu in & thanh toán' }).click();
+    await page.getByLabel('Ngân hàng').selectOption({ label: 'Vietcombank' });
+    await page.getByLabel('Số tài khoản').fill('0123456789');
+    await page.getByLabel('Chủ tài khoản').fill('GARAGE DEMO');
+    await page.getByTestId('save-print-settings').click();
+    await expect(page.getByText('Đã lưu')).toBeVisible();
+
+    const api = process.env.API_URL ?? 'http://localhost:4000';
+    const token = (await (await request.post(`${api}/api/auth/login`, { data: { phone: PHONES.sales, password: 'Cardiy2026' } })).json()).accessToken as string;
+    const h = { Authorization: `Bearer ${token}` };
+    const branches = await (await request.get(`${api}/api/branches`, { headers: h })).json();
+    const cn1 = branches.find((b: { code: string }) => b.code === 'CN1').id;
+    const c = await (await request.post(`${api}/api/customers`, { headers: h, data: { name: 'Khách In Phiếu', phone: randomPhone(), vehicle: { plate: randomPlate() } } })).json();
+    const cd = await (await request.get(`${api}/api/customers/${c.id}`, { headers: h })).json();
+    const o = await (await request.post(`${api}/api/orders`, { headers: h, data: { branchId: cn1, customerId: c.id, vehicleId: cd.vehicles[0].id, items: [{ kind: 'PHU_TUNG', name: 'Ắc quy GS 60Ah', quantity: 1, unitPrice: 1850000 }] } })).json();
+
+    await page.goto(`/don-hang/${o.id}`);
+    await expect(page.getByTestId('print-hoa-don')).toHaveAttribute('href', `/in/hoa-don/${o.id}`);
+    await page.goto(`/in/hoa-don/${o.id}`);
+    await expect(page.getByTestId('print-title')).toHaveText('HOÁ ĐƠN BÁN HÀNG');
+    await expect(page.getByTestId('print-code')).toHaveText(o.code);
+    await expect(page.getByTestId('print-words')).toContainText('Một triệu tám trăm năm mươi nghìn đồng');
+    await expect(page.getByTestId('print-qr')).toContainText('Vietcombank');
+    await expect(page.getByTestId('print-qr')).toContainText('1.850.000 đ');
+    await page.getByRole('link', { name: 'Báo giá' }).click();
+    await expect(page.getByTestId('print-title')).toHaveText('BẢNG BÁO GIÁ SỬA CHỮA');
+    await expect(page.getByTestId('print-code')).toHaveText(`BG-${o.code}`);
+    await expect(page.getByTestId('print-qr')).toHaveCount(0);
+
+    // KTV: chỉ phiếu tiếp nhận, không có giá
+    await page.context().clearCookies();
+    await loginUI(page, PHONES.tech);
+    await page.goto(`/in/tiep-nhan/${o.id}`);
+    await expect(page.getByTestId('print-title')).toHaveText('PHIẾU TIẾP NHẬN XE');
+    await expect(page.getByTestId('print-items')).toContainText('Ắc quy GS 60Ah');
+    await expect(page.getByTestId('print-items')).not.toContainText('1.850.000');
+    await expect(page.getByRole('link', { name: 'Hoá đơn' })).toHaveCount(0);
+  });
 });

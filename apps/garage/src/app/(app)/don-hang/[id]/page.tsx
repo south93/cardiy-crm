@@ -2,7 +2,7 @@
 
 import type { PermissionCode } from '@cardiy/shared';
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner } from '@cardiy/ui';
-import { Ban, Car, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
+import { Ban, Car, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -167,6 +167,20 @@ function OrderDetail() {
               {a.label}
             </Button>
           ))}
+          <div className="flex gap-1 rounded-full bg-slate-50 p-1" aria-label="In phiếu">
+            {[
+              { form: 'tiep-nhan', label: 'Phiếu tiếp nhận', money: false },
+              { form: 'bao-gia', label: 'Báo giá', money: true },
+              { form: 'hoa-don', label: 'Hoá đơn', money: true },
+            ]
+              .filter((f) => !f.money || seesMoney)
+              .map((f) => (
+                <a key={f.form} href={`/in/${f.form}/${o.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-slate-700 hover:bg-white" data-testid={`print-${f.form}`}>
+                  <Printer className="h-3.5 w-3.5" />
+                  {f.label}
+                </a>
+              ))}
+          </div>
           {o.editable && can('ro.approve') && (
             <Button variant="outline" onClick={() => setCancelOpen(true)} data-testid="cancel-order">
               <Ban className="h-4 w-4" />

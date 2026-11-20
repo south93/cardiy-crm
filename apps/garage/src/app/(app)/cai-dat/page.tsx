@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Spinner, Tabs } from '@cardiy/ui';
+import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { RequirePermission } from '@/components/require-permission';
@@ -8,7 +8,118 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
-type Tab = 'chi-nhanh' | 'vai-tro' | 'nhat-ky';
+type Tab = 'chi-nhanh' | 'mau-in' | 'vai-tro' | 'nhat-ky';
+
+// ---------------- Mẫu in & thanh toán ----------------
+interface PrintSettings {
+  displayName: string;
+  hotline: string;
+  email: string;
+  website: string;
+  bankBin: string;
+  accountNo: string;
+  accountName: string;
+  quoteValidDays: number;
+  receiveTerms: string;
+  quoteNote: string;
+  invoiceNote: string;
+}
+const PRINT_KEYS: (keyof PrintSettings)[] = ['displayName', 'hotline', 'email', 'website', 'bankBin', 'accountNo', 'accountName', 'quoteValidDays', 'receiveTerms', 'quoteNote', 'invoiceNote'];
+const area = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
+
+function PrintSettingsTab() {
+  const [v, setV] = useState<PrintSettings | null>(null);
+  const [banks, setBanks] = useState<{ bin: string; name: string }[]>([]);
+  const [tenantName, setTenantName] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api<PrintSettings & { banks: { bin: string; name: string }[]; tenantName: string }>('/print-settings').then((r) => {
+      setBanks(r.banks);
+      setTenantName(r.tenantName);
+      setV(Object.fromEntries(PRINT_KEYS.map((k) => [k, r[k]])) as unknown as PrintSettings);
+    });
+  }, []);
+  if (!v) return <Spinner className="text-brand-600" />;
+  const set = (k: keyof PrintSettings) => (e: { target: { value: string } }) => setV({ ...v, [k]: k === 'quoteValidDays' ? Number(e.target.value) : e.target.value });
+  const custom = v.bankBin !== '' && !banks.some((b) => b.bin === v.bankBin);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api('/print-settings', { method: 'PUT', body: v });
+      setMsg({ ok: true, text: 'Đã lưu. Phiếu in từ giờ dùng thông tin này.' });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="grid gap-4 xl:grid-cols-2" data-testid="print-settings">
+      <Card className="grid gap-4 p-5 sm:grid-cols-2">
+        <h3 className="font-semibold sm:col-span-2">Thông tin in trên phiếu</h3>
+        <Field label="Tên hiển thị trên phiếu" hint={`Để trống thì dùng "${tenantName}"`} className="sm:col-span-2">
+          {(id) => <Input id={id} value={v.displayName} onChange={set('displayName')} />}
+        </Field>
+        <Field label="Hotline">{(id) => <Input id={id} value={v.hotline} onChange={set('hotline')} />}</Field>
+        <Field label="Email">{(id) => <Input id={id} value={v.email} onChange={set('email')} />}</Field>
+        <Field label="Website / Fanpage" className="sm:col-span-2">
+          {(id) => <Input id={id} value={v.website} onChange={set('website')} />}
+        </Field>
+        <p className="text-xs text-slate-500 sm:col-span-2">Địa chỉ và số điện thoại lấy theo chi nhánh của đơn (sửa ở tab Chi nhánh).</p>
+      </Card>
+      <Card className="grid gap-4 p-5 sm:grid-cols-2">
+        <h3 className="font-semibold sm:col-span-2">Tài khoản nhận chuyển khoản (VietQR trên hoá đơn)</h3>
+        <Field label="Ngân hàng">
+          {(id) => (
+            <Select id={id} value={custom ? 'khac' : v.bankBin} onChange={(e) => setV({ ...v, bankBin: e.target.value === 'khac' ? '000000' : e.target.value })}>
+              <option value="">— Chưa cài —</option>
+              {banks.map((b) => (
+                <option key={b.bin} value={b.bin}>
+                  {b.name}
+                </option>
+              ))}
+              <option value="khac">Ngân hàng khác (nhập mã BIN)</option>
+            </Select>
+          )}
+        </Field>
+        {custom ? (
+          <Field label="Mã BIN ngân hàng" hint="6 chữ số, xem trên trang của ngân hàng / NAPAS">
+            {(id) => <Input id={id} value={v.bankBin === '000000' ? '' : v.bankBin} onChange={(e) => setV({ ...v, bankBin: e.target.value.replace(/\D/g, '').slice(0, 6) || '000000' })} />}
+          </Field>
+        ) : (
+          <div />
+        )}
+        <Field label="Số tài khoản">{(id) => <Input id={id} value={v.accountNo} onChange={set('accountNo')} inputMode="numeric" />}</Field>
+        <Field label="Chủ tài khoản">{(id) => <Input id={id} value={v.accountName} onChange={set('accountName')} placeholder="VD: CONG TY TNHH PLG" />}</Field>
+        <p className="text-xs text-slate-500 sm:col-span-2">Khách quét mã trên hoá đơn bằng app ngân hàng: số tiền còn phải thu và nội dung (mã đơn + biển số) được điền sẵn. Tiền vào thẳng tài khoản này.</p>
+      </Card>
+      <Card className="grid gap-4 p-5 xl:col-span-2">
+        <h3 className="font-semibold">Ghi chú in cuối phiếu</h3>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Field label="Phiếu tiếp nhận">{(id) => <textarea id={id} rows={5} className={area} value={v.receiveTerms} onChange={set('receiveTerms')} />}</Field>
+          <Field label="Báo giá">{(id) => <textarea id={id} rows={5} className={area} value={v.quoteNote} onChange={set('quoteNote')} />}</Field>
+          <Field label="Hoá đơn (chính sách bảo hành)">{(id) => <textarea id={id} rows={5} className={area} value={v.invoiceNote} onChange={set('invoiceNote')} />}</Field>
+        </div>
+        <Field label="Báo giá có hiệu lực (ngày)" className="max-w-xs">
+          {(id) => <Input id={id} type="number" min={1} max={90} value={v.quoteValidDays} onChange={set('quoteValidDays')} />}
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={busy} data-testid="save-print-settings">
+            {busy && <Spinner />}
+            Lưu
+          </Button>
+          {msg && <span className={`text-sm ${msg.ok ? 'text-mint-700' : 'text-rose-600'}`}>{msg.text}</span>}
+        </div>
+      </Card>
+    </form>
+  );
+}
 
 // ---------------- Chi nhánh ----------------
 function BranchesTab() {
@@ -283,6 +394,7 @@ const ACTION_LABEL: Record<string, string> = {
   'role.deleted': 'Xoá vai trò',
   'branch.created': 'Thêm chi nhánh',
   'branch.updated': 'Sửa chi nhánh',
+  'settings.print': 'Sửa mẫu in & tài khoản nhận tiền',
   'order.created': 'Tạo đơn',
   'order.updated': 'Sửa thông tin đơn',
   'order.items': 'Sửa hạng mục đơn',
@@ -388,6 +500,7 @@ export default function SettingsPage() {
   const { can } = useAuth();
   const tabs = [
     { value: 'chi-nhanh' as const, label: 'Chi nhánh' },
+    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }] : []),
     ...(can('staff.view') ? [{ value: 'vai-tro' as const, label: 'Vai trò & quyền' }] : []),
     ...(can('audit.view') ? [{ value: 'nhat-ky' as const, label: 'Nhật ký thao tác' }] : []),
   ];
@@ -397,6 +510,7 @@ export default function SettingsPage() {
       <div className="space-y-4">
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'chi-nhanh' && <BranchesTab />}
+        {tab === 'mau-in' && <PrintSettingsTab />}
         {tab === 'vai-tro' && <RolesTab />}
         {tab === 'nhat-ky' && <AuditTab />}
       </div>

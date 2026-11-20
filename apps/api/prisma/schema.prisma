@@ -44,14 +44,16 @@ enum PermissionScope {
 }
 
 model Tenant {
-  id        String       @id @default(uuid()) @db.Uuid
-  type      TenantType   @default(GARAGE)
-  name      String
-  taxCode   String?      @unique @map("tax_code")
-  status    TenantStatus @default(NHAP)
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  deletedAt DateTime?    @map("deleted_at")
+  id            String       @id @default(uuid()) @db.Uuid
+  type          TenantType   @default(GARAGE)
+  name          String
+  taxCode       String?      @unique @map("tax_code")
+  status        TenantStatus @default(NHAP)
+  /// Thông tin in trên phiếu (tên hiển thị, hotline, tài khoản nhận tiền, ghi chú bảo hành…)
+  printSettings Json?        @map("print_settings")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
 
   branches    Branch[]
   memberships Membership[]

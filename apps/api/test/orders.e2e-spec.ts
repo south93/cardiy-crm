@@ -163,4 +163,31 @@ describe('Đơn hàng', () => {
     const partner = (await login(app, PHONES.partnerOwner)).token;
     await request(http).get('/api/orders').set(bearer(partner)).expect(403);
   });
+
+  it('in phiếu: cài đặt mẫu in; hoá đơn có VietQR số còn phải thu; KTV chỉ in được phiếu tiếp nhận', async () => {
+    const settings = { displayName: 'Garage PLG', hotline: '0900 000 000', bankBin: '970436', accountNo: '0123456789', accountName: 'GARAGE PLG', quoteValidDays: 10, invoiceNote: 'Bảo hành 3 tháng' };
+    await request(http).put('/api/print-settings').set(bearer(sales)).send(settings).expect(403);
+    await request(http).put('/api/print-settings').set(bearer(owner)).send({ ...settings, bankBin: '' }).expect(400);
+    const saved = await request(http).put('/api/print-settings').set(bearer(owner)).send(settings).expect(200);
+    expect(saved.body).toMatchObject({ displayName: 'Garage PLG', quoteValidDays: 10, invoiceNote: 'Bảo hành 3 tháng' });
+    expect(saved.body.receiveTerms).toBe(''); // trường để trống được lưu là trống
+
+    const { customerId, vehicleId } = await customerWithCar();
+    const { body } = await request(http).post('/api/orders').set(bearer(sales)).send({ branchId: cn1, customerId, vehicleId, items }).expect(201);
+    await request(http).post(`/api/orders/${body.id}/payments`).set(bearer(sales)).send({ amount: 450_000, method: 'TIEN_MAT' }).expect(201);
+
+    const inv = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'hoa-don' }).set(bearer(sales)).expect(200);
+    expect(inv.body).toMatchObject({ form: 'hoa-don', totalInWords: 'Chín trăm năm mươi nghìn đồng', dueInWords: 'Năm trăm nghìn đồng' });
+    expect(inv.body.settings).toMatchObject({ displayName: 'Garage PLG', accountNo: '0123456789' });
+    expect(inv.body.qr).toMatchObject({ amount: 500_000, bankName: 'Vietcombank' });
+    expect(inv.body.qr.note).toContain(body.code);
+    expect(inv.body.qr.dataUrl).toMatch(/^data:image\/png;base64,/);
+    const quote = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'bao-gia' }).set(bearer(sales)).expect(200);
+    expect(quote.body.qr).toBeNull();
+
+    await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'bao-gia' }).set(bearer(tech)).expect(403);
+    const recv = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'tiep-nhan' }).set(bearer(tech)).expect(200);
+    expect(recv.body.order.total).toBeNull();
+    await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'xyz' }).set(bearer(sales)).expect(400);
+  });
 });
