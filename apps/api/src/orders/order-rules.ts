@@ -53,6 +53,8 @@ export interface ItemInput {
   quantity: string | number;
   unitPrice: number;
   discount?: number;
+  /** % thuế VAT của dòng */
+  vatRate?: number;
 }
 
 /** Thành tiền một dòng = làm tròn(số lượng × đơn giá) − giảm giá dòng. */
@@ -66,10 +68,21 @@ export function lineAmount(item: ItemInput): number {
   return gross - discount;
 }
 
+/**
+ * Tổng đơn: tiền hàng (sau chiết khấu dòng) − chiết khấu đơn + VAT.
+ * VAT tính theo % từng dòng trên phần tiền sau khi đã chia đều chiết khấu đơn theo tỷ lệ.
+ */
 export function orderTotals(items: ItemInput[], orderDiscount: number) {
-  const subtotal = items.reduce((s, i) => s + lineAmount(i), 0);
+  const amounts = items.map((i) => lineAmount(i));
+  const subtotal = amounts.reduce((s, a) => s + a, 0);
   if (!Number.isSafeInteger(orderDiscount) || orderDiscount < 0 || orderDiscount > subtotal) throw new RangeError('Giảm giá đơn không được lớn hơn tổng tiền hàng');
-  return { subtotal, total: subtotal - orderDiscount };
+  const factor = subtotal ? (subtotal - orderDiscount) / subtotal : 0;
+  const vat = items.reduce((s, it, k) => {
+    const rate = it.vatRate ?? 0;
+    if (!Number.isInteger(rate) || rate < 0 || rate > 100) throw new RangeError('% thuế không hợp lệ');
+    return s + Math.round((amounts[k]! * factor * rate) / 100);
+  }, 0);
+  return { subtotal, vat, total: subtotal - orderDiscount + vat };
 }
 
 /** Trạng thái tiền của đơn, để hiển thị */

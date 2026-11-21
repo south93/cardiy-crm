@@ -6,7 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { reserveNumbers } from '../crm/counters';
 import { applyMovement } from '../inventory/stock';
 import { PrismaService } from '../prisma/prisma.service';
-import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type OrderStatus } from './order-rules';
+import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
 
 export const orderCode = (n: number) => `DH${String(n).padStart(6, '0')}`;
 
@@ -17,6 +17,8 @@ export interface OrderItemInput {
   quantity: string | number;
   unitPrice: number;
   discount?: number;
+  vatRate?: number;
+  section?: string | null;
   productId?: string | null;
 }
 
@@ -34,7 +36,7 @@ export interface OrderCreateInput {
   items?: OrderItemInput[];
 }
 
-export type OrderUpdateInput = Partial<Pick<OrderCreateInput, 'request' | 'note' | 'promisedAt' | 'advisorId' | 'technicianId' | 'orderDiscount'>>;
+export type OrderUpdateInput = Partial<Pick<OrderCreateInput, 'request' | 'note' | 'promisedAt' | 'advisorId' | 'technicianId' | 'orderDiscount'>> & { insuranceAmount?: number };
 
 export interface OrderListQuery {
   view?: 'open' | 'done' | 'all';
@@ -99,7 +101,7 @@ export class OrdersService {
     if (n !== ids.length) throw new BadRequestException('Có hạng mục chọn sản phẩm không hợp lệ');
   }
 
-  private totals(items: OrderItemInput[], orderDiscount: number) {
+  private totals(items: ItemInput[], orderDiscount: number) {
     try {
       return orderTotals(items, orderDiscount);
     } catch (e) {
@@ -189,16 +191,16 @@ export class OrdersService {
 
   private async staffNames(ids: string[]) {
     if (!ids.length) return new Map<string, { id: string; name: string }>();
-    const ms = await this.prisma.membership.findMany({ where: { id: { in: ids } }, include: { user: { select: { fullName: true } } } });
-    return new Map(ms.map((m) => [m.id, { id: m.id, name: m.user.fullName }]));
+    const ms = await this.prisma.membership.findMany({ where: { id: { in: ids } }, include: { user: { select: { fullName: true, phone: true } } } });
+    return new Map(ms.map((m) => [m.id, { id: m.id, name: m.user.fullName, phone: m.user.phone }]));
   }
 
   async get(a: Access, id: string) {
     const o = await this.prisma.repairOrder.findFirst({
       where: { id, tenantId: a.tenantId, ...this.branchWhere(a) },
       include: {
-        customer: { select: { id: true, code: true, name: true, phone: true, type: true, tier: true } },
-        vehicle: { select: { id: true, plateNo: true, make: true, model: true, year: true, odometerKm: true } },
+        customer: { select: { id: true, code: true, name: true, phone: true, type: true, tier: true, address: true, representative: true, taxCode: true } },
+        vehicle: { select: { id: true, plateNo: true, make: true, model: true, year: true, odometerKm: true, color: true, fuel: true, transmission: true, vin: true, tireSize: true } },
         branch: { select: { id: true, code: true, name: true, address: true, phone: true } },
         items: { orderBy: { sortOrder: 'asc' } },
         payments: { orderBy: { paidAt: 'asc' } },
@@ -239,10 +241,15 @@ export class OrdersService {
         unitPrice: money ? num(i.unitPrice) : null,
         discount: money ? num(i.discount) : null,
         amount: money ? num(i.amount) : null,
+        vatRate: i.vatRate,
+        section: i.section,
       })),
       subtotal: money ? num(o.subtotal) : null,
       orderDiscount: money ? num(o.orderDiscount) : null,
+      vatTotal: money ? num(o.vatTotal) : null,
       total: money ? num(o.total) : null,
+      insuranceAmount: money ? num(o.insuranceAmount) : null,
+      customerPays: money ? num(o.total) - num(o.insuranceAmount) : null,
       paid: money ? num(o.paid) : null,
       due: money ? num(o.total) - num(o.paid) : null,
       paymentState: money ? paymentState(num(o.total), num(o.paid)) : null,
@@ -297,7 +304,7 @@ export class OrdersService {
     if (!AccessService.canAccessBranch(a, dto.branchId)) throw new ForbiddenException('Bạn không làm việc ở chi nhánh này');
     const items = this.checkedItems(dto.items ?? []);
     const orderDiscount = dto.orderDiscount ?? 0;
-    const { subtotal, total } = this.totals(items, orderDiscount);
+    const { subtotal, vat, total } = this.totals(items, orderDiscount);
 
     const created = await this.prisma.$transaction(async (tx) => {
       const branch = await tx.branch.findFirst({ where: { id: dto.branchId, tenantId: a.tenantId, deletedAt: null } });
@@ -339,6 +346,7 @@ export class OrdersService {
           technicianId: dto.technicianId ?? null,
           subtotal: BigInt(subtotal),
           orderDiscount: BigInt(orderDiscount),
+          vatTotal: BigInt(vat),
           total: BigInt(total),
           createdBy: a.userId,
           searchText: this.searchTextOf(code, customer, vehicle?.plateNo),
@@ -362,6 +370,8 @@ export class OrdersService {
       unitPrice: BigInt(it.unitPrice),
       discount: BigInt(it.discount ?? 0),
       amount: BigInt(it.amount),
+      vatRate: it.vatRate ?? 0,
+      section: it.section?.trim() || null,
       sortOrder: i,
     };
   }
@@ -379,13 +389,17 @@ export class OrdersService {
         ...(dto.advisorId !== undefined ? { advisorId: dto.advisorId } : {}),
         ...(dto.technicianId !== undefined ? { technicianId: dto.technicianId } : {}),
       };
+      let total = num(o.total);
       if (dto.orderDiscount !== undefined) {
-        const subtotal = num(o.subtotal);
-        if (dto.orderDiscount < 0 || dto.orderDiscount > subtotal) throw new BadRequestException('Giảm giá đơn không được lớn hơn tổng tiền hàng');
-        const total = subtotal - dto.orderDiscount;
-        if (total < num(o.paid)) throw new ConflictException('Tổng tiền mới nhỏ hơn số đã thu. Huỷ bớt phiếu thu trước.');
-        Object.assign(data, { orderDiscount: BigInt(dto.orderDiscount), total: BigInt(total) });
+        const rows = await tx.orderItem.findMany({ where: { orderId: id } });
+        const t = this.totals(rows.map((x) => ({ quantity: x.quantity.toString(), unitPrice: num(x.unitPrice), discount: num(x.discount), vatRate: x.vatRate })), dto.orderDiscount);
+        if (t.total < num(o.paid)) throw new ConflictException('Tổng tiền mới nhỏ hơn số đã thu. Huỷ bớt phiếu thu trước.');
+        total = t.total;
+        Object.assign(data, { orderDiscount: BigInt(dto.orderDiscount), vatTotal: BigInt(t.vat), total: BigInt(t.total) });
       }
+      const insurance = dto.insuranceAmount ?? num(o.insuranceAmount);
+      if (insurance > total) throw new BadRequestException('Phần bảo hiểm thanh toán lớn hơn tổng cộng');
+      if (dto.insuranceAmount !== undefined) data.insuranceAmount = BigInt(dto.insuranceAmount);
       await tx.repairOrder.update({ where: { id }, data });
       await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'order.updated', entity: 'order', entityId: id, after: dto as Prisma.InputJsonValue, ip }, tx);
     });
@@ -398,15 +412,16 @@ export class OrdersService {
     const res = await this.prisma.$transaction(async (tx) => {
       const o = await this.loadForWrite(tx, a, id);
       if (!EDITABLE_STATUSES.includes(o.status)) throw new ConflictException(`Đơn "${STATUS_LABEL[o.status]}" không sửa được nữa`);
-      const subtotal = items.reduce((s, i) => s + i.amount, 0);
+      const gross = items.reduce((s, i) => s + i.amount, 0);
       // Giảm giá đơn lớn hơn tổng mới thì hạ xuống bằng tổng
-      const orderDiscount = Math.min(num(o.orderDiscount), subtotal);
-      const total = subtotal - orderDiscount;
+      const orderDiscount = Math.min(num(o.orderDiscount), gross);
+      const { subtotal, vat, total } = this.totals(items, orderDiscount);
+      if (num(o.insuranceAmount) > total) throw new ConflictException('Tổng tiền mới nhỏ hơn phần bảo hiểm thanh toán. Sửa phần bảo hiểm trước.');
       if (total < num(o.paid)) throw new ConflictException('Tổng tiền mới nhỏ hơn số đã thu. Huỷ bớt phiếu thu trước.');
       await this.assertProducts(tx, a.tenantId, items);
       await tx.orderItem.deleteMany({ where: { orderId: id } });
       await tx.orderItem.createMany({ data: items.map((it, i) => ({ ...this.itemRow(it, i), orderId: id })) });
-      await tx.repairOrder.update({ where: { id }, data: { subtotal: BigInt(subtotal), orderDiscount: BigInt(orderDiscount), total: BigInt(total) } });
+      await tx.repairOrder.update({ where: { id }, data: { subtotal: BigInt(subtotal), orderDiscount: BigInt(orderDiscount), vatTotal: BigInt(vat), total: BigInt(total) } });
       await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'order.items', entity: 'order', entityId: id, before: { total: num(o.total) }, after: { total, items: items.length }, ip }, tx);
       return { subtotal, total };
     });

@@ -3,7 +3,7 @@ import type { Tone } from '@cardiy/ui';
 export type OrderStatus = 'TIEP_NHAN' | 'DANG_SUA' | 'HOAN_THANH' | 'DA_GIAO' | 'HUY';
 export type PaymentState = 'CHUA_THU' | 'THU_MOT_PHAN' | 'DA_THU_DU';
 export type ItemKind = 'DICH_VU' | 'PHU_TUNG';
-export type PaymentMethod = 'TIEN_MAT' | 'CHUYEN_KHOAN' | 'THE';
+export type PaymentMethod = 'TIEN_MAT' | 'CHUYEN_KHOAN' | 'THE' | 'BAO_HIEM';
 
 export const STATUS: Record<OrderStatus, { label: string; tone: Tone }> = {
   TIEP_NHAN: { label: 'Tiếp nhận', tone: 'sky' },
@@ -23,6 +23,7 @@ export const METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'TIEN_MAT', label: 'Tiền mặt' },
   { value: 'CHUYEN_KHOAN', label: 'Chuyển khoản' },
   { value: 'THE', label: 'Quẹt thẻ' },
+  { value: 'BAO_HIEM', label: 'Bảo hiểm chuyển' },
 ];
 export const methodLabel = (m: PaymentMethod) => METHODS.find((x) => x.value === m)?.label ?? m;
 
@@ -70,10 +71,24 @@ export interface ItemDraft {
   quantity: string;
   unitPrice: string;
   discount: string;
+  /** % thuế VAT */
+  vatRate: string;
+  /** Phần trên phiếu (VD: Phần lốp) */
+  section: string;
 }
 
 let seq = 0;
-export const newItem = (kind: ItemKind = 'DICH_VU'): ItemDraft => ({ key: `n${++seq}`, kind, name: '', unit: '', quantity: '1', unitPrice: '', discount: '' });
+export const newItem = (kind: ItemKind = 'DICH_VU', section = ''): ItemDraft => ({ key: `n${++seq}`, kind, name: '', unit: '', quantity: '1', unitPrice: '', discount: '', vatRate: '0', section });
+export const VAT_RATES = [0, 5, 8, 10];
+
+/** Tổng của bản nháp: tiền hàng, VAT (chia CK đơn theo tỷ lệ như API), tổng cộng */
+export function draftTotals(rows: ItemDraft[], orderDiscount: number) {
+  const amounts = rows.map(draftAmount);
+  const subtotal = amounts.reduce((s, a) => s + a, 0);
+  const factor = subtotal ? Math.max(0, subtotal - orderDiscount) / subtotal : 0;
+  const vat = rows.reduce((s, r, i) => s + Math.round((amounts[i]! * factor * (Number(r.vatRate) || 0)) / 100), 0);
+  return { subtotal, vat, total: Math.max(0, subtotal - orderDiscount) + vat };
+}
 
 /** "1.250.000" / "1250000" → 1250000 */
 export const parseMoney = (s: string): number => Number(s.replace(/[^\d]/g, '')) || 0;
@@ -95,7 +110,7 @@ export function draftAmount(d: ItemDraft): number {
 export function draftsToPayload(rows: ItemDraft[]) {
   return rows
     .filter((r) => r.name.trim())
-    .map((r) => ({ kind: r.kind, productId: r.productId ?? null, name: r.name.trim(), unit: r.unit.trim() || null, quantity: r.quantity.trim().replace(',', '.'), unitPrice: parseMoney(r.unitPrice), discount: parseMoney(r.discount) }));
+    .map((r) => ({ kind: r.kind, productId: r.productId ?? null, section: r.section.trim() || null, vatRate: Number(r.vatRate) || 0, name: r.name.trim(), unit: r.unit.trim() || null, quantity: r.quantity.trim().replace(',', '.'), unitPrice: parseMoney(r.unitPrice), discount: parseMoney(r.discount) }));
 }
 
 export function fmtDateTime(d: string | null | undefined): string {

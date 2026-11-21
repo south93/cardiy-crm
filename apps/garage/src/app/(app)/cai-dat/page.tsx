@@ -2,7 +2,7 @@
 
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -23,8 +23,21 @@ interface PrintSettings {
   receiveTerms: string;
   quoteNote: string;
   invoiceNote: string;
+  logoFileId: string | null;
+  slogan: string;
+  tagline: string;
+  banner: string;
+  qrLink: string;
+  qrCaption: string;
+  warrantyTire: string;
+  warrantyUnderbody: string;
+  signNote: string;
+  inspectionNote: string;
 }
-const PRINT_KEYS: (keyof PrintSettings)[] = ['displayName', 'hotline', 'email', 'website', 'bankBin', 'accountNo', 'accountName', 'quoteValidDays', 'receiveTerms', 'quoteNote', 'invoiceNote'];
+const PRINT_KEYS: (keyof PrintSettings)[] = [
+  'displayName', 'hotline', 'email', 'website', 'bankBin', 'accountNo', 'accountName', 'quoteValidDays', 'receiveTerms', 'quoteNote', 'invoiceNote',
+  'logoFileId', 'slogan', 'tagline', 'banner', 'qrLink', 'qrCaption', 'warrantyTire', 'warrantyUnderbody', 'signNote', 'inspectionNote',
+];
 const area = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100';
 
 function PrintSettingsTab() {
@@ -33,14 +46,28 @@ function PrintSettingsTab() {
   const [tenantName, setTenantName] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api<PrintSettings & { banks: { bin: string; name: string }[]; tenantName: string }>('/print-settings').then((r) => {
       setBanks(r.banks);
       setTenantName(r.tenantName);
-      setV(Object.fromEntries(PRINT_KEYS.map((k) => [k, r[k]])) as unknown as PrintSettings);
+      setV(Object.fromEntries(PRINT_KEYS.map((k) => [k, r[k] ?? (k === 'logoFileId' ? null : '')])) as unknown as PrintSettings);
+      if (r.logoFileId) api<{ url: string }>(`/files/${r.logoFileId}`).then((f) => setLogoUrl(f.url), () => setLogoUrl(null));
     });
   }, []);
+  const uploadLogo = async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const f = await api<{ id: string; url: string }>('/files', { form });
+      setV((x) => (x ? { ...x, logoFileId: f.id } : x));
+      setLogoUrl(f.url);
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'Không tải được logo' });
+    }
+  };
   if (!v) return <Spinner className="text-brand-600" />;
   const set = (k: keyof PrintSettings) => (e: { target: { value: string } }) => setV({ ...v, [k]: k === 'quoteValidDays' ? Number(e.target.value) : e.target.value });
   const custom = v.bankBin !== '' && !banks.some((b) => b.bin === v.bankBin);
@@ -72,6 +99,29 @@ function PrintSettingsTab() {
           {(id) => <Input id={id} value={v.website} onChange={set('website')} />}
         </Field>
         <p className="text-xs text-slate-500 sm:col-span-2">Địa chỉ và số điện thoại lấy theo chi nhánh của đơn (sửa ở tab Chi nhánh).</p>
+        <div className="sm:col-span-2">
+          <div className="mb-1.5 text-sm font-medium text-slate-700">Logo trên phiếu</div>
+          <div className="flex items-center gap-3">
+            <div className="grid h-14 w-44 place-items-center rounded-xl border border-dashed border-slate-300 bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {logoUrl ? <img src={logoUrl} alt="Logo" className="max-h-12 max-w-40 object-contain" data-testid="logo-preview" /> : <span className="text-xs text-slate-400">Chưa có logo</span>}
+            </div>
+            <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" hidden data-testid="logo-input" onChange={(e) => e.target.files?.[0] && void uploadLogo(e.target.files[0])} />
+            <Button type="button" variant="outline" onClick={() => logoInput.current?.click()}>
+              Chọn ảnh
+            </Button>
+            {v.logoFileId && (
+              <button type="button" className="text-xs text-rose-600 hover:underline" onClick={() => (setV({ ...v, logoFileId: null }), setLogoUrl(null))}>
+                Bỏ logo
+              </button>
+            )}
+          </div>
+        </div>
+        <Field label="Khẩu hiệu (dòng lớn)" className="sm:col-span-2">{(id) => <Input id={id} value={v.slogan} onChange={set('slogan')} />}</Field>
+        <Field label="Dòng phụ dưới khẩu hiệu" className="sm:col-span-2">{(id) => <Input id={id} value={v.tagline} onChange={set('tagline')} />}</Field>
+        <Field label="Dải chữ cuối phiếu" className="sm:col-span-2">{(id) => <Input id={id} value={v.banner} onChange={set('banner')} />}</Field>
+        <Field label="Link mã QR góc phiếu" hint="VD: link Zalo OA / trợ lý; để trống thì không in QR">{(id) => <Input id={id} value={v.qrLink} onChange={set('qrLink')} placeholder="https://…" />}</Field>
+        <Field label="Chữ dưới mã QR">{(id) => <Input id={id} value={v.qrCaption} onChange={set('qrCaption')} />}</Field>
       </Card>
       <Card className="grid gap-4 p-5 sm:grid-cols-2">
         <h3 className="font-semibold sm:col-span-2">Tài khoản nhận chuyển khoản (VietQR trên hoá đơn)</h3>
@@ -102,9 +152,14 @@ function PrintSettingsTab() {
       <Card className="grid gap-4 p-5 xl:col-span-2">
         <h3 className="font-semibold">Ghi chú in cuối phiếu</h3>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Field label="Phiếu tiếp nhận">{(id) => <textarea id={id} rows={5} className={area} value={v.receiveTerms} onChange={set('receiveTerms')} />}</Field>
-          <Field label="Báo giá">{(id) => <textarea id={id} rows={5} className={area} value={v.quoteNote} onChange={set('quoteNote')} />}</Field>
-          <Field label="Hoá đơn (chính sách bảo hành)">{(id) => <textarea id={id} rows={5} className={area} value={v.invoiceNote} onChange={set('invoiceNote')} />}</Field>
+          <Field label="Phiếu dịch vụ — bảo hành lốp">{(id) => <textarea id={id} rows={9} className={area} value={v.warrantyTire} onChange={set('warrantyTire')} />}</Field>
+          <Field label="Phiếu dịch vụ — bảo hành gầm">{(id) => <textarea id={id} rows={9} className={area} value={v.warrantyUnderbody} onChange={set('warrantyUnderbody')} />}</Field>
+          <Field label="Hoá đơn (chính sách bảo hành)">{(id) => <textarea id={id} rows={9} className={area} value={v.invoiceNote} onChange={set('invoiceNote')} />}</Field>
+          <Field label="Dòng cuối phiếu (dưới chữ ký)" className="lg:col-span-3">{(id) => <Input id={id} value={v.signNote} onChange={set('signNote')} />}</Field>
+          <Field label="Phiếu kiểm tra xe — đoạn bảo mật thông tin (trang 2)" hint="{hotline} sẽ thay bằng số hotline" className="lg:col-span-3">
+            {(id) => <textarea id={id} rows={4} className={area} value={v.inspectionNote} onChange={set('inspectionNote')} />}
+          </Field>
+          <p className="text-xs text-slate-500 lg:col-span-3">Cách viết: dòng bắt đầu bằng <code>## </code> là tiêu đề, <code>– </code> là gạch đầu dòng, <code>&gt; </code> là ô công thức, <code>**chữ**</code> in đậm.</p>
         </div>
         <Field label="Báo giá có hiệu lực (ngày)" className="max-w-xs">
           {(id) => <Input id={id} type="number" min={1} max={90} value={v.quoteValidDays} onChange={set('quoteValidDays')} />}

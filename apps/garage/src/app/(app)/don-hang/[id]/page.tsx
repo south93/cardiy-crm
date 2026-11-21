@@ -5,7 +5,7 @@ import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Sp
 import { Ban, Car, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { OrderItemsEditor } from '@/components/order-items';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -32,8 +32,11 @@ interface Order {
   deliveredAt: string | null;
   cancelReason: string | null;
   editable: boolean;
-  items: { id: string; kind: ItemKind; productId: string | null; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null }[];
+  items: { id: string; kind: ItemKind; productId: string | null; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null; vatRate: number; section: string | null }[];
   subtotal: number | null;
+  vatTotal: number | null;
+  insuranceAmount: number | null;
+  customerPays: number | null;
   orderDiscount: number | null;
   total: number | null;
   paid: number | null;
@@ -108,7 +111,7 @@ function OrderDetail() {
   };
 
   const startEdit = () => {
-    setRows(o.items.map((i) => ({ key: i.id, productId: i.productId, kind: i.kind, name: i.name, unit: i.unit ?? '', quantity: i.quantity.replace(/\.0+$/, ''), unitPrice: moneyInput(i.unitPrice ?? 0), discount: moneyInput(i.discount ?? 0) })));
+    setRows(o.items.map((i) => ({ key: i.id, productId: i.productId, kind: i.kind, name: i.name, unit: i.unit ?? '', quantity: i.quantity.replace(/\.0+$/, ''), unitPrice: moneyInput(i.unitPrice ?? 0), discount: moneyInput(i.discount ?? 0), vatRate: String(i.vatRate), section: i.section ?? '' })));
     setDiscount(moneyInput(o.orderDiscount ?? 0));
     setEditing(true);
   };
@@ -169,8 +172,8 @@ function OrderDetail() {
           ))}
           <div className="flex gap-1 rounded-full bg-slate-50 p-1" aria-label="In phiếu">
             {[
-              { form: 'tiep-nhan', label: 'Phiếu tiếp nhận', money: false },
-              { form: 'bao-gia', label: 'Báo giá', money: true },
+              { form: 'kiem-tra', label: 'Phiếu kiểm tra xe', money: false },
+              { form: 'bao-gia', label: 'Phiếu dịch vụ', money: true },
               { form: 'hoa-don', label: 'Hoá đơn', money: true },
             ]
               .filter((f) => !f.money || seesMoney)
@@ -230,8 +233,16 @@ function OrderDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {o.items.map((i) => (
-                      <tr key={i.id} className="border-b border-slate-50 last:border-0">
+                    {o.items.map((i, k) => (
+                      <Fragment key={i.id}>
+                      {i.section && i.section !== o.items[k - 1]?.section && (
+                        <tr>
+                          <td colSpan={4} className="pt-3 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                            {i.section}
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-b border-slate-50 last:border-0">
                         <td className="py-2.5">
                           <div className="font-medium">{i.name}</div>
                           <div className="text-xs text-slate-500">{i.kind === 'DICH_VU' ? 'Dịch vụ' : 'Phụ tùng'}</div>
@@ -244,9 +255,11 @@ function OrderDetail() {
                           <td className="py-2.5 text-right tabular-nums">
                             {fmtMoney(i.amount ?? 0)}
                             {!!i.discount && <div className="text-xs text-mint-700">−{fmtMoney(i.discount)}</div>}
+                            {!!i.vatRate && <div className="text-xs text-slate-500">VAT {i.vatRate}%</div>}
                           </td>
                         )}
                       </tr>
+                      </Fragment>
                     ))}
                     {!o.items.length && (
                       <tr>
@@ -269,12 +282,46 @@ function OrderDetail() {
                         <dd className="tabular-nums text-mint-700">−{fmtMoney(o.orderDiscount)}</dd>
                       </div>
                     )}
+                    {!!o.vatTotal && (
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500">Thuế VAT</dt>
+                        <dd className="tabular-nums">{fmtMoney(o.vatTotal)}</dd>
+                      </div>
+                    )}
                     <div className="flex justify-between border-t border-slate-100 pt-1.5 text-base font-semibold">
-                      <dt>Tổng sau CK</dt>
+                      <dt>Tổng cộng</dt>
                       <dd className="tabular-nums" data-testid="order-total">
                         {fmtMoney(o.total ?? 0)}
                       </dd>
                     </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-slate-500">Trong đó – Bảo hiểm TT</dt>
+                      <dd>
+                        {canEdit ? (
+                          <Input
+                            key={o.insuranceAmount}
+                            aria-label="Bảo hiểm thanh toán"
+                            inputMode="numeric"
+                            className="h-9 w-32 text-right"
+                            defaultValue={moneyInput(o.insuranceAmount ?? 0)}
+                            onBlur={(e) => {
+                              const v = parseMoney(e.target.value);
+                              if (v !== o.insuranceAmount) void run(() => api(`/orders/${o.id}`, { method: 'PATCH', body: { insuranceAmount: v } }), 'Không lưu được phần bảo hiểm');
+                            }}
+                          />
+                        ) : (
+                          <span className="tabular-nums">{fmtMoney(o.insuranceAmount ?? 0)}</span>
+                        )}
+                      </dd>
+                    </div>
+                    {!!o.insuranceAmount && (
+                      <div className="flex justify-between font-medium">
+                        <dt>Khách hàng thanh toán</dt>
+                        <dd className="tabular-nums" data-testid="customer-pays">
+                          {fmtMoney(o.customerPays ?? 0)}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 )}
               </div>
@@ -357,7 +404,7 @@ function OrderDetail() {
               </div>
               <dl className="mt-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">Tổng sau CK</dt>
+                  <dt className="text-slate-500">Tổng cộng</dt>
                   <dd className="tabular-nums">{fmtMoney(o.total ?? 0)}</dd>
                 </div>
                 <div className="flex justify-between">

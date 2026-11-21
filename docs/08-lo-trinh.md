@@ -38,6 +38,7 @@ flowchart LR
 | 1.3 | Báo giá, in phiếu, thu tiền tại garage (tiền mặt, VietQR của garage), bảo hành |
 | 1.4 | Kho: danh mục, tồn chi nhánh, nhập/xuất/chuyển kho, kiểm kê, nhà cung cấp |
 | 1.5 | Lịch hẹn, Lịch gọi, Thu chi & công nợ, Dashboard, App kỹ thuật viên |
+| 1.5+ | **Phiếu kiểm tra xe điện tử** (theo mẫu PLG): KTV tick Tốt / Chú ý / Thay thế trên điện thoại, đánh dấu vết xước trên sơ đồ xe, chụp ảnh 4 góc + cà vẹt, độ sâu gai / áp suất lốp; hạng mục "Thay thế" tự thành hạng mục phát sinh để khách duyệt. Gợi ý bảo dưỡng theo cấp & giờ công định mức (R / I / A). |
 
 🎯 **Mốc demo 1:** chạy thử song song với AppSheet tại một chi nhánh.
 
