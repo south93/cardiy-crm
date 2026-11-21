@@ -1,0 +1,74 @@
+# Môi trường phát triển: chỉ chạy PostgreSQL + Redis.
+#   docker compose up -d
+# Chạy cả API và web garage bằng Docker (giống trên VPS):
+#   docker compose --profile app up -d --build
+name: cardiy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cardiy
+      POSTGRES_PASSWORD: cardiy
+      POSTGRES_DB: cardiy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardiy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://cardiy:cardiy@postgres:5432/cardiy?schema=public
+      REDIS_URL: redis://redis:6379
+      API_PORT: 4000
+      CORS_ORIGINS: http://localhost:3000
+      PUBLIC_API_URL: http://localhost:4000
+      # Chạy thật trên VPS: đặt JWT_SECRET riêng (openssl rand -base64 48) trong Coolify, không ghi vào file
+      JWT_SECRET: ${JWT_SECRET:-chi-dung-de-chay-thu-tren-may-0123456789abcdef}
+      AUTH_ENFORCE_2FA: ${AUTH_ENFORCE_2FA:-false}
+      FILE_STORAGE: local
+      FILE_LOCAL_DIR: /app/storage
+    volumes:
+      - files:/app/storage
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  garage:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/garage/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  files:

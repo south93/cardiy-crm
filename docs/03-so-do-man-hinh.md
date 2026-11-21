@@ -28,9 +28,9 @@ mindmap
         Thông số, Mô tả, Đánh giá
         Danh sách garage đang bán
         Sắp xếp: giá tốt, gần nhất, bán chạy
-        Giá, gồm lắp đặt hay không, voucher garage, voucher sàn
+        Giá, gồm lắp đặt hay không, voucher của garage
         Chọn năm sản xuất, số lượng
-        Mua & đặt lịch lắp
+        Gửi yêu cầu đặt hàng + lịch lắp tới garage
     A1.06 Dịch vụ
       Bảo dưỡng, Sửa chữa, Đồng sơn, Chăm sóc xe, Đăng kiểm hộ
       Chi tiết dịch vụ: so sánh giá giữa các garage
@@ -42,6 +42,7 @@ mindmap
       Tìm xe theo ngày, địa điểm
       Chi tiết + đặt thuê
     A1.09 Cứu hộ SOS
+      Kết nối garage có dịch vụ cứu hộ gần nhất
     A1.10 Cộng đồng
       Blog, Sách nói, Playlist, Hỏi đáp
     A1.11 Dành cho garage
@@ -79,15 +80,12 @@ mindmap
       Thanh toán
       Đánh giá
     A2.06 Mua sắm
-      Giỏ hàng
-      Thanh toán + chọn garage lắp
-      Đơn hàng của tôi
-    A2.07 Ví & Thanh toán
-      Số dư ví, nạp tiền
-      Phương thức thanh toán
-      Lịch sử giao dịch
-      Hoá đơn
-      Hoàn tiền
+      Gửi yêu cầu tới garage
+      Yêu cầu của tôi
+      Thông tin thanh toán của garage
+    A2.07 Thanh toán & Hoá đơn
+      Lịch sử thanh toán tại các garage
+      Hoá đơn điện tử do garage xuất
       Voucher & Điểm thưởng
     A2.08 Thuê xe
       Đơn thuê, hợp đồng, bàn giao
@@ -97,7 +95,8 @@ mindmap
       Tin đã lưu, chat
     A2.10 SOS
       Gửi yêu cầu + vị trí GPS
-      Theo dõi xe cứu hộ, ETA, giá
+      Theo dõi đội cứu hộ của garage, ETA
+      Giá do garage báo, trả trực tiếp cho garage
     A2.11 Cộng đồng
     A2.12 Thông báo
     A2.13 Tài khoản
@@ -107,7 +106,7 @@ mindmap
       Doanh nghiệp: quản lý tài xế
 ```
 
-## A3 · Web quản trị Garage (CRM + Kênh người bán)
+## A3 · CRM garage PLG (chỉ PLG dùng)
 
 ```mermaid
 mindmap
@@ -138,15 +137,16 @@ mindmap
       A3.40 Lịch sửa chữa theo khoang, KTV
       A3.41 Lịch gọi / Chăm sóc
       A3.42 Booking từ sàn
-      A3.43 Ca cứu hộ
+      A3.43 Ca cứu hộ: nhận ca, điều đội
     Kênh người bán
       A3.50 Hồ sơ gian hàng
       A3.51 Sản phẩm đăng bán
       A3.52 Dịch vụ đăng bán + bảng giá
-      A3.53 Đơn hàng từ sàn
+      A3.53 Yêu cầu đặt hàng từ sàn
       A3.54 Khuyến mại & Voucher
       A3.55 Đánh giá & phản hồi
-      A3.56 Đối soát & Rút tiền
+      A3.56 Phí gói & Hoá đơn sàn
+      A3.57 Thống kê gian hàng: lượt xem, yêu cầu
     Mở rộng
       A3.60 Thuê xe: đội xe, hợp đồng
       A3.61 Xe cũ: tin đăng, kiểm định
@@ -168,7 +168,7 @@ mindmap
       Nhật ký thao tác
 ```
 
-## A4 · App kỹ thuật viên & A5 · App cứu hộ (PWA, tối ưu điện thoại)
+## A4 · App kỹ thuật viên & A5 · App cứu hộ của PLG (PWA, tối ưu điện thoại)
 
 ```mermaid
 mindmap
@@ -194,13 +194,48 @@ mindmap
       A5.03 Lịch sử ca
 ```
 
+## A7 · Cổng đối tác (1 tài khoản / đối tác, trên web của PLG)
+
+```mermaid
+mindmap
+  root((A7 Cổng đối tác))
+    A7.01 Trang chủ
+      Việc cần xử lý hôm nay
+      Yêu cầu mới, ca cứu hộ đang chờ
+    Gian hàng
+      A7.10 Hồ sơ gian hàng
+        Thông tin, địa chỉ trên bản đồ, giờ mở cửa
+        Chính sách đổi trả, huỷ, bảo hành
+      A7.11 Sản phẩm
+        Chọn từ danh mục chuẩn của sàn
+        Giá, số lượng tồn, gồm lắp đặt hay không
+      A7.12 Dịch vụ
+        Bảo dưỡng, sửa chữa, đồng sơn
+        Cứu hộ: vùng phục vụ, giá, hotline
+        Thuê xe: xe, giá ngày, đặt cọc
+        Kiểm định xe cũ
+      A7.13 Khuyến mại
+    Yêu cầu từ khách
+      A7.20 Đặt hàng và đặt lịch
+        Xác nhận, chốt giá, từ chối
+        Đánh dấu đã thu tiền, hoàn tất
+      A7.21 Cứu hộ: nhận ca, cập nhật vị trí, chốt giá
+      A7.22 Thuê xe: xác minh, bàn giao, trả xe
+      A7.23 Kiểm định xe cũ: checklist, báo cáo
+      A7.24 Đánh giá: trả lời
+    Báo cáo và phí
+      A7.30 Thống kê: lượt xem, yêu cầu, tỉ lệ chốt
+      A7.31 Phí gói và hoá đơn
+    A7.40 Tài khoản và bảo mật
+```
+
 ## A6 · Admin sàn
 
 ```mermaid
 mindmap
   root((A6 Admin sàn))
     A6.01 Dashboard sàn
-      GMV, Đơn, Đối tác mới, SOS
+      Lượt xem, Yêu cầu gửi garage, Đối tác mới, SOS
     Đối tác garage
       A6.10 Hồ sơ chờ duyệt
       A6.11 Đối tác đang hoạt động
@@ -217,24 +252,24 @@ mindmap
       A6.31 Tin xe cũ
       A6.32 Bài cộng đồng
       A6.33 Đánh giá bị báo cáo
-    Giao dịch
-      A6.40 Đơn hàng sàn
-      A6.41 Khiếu nại & Tranh chấp
-      A6.42 Hoàn tiền
-    Tài chính
-      A6.50 Giao dịch & Ví
-      A6.51 Đối soát theo kỳ
-      A6.52 Hoa hồng & Phí
-      A6.53 Duyệt Payout
-      A6.54 Hoá đơn phí sàn
-    A6.60 Khuyến mại sàn
-    A6.61 Điều phối cứu hộ
+    Giám sát
+      A6.40 Yêu cầu đặt hàng: theo dõi
+      A6.41 Phản ánh của khách
+      A6.42 Xử lý vi phạm garage
+    Phí đối tác
+      A6.50 Gói & Bảng giá
+      A6.51 Hoá đơn phí theo kỳ
+      A6.52 Ghi nhận thanh toán phí
+      A6.53 Công nợ phí, nhắc phí
+      A6.54 Xuất hoá đơn điện tử phí
+    A6.60 Chương trình khuyến mại chung
+    A6.61 Giám sát cứu hộ
     A6.62 Nội dung: Blog, Banner, Sách nói
     A6.63 Thông báo: Template, Chiến dịch
     A6.70 Người dùng & Nhân sự sàn
     A6.80 Báo cáo sàn
     A6.90 Cấu hình
-      Phí & hoa hồng theo danh mục
+      Phí theo gói
       Gói đối tác, Thuế
       Tích hợp, Nhật ký thao tác
 ```
