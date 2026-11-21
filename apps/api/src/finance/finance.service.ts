@@ -184,7 +184,9 @@ export class FinanceService {
     const branches = await this.visibleBranches(a);
     const all = a.branchIds === 'ALL';
     const text = q.q?.trim() ? `%${searchKey(q.q.trim())}%` : null;
-    const digits = q.q?.replace(/\D/g, '') || null;
+    // Chỉ tìm theo SĐT khi có từ 3 chữ số trở lên ("Nợ dd8x" không được khớp mọi số có chữ số 8)
+    const d = q.q?.replace(/\D/g, '') ?? '';
+    const digits = d.length >= 3 ? d : null;
     // Nợ đơn: đơn đã hoàn thành / giao chưa thu đủ ở chi nhánh được xem; nợ đầu kỳ: công nợ AppSheet còn lại
     const rows = await this.prisma.$queryRaw<{ id: string; code: string; name: string; phone: string | null; opening_left: bigint; order_debt: bigint; orders: bigint; oldest: Date | null }[]>`
       WITH od AS (

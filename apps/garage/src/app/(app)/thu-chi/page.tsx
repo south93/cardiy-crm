@@ -3,7 +3,7 @@
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { HandCoins, Minus, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CustomerPicker } from '@/components/customer-picker';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
@@ -454,10 +454,13 @@ function Debts({ branchId }: { branchId: string }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; totalDebt: number; page: number; pageSize: number; items: DebtRow[] } | null>(null);
   const [collect, setCollect] = useState<string | null>(null);
+  const seq = useRef(0);
   const load = useCallback(async () => {
     const p = new URLSearchParams({ page: String(page), pageSize: '30' });
     if (q.trim()) p.set('q', q.trim());
-    setData(await api(`/finance/debts?${p}`));
+    const my = ++seq.current;
+    const res = await api<typeof data>(`/finance/debts?${p}`);
+    if (my === seq.current) setData(res); // bỏ kết quả cũ về muộn
   }, [q, page]);
   useEffect(() => {
     const t = setTimeout(() => void load(), q ? 250 : 0);

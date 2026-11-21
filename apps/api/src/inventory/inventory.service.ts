@@ -342,7 +342,7 @@ export class InventoryService {
   async suppliers(a: Access, q?: string) {
     const text = q?.trim();
     const rows = await this.prisma.supplier.findMany({
-      where: { tenantId: a.tenantId, deletedAt: null, ...(text ? { OR: [{ searchText: { contains: searchKey(text) } }, { phone: { contains: text.replace(/\D/g, '') || '§' } }] } : {}) },
+      where: { tenantId: a.tenantId, deletedAt: null, ...(text ? { OR: [{ searchText: { contains: searchKey(text) } }, { phone: { contains: text.replace(/\D/g, '').length >= 3 ? text.replace(/\D/g, '') : '§' } }] } : {}) },
       orderBy: { name: 'asc' },
       take: 200,
     });

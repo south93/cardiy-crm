@@ -12,15 +12,17 @@ type Task = { id: string; kind: string; customer: { id: string }; vehicle: { id:
 describe('Lịch gọi chăm sóc khách', () => {
   let app: INestApplication;
   let http: ReturnType<INestApplication['getHttpServer']>;
+  // Mỗi lần chạy một nhãn riêng: CSDL kiểm thử tích luỹ nhiều việc gọi qua các lần chạy
+  const TAG = `cs${Math.random().toString(36).slice(2, 8)}`;
   let owner: string;
   let cskh: string;
   let sales: string;
   let tech: string;
   let cn1: string;
 
-  const tasks = async (view: string, token = cskh) => (await request(http).get('/api/care/tasks').query({ view, refresh: 'true', pageSize: 100 }).set(bearer(token)).expect(200)).body as { items: Task[]; counts: Record<string, number> };
+  const tasks = async (view: string, token = cskh) => (await request(http).get('/api/care/tasks').query({ view, refresh: 'true', pageSize: 100, q: TAG }).set(bearer(token)).expect(200)).body as { items: Task[]; counts: Record<string, number> };
   async function customerWithCar(vehicle: Record<string, unknown> = {}) {
-    const res = await request(http).post('/api/customers').set(bearer(owner)).send({ name: 'Khách Chăm Sóc', phone: randomPhone(), vehicle: { plate: randomPlate(), ...vehicle } }).expect(201);
+    const res = await request(http).post('/api/customers').set(bearer(owner)).send({ name: `Khách Chăm Sóc ${TAG}`, phone: randomPhone(), vehicle: { plate: randomPlate(), ...vehicle } }).expect(201);
     const c = await request(http).get(`/api/customers/${res.body.id}`).set(bearer(owner));
     return { customerId: res.body.id as string, vehicleId: c.body.vehicles[0].id as string };
   }
