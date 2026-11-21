@@ -23,20 +23,36 @@
 
 /* ---------- Phiếu in (A4) ---------- */
 @page {
-  size: A4;
-  margin: 10mm 12mm;
+  size: A4 portrait;
+  margin: 0;
+}
+.print-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto;
+  padding: 8mm 10mm;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 6px 24px rgb(15 23 42 / 0.08);
 }
 @media print {
   .no-print {
     display: none !important;
   }
+  html,
   body {
     background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .print-sheet {
-    box-shadow: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: auto !important;
+  .print-page {
+    margin: 0;
+    box-shadow: none;
+    break-after: page;
+    overflow: hidden;
+    height: 297mm;
+  }
+  .print-page:last-child {
+    break-after: auto;
   }
 }

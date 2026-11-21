@@ -24,9 +24,20 @@ describe('Luật đơn hàng', () => {
       { quantity: 1, unitPrice: 350_000 },
       { quantity: 4, unitPrice: 1_850_000, discount: 400_000 },
     ];
-    expect(orderTotals(items, 50_000)).toEqual({ subtotal: 7_350_000, total: 7_300_000 });
-    expect(orderTotals([], 0)).toEqual({ subtotal: 0, total: 0 });
+    expect(orderTotals(items, 50_000)).toEqual({ subtotal: 7_350_000, vat: 0, total: 7_300_000 });
+    expect(orderTotals([], 0)).toEqual({ subtotal: 0, vat: 0, total: 0 });
     expect(() => orderTotals(items, 8_000_000)).toThrow('Giảm giá đơn');
+  });
+
+  it('VAT theo % từng dòng, chiết khấu đơn chia theo tỷ lệ trước khi tính thuế', () => {
+    const items = [
+      { quantity: 4, unitPrice: 2_000_000, vatRate: 8 }, // 8.000.000
+      { quantity: 1, unitPrice: 2_000_000, vatRate: 0 }, // 2.000.000
+    ];
+    expect(orderTotals(items, 0)).toEqual({ subtotal: 10_000_000, vat: 640_000, total: 10_640_000 });
+    // CK đơn 1.000.000 = 10% → dòng 1 còn 7.200.000 → VAT 576.000
+    expect(orderTotals(items, 1_000_000)).toEqual({ subtotal: 10_000_000, vat: 576_000, total: 9_576_000 });
+    expect(() => orderTotals([{ quantity: 1, unitPrice: 1, vatRate: 101 }], 0)).toThrow('% thuế');
   });
 
   it('chuyển trạng thái: đúng mũi tên và đúng quyền', () => {

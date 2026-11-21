@@ -23,6 +23,8 @@ const item = z.object({
   quantity: z.union([z.string().max(20), z.number()]),
   unitPrice: money,
   discount: money.optional(),
+  vatRate: z.coerce.number().int().min(0).max(100).optional(),
+  section: text(60),
   productId: z.string().uuid().optional().nullable(),
 });
 const items = z.array(item).max(200, 'Tối đa 200 hạng mục');
@@ -40,7 +42,7 @@ const createSchema = z.object({
   orderDiscount: money.optional(),
   items: items.optional(),
 });
-const updateSchema = createSchema.pick({ request: true, note: true, promisedAt: true, advisorId: true, technicianId: true, orderDiscount: true }).partial();
+const updateSchema = createSchema.pick({ request: true, note: true, promisedAt: true, advisorId: true, technicianId: true, orderDiscount: true }).partial().extend({ insuranceAmount: money.optional() });
 const listSchema = z.object({
   view: z.enum(['open', 'done', 'all']).default('all'),
   status: z.enum(STATUSES).optional(),
@@ -52,7 +54,7 @@ const listSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 const statusSchema = z.object({ to: z.enum(STATUSES), note: text(500), reason: text(500), allowDebt: z.boolean().optional() });
-const paymentSchema = z.object({ amount: money.min(1, 'Số tiền phải lớn hơn 0'), method: z.enum(['TIEN_MAT', 'CHUYEN_KHOAN', 'THE']), note: text(300) });
+const paymentSchema = z.object({ amount: money.min(1, 'Số tiền phải lớn hơn 0'), method: z.enum(['TIEN_MAT', 'CHUYEN_KHOAN', 'THE', 'BAO_HIEM']), note: text(300) });
 const voidSchema = z.object({ reason: z.string().trim().min(3, 'Cần nhập lý do huỷ phiếu').max(300) });
 
 @Controller('orders')

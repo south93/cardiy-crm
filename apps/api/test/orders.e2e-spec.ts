@@ -190,4 +190,56 @@ describe('Đơn hàng', () => {
     expect(recv.body.order.total).toBeNull();
     await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'xyz' }).set(bearer(sales)).expect(400);
   });
+
+  it('VAT từng dòng + phần bảo hiểm thanh toán; mẫu phiếu dịch vụ / kiểm tra xe có đủ dữ liệu', async () => {
+    const { customerId, vehicleId } = await customerWithCar();
+    const vatItems = [
+      { kind: 'PHU_TUNG', name: 'Lốp 215/55R17', unit: 'cái', quantity: 4, unitPrice: 2_000_000, discount: 400_000, vatRate: 8, section: 'Phần lốp' },
+      { kind: 'DICH_VU', name: 'Cân chỉnh thước lái', quantity: 1, unitPrice: 400_000, vatRate: 8, section: 'Phần gầm' },
+    ];
+    const { body } = await request(http).post('/api/orders').set(bearer(sales)).send({ branchId: cn1, customerId, vehicleId, items: vatItems }).expect(201);
+    const o = await request(http).get(`/api/orders/${body.id}`).set(bearer(sales)).expect(200);
+    // 7.600.000 + 400.000 = 8.000.000; VAT 8% = 640.000
+    expect(o.body).toMatchObject({ subtotal: 8_000_000, vatTotal: 640_000, total: 8_640_000, insuranceAmount: 0, customerPays: 8_640_000 });
+    expect(o.body.items.map((i: { section: string; vatRate: number }) => `${i.section}:${i.vatRate}`)).toEqual(['Phần lốp:8', 'Phần gầm:8']);
+    expect(o.body.advisor).toMatchObject({ name: 'Lê Bán Hàng' });
+
+    // Chiết khấu đơn → VAT tính lại theo tỷ lệ
+    await request(http).patch(`/api/orders/${body.id}`).set(bearer(sales)).send({ orderDiscount: 800_000 }).expect(200);
+    const o2 = await request(http).get(`/api/orders/${body.id}`).set(bearer(sales));
+    expect(o2.body).toMatchObject({ vatTotal: 576_000, total: 7_776_000 });
+
+    // Bảo hiểm trả một phần
+    await request(http).patch(`/api/orders/${body.id}`).set(bearer(sales)).send({ insuranceAmount: 9_000_000 }).expect(400);
+    await request(http).patch(`/api/orders/${body.id}`).set(bearer(sales)).send({ insuranceAmount: 5_000_000 }).expect(200);
+    await request(http).post(`/api/orders/${body.id}/payments`).set(bearer(sales)).send({ amount: 5_000_000, method: 'BAO_HIEM' }).expect(201);
+    const o3 = await request(http).get(`/api/orders/${body.id}`).set(bearer(sales));
+    expect(o3.body).toMatchObject({ customerPays: 2_776_000, due: 2_776_000 });
+
+    const svc = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'bao-gia' }).set(bearer(sales)).expect(200);
+    expect(svc.body.totalInWords).toBe('Hai triệu bảy trăm bảy mươi sáu nghìn đồng');
+    expect(svc.body.settings.warrantyTire).toContain('ĐIỀU KHOẢN BẢO HÀNH');
+    expect(svc.body.order.customer).toHaveProperty('address');
+    const inv = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'hoa-don' }).set(bearer(sales)).expect(200);
+    expect(inv.body.qr.amount).toBe(2_776_000); // QR chỉ phần khách trả
+    expect(inv.body).toMatchObject({ customerPaid: 0, customerDue: 2_776_000, insuranceDue: 0 });
+    const chk = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'kiem-tra' }).set(bearer(tech)).expect(200);
+    expect(chk.body.form).toBe('kiem-tra');
+    expect(chk.body.order.vehicle).toHaveProperty('vin');
+    const alias = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'tiep-nhan' }).set(bearer(tech)).expect(200);
+    expect(alias.body.form).toBe('kiem-tra');
+  });
+
+  it('cài đặt mẫu in: link QR trợ lý, logo phải là ảnh của garage', async () => {
+    const cur = await request(http).get('/api/print-settings').set(bearer(owner)).expect(200);
+    const { banks: _b, tenantName: _n, tenantTaxCode: _t, ...base } = cur.body;
+    await request(http).put('/api/print-settings').set(bearer(owner)).send({ ...base, qrLink: 'zalo.me/abc' }).expect(400);
+    await request(http).put('/api/print-settings').set(bearer(owner)).send({ ...base, logoFileId: '00000000-0000-4000-8000-000000000000' }).expect(404);
+    await request(http).put('/api/print-settings').set(bearer(owner)).send({ ...base, qrLink: 'https://zalo.me/0900000000', qrCaption: 'TRỢ LÝ Ô TÔ 24/7' }).expect(200);
+    const { customerId, vehicleId } = await customerWithCar();
+    const { body } = await request(http).post('/api/orders').set(bearer(sales)).send({ branchId: cn1, customerId, vehicleId, items }).expect(201);
+    const p = await request(http).get(`/api/orders/${body.id}/print`).query({ form: 'bao-gia' }).set(bearer(sales)).expect(200);
+    expect(p.body.linkQr).toMatch(/^data:image\/png;base64,/);
+    expect(p.body.settings.qrCaption).toBe('TRỢ LÝ Ô TÔ 24/7');
+  });
 });

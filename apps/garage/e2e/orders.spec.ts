@@ -153,16 +153,21 @@ test.describe('Đơn hàng', () => {
     await expect(page.getByTestId('print-words')).toContainText('Một triệu tám trăm năm mươi nghìn đồng');
     await expect(page.getByTestId('print-qr')).toContainText('Vietcombank');
     await expect(page.getByTestId('print-qr')).toContainText('1.850.000 đ');
-    await page.getByRole('link', { name: 'Báo giá' }).click();
-    await expect(page.getByTestId('print-title')).toHaveText('BẢNG BÁO GIÁ SỬA CHỮA');
-    await expect(page.getByTestId('print-code')).toHaveText(`BG-${o.code}`);
+    await page.getByRole('link', { name: 'Phiếu dịch vụ & bảo hành' }).click();
+    await expect(page.getByTestId('print-title')).toHaveText('PHIẾU DỊCH VỤ VÀ BẢO HÀNH');
+    await expect(page.getByTestId('print-terms')).toContainText('ĐIỀU KHOẢN BẢO HÀNH');
+    await page.getByRole('link', { name: 'Bảo hành gầm' }).click();
+    await expect(page.getByTestId('print-terms')).toContainText('Điều kiện báo giá');
+    await page.getByRole('link', { name: 'In cả 2 mẫu' }).click();
+    await expect(page.getByTestId('print-sheet')).toHaveCount(2);
+    await expect(page.getByTestId('print-code').first()).toHaveText(`BG-${o.code}`);
     await expect(page.getByTestId('print-qr')).toHaveCount(0);
 
     // KTV: chỉ phiếu tiếp nhận, không có giá
     await page.context().clearCookies();
     await loginUI(page, PHONES.tech);
-    await page.goto(`/in/tiep-nhan/${o.id}`);
-    await expect(page.getByTestId('print-title')).toHaveText('PHIẾU TIẾP NHẬN XE');
+    await page.goto(`/in/tiep-nhan/${o.id}`); // link cũ vẫn mở được
+    await expect(page.getByTestId('print-title')).toHaveText('PHIẾU KIỂM TRA XE');
     await expect(page.getByTestId('print-items')).toContainText('Ắc quy GS 60Ah');
     await expect(page.getByTestId('print-items')).not.toContainText('1.850.000');
     await expect(page.getByRole('link', { name: 'Hoá đơn' })).toHaveCount(0);

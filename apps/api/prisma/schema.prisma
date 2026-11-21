@@ -436,41 +436,47 @@ enum PaymentMethod {
   TIEN_MAT
   CHUYEN_KHOAN
   THE
+  /// Công ty bảo hiểm thanh toán phần của họ
+  BAO_HIEM
 }
 
 model RepairOrder {
-  id            String      @id @default(uuid()) @db.Uuid
-  tenantId      String      @map("tenant_id") @db.Uuid
-  branchId      String      @map("branch_id") @db.Uuid
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  branchId        String      @map("branch_id") @db.Uuid
   /// DH000001… theo garage
-  code          String
-  customerId    String      @map("customer_id") @db.Uuid
+  code            String
+  customerId      String      @map("customer_id") @db.Uuid
   /// Bán lẻ phụ kiện thì có thể không có xe
-  vehicleId     String?     @map("vehicle_id") @db.Uuid
-  status        OrderStatus @default(TIEP_NHAN)
-  odometerKm    Int?        @map("odometer_km")
+  vehicleId       String?     @map("vehicle_id") @db.Uuid
+  status          OrderStatus @default(TIEP_NHAN)
+  odometerKm      Int?        @map("odometer_km")
   /// Khách yêu cầu / triệu chứng
-  request       String?
-  note          String?
+  request         String?
+  note            String?
   /// Người phụ trách (cố vấn dịch vụ) và kỹ thuật viên chính: membership id
-  advisorId     String?     @map("advisor_id") @db.Uuid
-  technicianId  String?     @map("technician_id") @db.Uuid
+  advisorId       String?     @map("advisor_id") @db.Uuid
+  technicianId    String?     @map("technician_id") @db.Uuid
   /// Tiền: đồng, số nguyên
-  subtotal      BigInt      @default(0)
+  subtotal        BigInt      @default(0)
   /// Giảm giá trên cả đơn (ngoài giảm từng dòng)
-  orderDiscount BigInt      @default(0) @map("order_discount")
-  total         BigInt      @default(0)
-  paid          BigInt      @default(0)
-  receivedAt    DateTime    @default(now()) @map("received_at")
-  promisedAt    DateTime?   @map("promised_at")
-  completedAt   DateTime?   @map("completed_at")
-  deliveredAt   DateTime?   @map("delivered_at")
-  cancelledAt   DateTime?   @map("cancelled_at")
-  cancelReason  String?     @map("cancel_reason")
-  searchText    String      @default("") @map("search_text")
-  createdBy     String?     @map("created_by") @db.Uuid
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  orderDiscount   BigInt      @default(0) @map("order_discount")
+  /// Tổng thuế VAT (theo % thuế từng dòng, sau chiết khấu)
+  vatTotal        BigInt      @default(0) @map("vat_total")
+  /// Trong tổng cộng: phần bảo hiểm thanh toán (khách trả phần còn lại)
+  insuranceAmount BigInt      @default(0) @map("insurance_amount")
+  total           BigInt      @default(0)
+  paid            BigInt      @default(0)
+  receivedAt      DateTime    @default(now()) @map("received_at")
+  promisedAt      DateTime?   @map("promised_at")
+  completedAt     DateTime?   @map("completed_at")
+  deliveredAt     DateTime?   @map("delivered_at")
+  cancelledAt     DateTime?   @map("cancelled_at")
+  cancelReason    String?     @map("cancel_reason")
+  searchText      String      @default("") @map("search_text")
+  createdBy       String?     @map("created_by") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
   branch   Branch               @relation(fields: [branchId], references: [id])
   customer Customer             @relation(fields: [customerId], references: [id])
@@ -499,6 +505,10 @@ model OrderItem {
   unitPrice BigInt        @map("unit_price")
   discount  BigInt        @default(0)
   amount    BigInt
+  /// % thuế VAT của dòng (0, 5, 8, 10…)
+  vatRate   Int           @default(0) @map("vat_rate")
+  /// Phần trên phiếu (VD: Phần lốp, Phần gầm); trống = không chia phần
+  section   String?
   sortOrder Int           @default(0) @map("sort_order")
 
   order   RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
