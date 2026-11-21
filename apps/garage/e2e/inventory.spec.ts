@@ -50,6 +50,17 @@ test.describe('Danh mục & kho', () => {
     await expect(page.getByTestId('doc-detail-lines')).toContainText(code);
     await expect(page.getByTestId('doc-detail-lines')).toContainText('Lốp xe › Lốp du lịch');
 
+    // Tồn kho chi nhánh: cột mã hàng, nhóm hàng; lọc theo nhóm
+    await page.goto('/ton-kho');
+    await page.getByLabel('Lọc nhóm hàng').selectOption({ label: 'Lốp du lịch' });
+    await page.getByLabel('Tìm hàng trong kho').fill(t);
+    await expect(page.getByTestId('stock-row')).toHaveCount(1);
+    await expect(page.getByTestId('stock-row')).toContainText(code);
+    await expect(page.getByTestId('stock-row')).toContainText('Lốp xe › Lốp du lịch');
+    await expect(page.getByTestId('stock-row')).toContainText('8 cái');
+    await page.getByLabel('Lọc nhóm hàng').selectOption({ label: 'Ắc quy (tất cả)' });
+    await expect(page.getByTestId('stock-table')).toContainText('Chưa có hàng hoá');
+
     // Bán hàng: xe Toyota → gợi ý đúng lốp, giao xe thì trừ kho
     await page.context().clearCookies();
     await loginUI(page, PHONES.owner);
