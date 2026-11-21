@@ -73,6 +73,18 @@ describe('Danh mục sản phẩm & kho', () => {
     const asTk = await request(http).get('/api/products').query({ q: tag, categoryId: lop.id }).set(bearer(tk)).expect(200);
     expect(asTk.body.items[0].costPrice).toBe(1_500_000);
     await request(http).get('/api/products').set(bearer(tech)).expect(403);
+
+    // Tháng / năm sản xuất
+    const dated = await newProduct({ name: `Ắc quy ${tag}`, mfgMonth: 9, mfgYear: 2026 });
+    const dd = await request(http).get(`/api/products/${dated.id}`).set(bearer(sales)).expect(200);
+    expect(dd.body).toMatchObject({ mfgMonth: 9, mfgYear: 2026 });
+    await request(http).post('/api/products').set(bearer(tk)).send({ name: 'x', kind: 'PHU_TUNG', salePrice: 1, mfgMonth: 5 }).expect(400);
+    await request(http).post('/api/products').set(bearer(tk)).send({ name: 'x', kind: 'PHU_TUNG', salePrice: 1, mfgYear: 1800 }).expect(400);
+    await request(http).post('/api/products').set(bearer(tk)).send({ name: 'x', kind: 'PHU_TUNG', salePrice: 1, mfgMonth: 13, mfgYear: 2025 }).expect(400);
+    await request(http).patch(`/api/products/${dated.id}`).set(bearer(tk)).send({ mfgYear: null }).expect(400); // còn tháng mà bỏ năm
+    await request(http).patch(`/api/products/${dated.id}`).set(bearer(tk)).send({ mfgMonth: null, mfgYear: 2025 }).expect(200);
+    const listed = await request(http).get('/api/products').query({ q: dated.code }).set(bearer(sales));
+    expect(listed.body.items[0]).toMatchObject({ mfgMonth: null, mfgYear: 2025 });
     await request(http).post('/api/products').set(bearer(sales)).send({ name: 'x', kind: 'PHU_TUNG', salePrice: 1 }).expect(403);
   });
 
@@ -83,6 +95,8 @@ describe('Danh mục sản phẩm & kho', () => {
 
     const pn = await request(http).post('/api/stock-documents').set(bearer(tk)).send({ type: 'NHAP', branchId: cn1, supplierId: sup.body.id, refNo: 'HD-001', lines: [{ productId: p.id, quantity: '10', unitCost: 1_400_000 }] }).expect(201);
     expect(pn.body.code).toMatch(/^PN\d{6}$/);
+    const pnDoc = await request(http).get(`/api/stock-documents/${pn.body.id}`).set(bearer(tk)).expect(200);
+    expect(pnDoc.body.lines[0].product).toMatchObject({ code: p.code, category: null });
     expect(await stockAt(p.id, cn1)).toBe(10);
     const after = await request(http).get(`/api/products/${p.id}`).set(bearer(tk));
     expect(after.body.costPrice).toBe(1_400_000);

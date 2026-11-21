@@ -18,6 +18,8 @@ export interface ProductInput {
   costPrice?: number;
   vehicleMakes?: string[];
   minStock?: number | null;
+  mfgMonth?: number | null;
+  mfgYear?: number | null;
   note?: string | null;
   active?: boolean;
 }
@@ -184,6 +186,8 @@ export class InventoryService {
           vehicleMakes: p.vehicleMakes,
           active: p.active,
           minStock: p.minStock === null ? null : num(p.minStock),
+          mfgMonth: p.mfgMonth,
+          mfgYear: p.mfgYear,
           stock: p.kind === 'DICH_VU' ? null : q.branchId ? num(at?.quantity) : all,
         };
       }),
@@ -218,6 +222,8 @@ export class InventoryService {
       costPrice: cost ? Number(p.costPrice) : null,
       vehicleMakes: p.vehicleMakes,
       minStock: p.minStock === null ? null : num(p.minStock),
+      mfgMonth: p.mfgMonth,
+      mfgYear: p.mfgYear,
       note: p.note,
       active: p.active,
       stock: branches.filter((b) => visible.includes(b.id)).map((b) => ({ branch: b, quantity: num(p.stock.find((s) => s.branchId === b.id)?.quantity) })),
@@ -263,6 +269,8 @@ export class InventoryService {
           costPrice: BigInt(dto.costPrice ?? 0),
           vehicleMakes,
           minStock: dto.minStock == null ? null : new Prisma.Decimal(dto.minStock),
+          mfgMonth: dto.mfgMonth ?? null,
+          mfgYear: dto.mfgYear ?? null,
           note: dto.note?.trim() || null,
           active: dto.active ?? true,
           createdBy: a.userId,
@@ -284,6 +292,9 @@ export class InventoryService {
       throw new ConflictException('Sản phẩm đã có xuất nhập kho, không đổi loại hàng hoá / dịch vụ được');
     }
     const vehicleMakes = dto.vehicleMakes ? makesOf(dto.vehicleMakes) : before.vehicleMakes;
+    const month = dto.mfgMonth === undefined ? before.mfgMonth : dto.mfgMonth;
+    const year = dto.mfgYear === undefined ? before.mfgYear : dto.mfgYear;
+    if (month && !year) throw new BadRequestException('Có tháng sản xuất thì cần nhập năm');
     const name = dto.name?.trim() ?? before.name;
     const brand = dto.brand === undefined ? before.brand : dto.brand?.trim() || null;
     await this.prisma.product.update({
@@ -299,6 +310,8 @@ export class InventoryService {
         ...(dto.salePrice !== undefined ? { salePrice: BigInt(dto.salePrice) } : {}),
         ...(dto.costPrice !== undefined ? { costPrice: BigInt(dto.costPrice) } : {}),
         ...(dto.minStock !== undefined ? { minStock: dto.minStock === null ? null : new Prisma.Decimal(dto.minStock) } : {}),
+        ...(dto.mfgMonth !== undefined ? { mfgMonth: dto.mfgMonth } : {}),
+        ...(dto.mfgYear !== undefined ? { mfgYear: dto.mfgYear } : {}),
         ...(dto.note !== undefined ? { note: dto.note?.trim() || null } : {}),
         ...(dto.active !== undefined ? { active: dto.active } : {}),
         searchText: this.productSearch({ code, name, brand, vehicleMakes }),
@@ -467,7 +480,10 @@ export class InventoryService {
   async document(a: Access, id: string) {
     const d = await this.prisma.stockDocument.findFirst({
       where: { id, tenantId: a.tenantId },
-      include: { supplier: true, movements: { include: { product: { select: { id: true, code: true, name: true, unit: true } } }, orderBy: { seq: 'asc' } } },
+      include: {
+        supplier: true,
+        movements: { include: { product: { select: { id: true, code: true, name: true, unit: true, mfgMonth: true, mfgYear: true, category: { select: { name: true, parent: { select: { name: true } } } } } } }, orderBy: { seq: 'asc' } },
+      },
     });
     if (!d) throw new NotFoundException('Không tìm thấy phiếu');
     if (![d.branchId, d.toBranchId].some((b) => b && AccessService.canAccessBranch(a, b))) throw new NotFoundException('Không tìm thấy phiếu');
@@ -488,7 +504,15 @@ export class InventoryService {
       createdBy: user?.fullName ?? null,
       createdAt: d.createdAt,
       lines: lines.map((m) => ({
-        product: m.product,
+        product: {
+          id: m.product.id,
+          code: m.product.code,
+          name: m.product.name,
+          unit: m.product.unit,
+          mfgMonth: m.product.mfgMonth,
+          mfgYear: m.product.mfgYear,
+          category: m.product.category ? (m.product.category.parent ? `${m.product.category.parent.name} › ${m.product.category.name}` : m.product.category.name) : null,
+        },
         quantity: Math.abs(num(m.quantity)),
         delta: num(m.quantity),
         balance: num(m.balance),

@@ -18,11 +18,13 @@ export interface ProductFormValue {
   costPrice: string;
   vehicleMakes: string[];
   minStock: string;
+  mfgMonth: string;
+  mfgYear: string;
   note: string;
   active: boolean;
 }
 
-export const emptyProduct = (categoryId = ''): ProductFormValue => ({ code: '', name: '', kind: 'PHU_TUNG', categoryId, brand: '', unit: '', salePrice: '', costPrice: '', vehicleMakes: [], minStock: '', note: '', active: true });
+export const emptyProduct = (categoryId = ''): ProductFormValue => ({ code: '', name: '', kind: 'PHU_TUNG', categoryId, brand: '', unit: '', salePrice: '', costPrice: '', vehicleMakes: [], minStock: '', mfgMonth: '', mfgYear: '', note: '', active: true });
 
 /** Chọn hãng xe dùng được: bấm chip hãng hay gặp, hoặc gõ thêm. Không chọn = dùng cho mọi xe. */
 function MakesField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
@@ -81,6 +83,8 @@ export function productPayload(v: ProductFormValue) {
     costPrice: parseMoney(v.costPrice),
     vehicleMakes: v.kind === 'DICH_VU' && !v.vehicleMakes.length ? [] : v.vehicleMakes,
     minStock: v.kind === 'PHU_TUNG' && v.minStock.trim() ? Number(v.minStock.replace(',', '.')) : null,
+    mfgMonth: v.kind === 'PHU_TUNG' && v.mfgMonth ? Number(v.mfgMonth) : null,
+    mfgYear: v.kind === 'PHU_TUNG' && v.mfgYear.trim() ? Number(v.mfgYear) : null,
     note: v.note.trim() || null,
     active: v.active,
   };
@@ -146,6 +150,23 @@ export function ProductForm({ initial, categories, submitLabel, showCost, onSubm
         <Field label="Tồn tối thiểu" hint="Cảnh báo khi tồn ở chi nhánh xuống tới mức này">
           {(id) => <Input id={id} inputMode="decimal" value={v.minStock} onChange={(e) => set('minStock', e.target.value)} />}
         </Field>
+      )}
+      {v.kind === 'PHU_TUNG' && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Tháng sản xuất">
+            {(id) => (
+              <Select id={id} value={v.mfgMonth} onChange={(e) => set('mfgMonth', e.target.value)}>
+                <option value="">—</option>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={String(i + 1)}>
+                    Tháng {i + 1}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field label="Năm sản xuất">{(id) => <Input id={id} inputMode="numeric" maxLength={4} value={v.mfgYear} onChange={(e) => set('mfgYear', e.target.value.replace(/\D/g, ''))} placeholder="VD: 2026" />}</Field>
+        </div>
       )}
       <div className="sm:col-span-2">
         <div className="mb-1.5 text-sm font-medium text-slate-700">Hãng xe dùng được</div>

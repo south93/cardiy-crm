@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
-import { DOC_TYPES, fmtQty, type DocType } from '@/lib/inventory';
+import { DOC_TYPES, fmtMfg, fmtQty, type DocType } from '@/lib/inventory';
 import { fmtDateTime } from '@/lib/orders';
 
 interface Doc {
@@ -23,7 +23,7 @@ interface Doc {
   total: number | null;
   createdBy: string | null;
   createdAt: string;
-  lines: { product: { id: string; code: string; name: string; unit: string | null }; quantity: number; delta: number; balance: number; unitCost: number | null; note: string | null }[];
+  lines: { product: { id: string; code: string; name: string; unit: string | null; category: string | null; mfgMonth: number | null; mfgYear: number | null }; quantity: number; delta: number; balance: number; unitCost: number | null; note: string | null }[];
 }
 
 function DocDetail() {
@@ -62,7 +62,9 @@ function DocDetail() {
         <table className="w-full text-sm" data-testid="doc-detail-lines">
           <thead>
             <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
-              <th className="py-2 font-medium">Hàng hoá</th>
+              <th className="py-2 font-medium">Mã hàng</th>
+              <th className="py-2 font-medium">Tên hàng</th>
+              <th className="py-2 font-medium">Nhóm hàng</th>
               <th className="py-2 text-right font-medium">{d.type === 'DIEU_CHINH' ? 'Chênh lệch' : 'Số lượng'}</th>
               {d.type === 'NHAP' && <th className="py-2 text-right font-medium">Giá nhập</th>}
               {d.type === 'NHAP' && <th className="py-2 text-right font-medium">Thành tiền</th>}
@@ -72,12 +74,14 @@ function DocDetail() {
           <tbody>
             {d.lines.map((l) => (
               <tr key={l.product.id} className="border-b border-slate-50 last:border-0">
-                <td className="py-2">
+                <td className="py-2 pr-2 font-mono text-xs">{l.product.code}</td>
+                <td className="py-2 pr-2">
                   <Link href={`/danh-muc/${l.product.id}`} className="font-medium hover:text-brand-600">
                     {l.product.name}
                   </Link>
-                  <div className="font-mono text-xs text-slate-500">{l.product.code}</div>
+                  {fmtMfg(l.product.mfgMonth, l.product.mfgYear) && <div className="text-xs text-slate-500">SX {fmtMfg(l.product.mfgMonth, l.product.mfgYear)}</div>}
                 </td>
+                <td className="py-2 pr-2 text-slate-600">{l.product.category ?? '—'}</td>
                 <td className={`py-2 text-right tabular-nums ${d.type === 'DIEU_CHINH' ? (l.delta < 0 ? 'text-rose-600' : 'text-mint-700') : ''}`}>
                   {d.type === 'DIEU_CHINH' && l.delta > 0 ? '+' : ''}
                   {fmtQty(d.type === 'DIEU_CHINH' ? l.delta : l.quantity)} {l.product.unit}
