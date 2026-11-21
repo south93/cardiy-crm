@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { CustomerForm, VehicleFields, customerPayload, emptyVehicle, vehiclePayload, type CustomerFormValue } from '@/components/crm-forms';
+import { CareHistory } from '@/components/care-history';
 import { OrderHistory } from '@/components/order-history';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -242,6 +243,7 @@ function CustomerProfile() {
               </p>
             )}
           </Card>
+          {can('customer.view') && <CareHistory customerId={c.id} />}
           {can('customer.manage') && (
             <button
               type="button"
