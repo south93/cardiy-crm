@@ -80,6 +80,7 @@ model Branch {
   tenant          Tenant           @relation(fields: [tenantId], references: [id])
   membershipRoles MembershipRole[]
   orders          RepairOrder[]
+  bookings        Booking[]
   stock           StockLevel[]
 
   @@unique([tenantId, code])
@@ -314,6 +315,7 @@ model Customer {
 
   ownerships VehicleOwnership[]
   orders     RepairOrder[]
+  bookings   Booking[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, phone])
@@ -350,6 +352,7 @@ model Vehicle {
   ownerships VehicleOwnership[]
   odometers  OdometerReading[]
   orders     RepairOrder[]
+  bookings   Booking[]
 
   @@unique([tenantId, plateNo])
   @@index([tenantId, searchText])
@@ -484,6 +487,7 @@ model RepairOrder {
   items    OrderItem[]
   payments Payment[]
   history  OrderStatusHistory[]
+  booking  Booking?
 
   @@unique([tenantId, code])
   @@index([tenantId, status, receivedAt])
@@ -715,4 +719,62 @@ model StockMovement {
   @@index([tenantId, createdAt])
   @@index([orderId])
   @@map("stock_movements")
+}
+
+// ---------------- Vòng 1.5a · Lịch hẹn ----------------
+
+/// Máy trạng thái S2 (docs/05-trang-thai.md)
+enum BookingStatus {
+  CHO_XAC_NHAN
+  DA_XAC_NHAN
+  DA_DEN
+  KHONG_DEN
+  KHACH_HUY
+  TU_CHOI
+}
+
+enum BookingChannel {
+  GOI_DIEN
+  ZALO
+  FACEBOOK
+  TRUC_TIEP
+  WEBSITE
+  KHAC
+}
+
+model Booking {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  branchId     String         @map("branch_id") @db.Uuid
+  /// LH000001…
+  code         String
+  customerId   String         @map("customer_id") @db.Uuid
+  vehicleId    String?        @map("vehicle_id") @db.Uuid
+  scheduledAt  DateTime       @map("scheduled_at")
+  /// Thời gian dự kiến (phút)
+  durationMin  Int            @default(60) @map("duration_min")
+  /// Khách cần làm gì
+  service      String
+  note         String?
+  channel      BookingChannel @default(GOI_DIEN)
+  status       BookingStatus  @default(CHO_XAC_NHAN)
+  /// Kỹ thuật viên dự kiến (membership id)
+  technicianId String?        @map("technician_id") @db.Uuid
+  /// Đơn tạo ra khi khách đến (nhận xe)
+  orderId      String?        @unique @map("order_id") @db.Uuid
+  reason       String?
+  createdBy    String?        @map("created_by") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  branch   Branch       @relation(fields: [branchId], references: [id])
+  customer Customer     @relation(fields: [customerId], references: [id])
+  vehicle  Vehicle?     @relation(fields: [vehicleId], references: [id])
+  order    RepairOrder? @relation(fields: [orderId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId, scheduledAt])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@map("bookings")
 }
