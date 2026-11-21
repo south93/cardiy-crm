@@ -1,5 +1,6 @@
 import { BookingsModule } from './bookings/bookings.controller';
 import { CareModule } from './care/care.controller';
+import { FinanceModule } from './finance/finance.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from './audit/audit.module';
@@ -14,6 +15,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, RedisModule, AuditModule, AuthModule, FilesModule, OrgModule, CrmModule, OrdersModule, InventoryModule, BookingsModule, CareModule, HealthModule],
+  imports: [AppConfigModule, PrismaModule, RedisModule, AuditModule, AuthModule, FilesModule, OrgModule, CrmModule, OrdersModule, InventoryModule, BookingsModule, CareModule, FinanceModule, HealthModule],
 })
 export class AppModule {}

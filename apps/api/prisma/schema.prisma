@@ -860,3 +860,40 @@ model CallLog {
   @@index([taskId, createdAt])
   @@map("call_logs")
 }
+
+// ---------------- Vòng 1.5c · Thu chi & công nợ ----------------
+
+enum CashType {
+  THU
+  CHI
+}
+
+/// Phiếu thu / chi ngoài đơn hàng (tiền thu theo đơn nằm ở bảng payments). Ghi nhầm thì huỷ phiếu, không xoá.
+model CashEntry {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  branchId     String        @map("branch_id") @db.Uuid
+  /// PT000001 (thu) · PCH000001 (chi)
+  code         String
+  type         CashType
+  /// Khoản mục: THU_NO_DAU_KY, THU_KHAC, CHI_NHA_CUNG_CAP, LUONG, DIEN_NUOC, MAT_BANG, CONG_CU, CHI_KHAC…
+  category     String
+  amount       BigInt
+  method       PaymentMethod
+  /// Người nộp / người nhận (ghi tay)
+  counterparty String?
+  customerId   String?       @map("customer_id") @db.Uuid
+  supplierId   String?       @map("supplier_id") @db.Uuid
+  note         String?
+  occurredAt   DateTime      @default(now()) @map("occurred_at")
+  createdBy    String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  voidedAt     DateTime?     @map("voided_at")
+  voidedBy     String?       @map("voided_by") @db.Uuid
+  voidReason   String?       @map("void_reason")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId, occurredAt])
+  @@index([customerId])
+  @@map("cash_entries")
+}
