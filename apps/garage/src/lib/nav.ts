@@ -92,14 +92,14 @@ export const NAV: NavGroup[] = [
     label: 'Nhân sự & Tài chính',
     items: [
       { href: '/nhan-vien', label: 'Nhân viên', icon: IdCard, screen: 'A3.70', round: '0.2', tone: 'lav', permission: 'staff.view', workspace: 'ALL', built: true },
-      { href: '/thu-chi', label: 'Thu chi & công nợ', icon: Wallet, screen: 'A3.72', round: '1.5', tone: 'mint', permission: 'finance.view' },
+      { href: '/thu-chi', label: 'Thu chi & công nợ', icon: Wallet, screen: 'A3.72', round: '1.5', tone: 'mint', permission: 'finance.view', built: true },
     ],
   },
   {
     label: 'Dịch vụ',
     items: [
       { href: '/lich-sua-chua', label: 'Lịch sửa chữa', icon: CalendarDays, screen: 'A3.40', round: '1.5', tone: 'peach', permission: 'booking.view', built: true },
-      { href: '/lich-goi', label: 'Lịch gọi', icon: PhoneCall, screen: 'A3.41', round: '1.5', tone: 'rose', permission: 'customer.view' },
+      { href: '/lich-goi', label: 'Lịch gọi', icon: PhoneCall, screen: 'A3.41', round: '1.5', tone: 'rose', permission: 'customer.view', built: true },
     ],
   },
   {

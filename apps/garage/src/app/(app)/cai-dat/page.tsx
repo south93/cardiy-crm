@@ -8,7 +8,58 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
-type Tab = 'chi-nhanh' | 'mau-in' | 'vai-tro' | 'nhat-ky';
+type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky';
+
+// ---------------- Chăm sóc khách ----------------
+const CARE_FIELDS = [
+  { key: 'registrationDays', label: 'Gọi nhắc trước hạn đăng kiểm', unit: 'ngày' },
+  { key: 'insuranceDays', label: 'Gọi nhắc trước hạn bảo hiểm', unit: 'ngày' },
+  { key: 'maintenanceMonths', label: 'Nhắc bảo dưỡng sau lần giao xe gần nhất', unit: 'tháng' },
+  { key: 'followUpDays', label: 'Gọi hỏi thăm sau khi giao xe', unit: 'ngày' },
+  { key: 'maxAttempts', label: 'Không nghe máy quá … lần thì bỏ qua', unit: 'lần' },
+] as const;
+type CareSettings = Record<(typeof CARE_FIELDS)[number]['key'], number>;
+
+function CareSettingsTab() {
+  const [v, setV] = useState<CareSettings | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    api<CareSettings>('/care/settings').then(setV);
+  }, []);
+  if (!v) return <Spinner className="text-brand-600" />;
+  return (
+    <Card className="max-w-xl space-y-4 p-5" data-testid="care-settings">
+      <p className="text-sm text-slate-600">Hệ thống tự lập danh sách khách cần gọi trong <b>Lịch gọi</b> theo các mốc dưới đây.</p>
+      {CARE_FIELDS.map((f) => (
+        <Field key={f.key} label={f.label}>
+          {(id) => (
+            <div className="flex items-center gap-2">
+              <Input id={id} type="number" min={1} className="w-28" value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: Number(e.target.value) })} />
+              <span className="text-sm text-slate-500">{f.unit}</span>
+            </div>
+          )}
+        </Field>
+      ))}
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={async () => {
+            setMsg(null);
+            try {
+              setV(await api<CareSettings>('/care/settings', { method: 'PUT', body: v }));
+              setMsg({ ok: true, text: 'Đã lưu' });
+            } catch (err) {
+              setMsg({ ok: false, text: err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được' });
+            }
+          }}
+          data-testid="save-care-settings"
+        >
+          Lưu
+        </Button>
+        {msg && <span className={`text-sm ${msg.ok ? 'text-mint-700' : 'text-rose-600'}`}>{msg.text}</span>}
+      </div>
+    </Card>
+  );
+}
 
 // ---------------- Mẫu in & thanh toán ----------------
 interface PrintSettings {
@@ -450,6 +501,13 @@ const ACTION_LABEL: Record<string, string> = {
   'branch.created': 'Thêm chi nhánh',
   'branch.updated': 'Sửa chi nhánh',
   'settings.print': 'Sửa mẫu in & tài khoản nhận tiền',
+  'cash.thu': 'Lập phiếu thu',
+  'cash.chi': 'Lập phiếu chi',
+  'cash.voided': 'Huỷ phiếu thu / chi',
+  'debt.collected': 'Thu nợ khách',
+  'care.call': 'Ghi cuộc gọi chăm sóc',
+  'care.created': 'Thêm việc gọi',
+  'care.settings': 'Sửa mốc chăm sóc khách',
   'booking.created': 'Đặt lịch hẹn',
   'booking.updated': 'Sửa lịch hẹn',
   'booking.status': 'Đổi trạng thái lịch hẹn',
@@ -567,7 +625,7 @@ export default function SettingsPage() {
   const { can } = useAuth();
   const tabs = [
     { value: 'chi-nhanh' as const, label: 'Chi nhánh' },
-    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }] : []),
+    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }, { value: 'cham-soc' as const, label: 'Chăm sóc khách' }] : []),
     ...(can('staff.view') ? [{ value: 'vai-tro' as const, label: 'Vai trò & quyền' }] : []),
     ...(can('audit.view') ? [{ value: 'nhat-ky' as const, label: 'Nhật ký thao tác' }] : []),
   ];
@@ -578,6 +636,7 @@ export default function SettingsPage() {
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'chi-nhanh' && <BranchesTab />}
         {tab === 'mau-in' && <PrintSettingsTab />}
+        {tab === 'cham-soc' && <CareSettingsTab />}
         {tab === 'vai-tro' && <RolesTab />}
         {tab === 'nhat-ky' && <AuditTab />}
       </div>

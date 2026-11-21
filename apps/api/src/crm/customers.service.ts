@@ -141,11 +141,14 @@ export class CustomersService {
       this.prisma.repairOrder.count({ where: { tenantId: actor.tenantId, customerId: id, status: { not: 'HUY' } } }),
     ]);
     const orderDebt = Number(agg._sum.total ?? 0n) - Number(agg._sum.paid ?? 0n);
+    const openingPaid = await this.prisma.cashEntry.aggregate({ where: { tenantId: actor.tenantId, customerId: id, category: 'THU_NO_DAU_KY', voidedAt: null }, _sum: { amount: true } });
+    const openingLeft = Number(openingDebt) - Number(openingPaid._sum.amount ?? 0n);
     return {
       ...rest,
       openingDebt: Number(openingDebt),
       orderDebt,
-      debt: orderDebt + Number(openingDebt),
+      openingLeft,
+      debt: orderDebt + openingLeft,
       orderCount,
       branch,
       vehicles: ownerships.filter((o) => !o.toDate && !o.vehicle.deletedAt).map(toVehicle),

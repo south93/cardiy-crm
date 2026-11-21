@@ -51,6 +51,8 @@ model Tenant {
   status        TenantStatus @default(NHAP)
   /// Thông tin in trên phiếu (tên hiển thị, hotline, tài khoản nhận tiền, ghi chú bảo hành…)
   printSettings Json?        @map("print_settings")
+  /// Mốc nhắc chăm sóc khách (số ngày): đăng kiểm, bảo hiểm, bảo dưỡng, hỏi thăm sau sửa
+  careSettings  Json?        @map("care_settings")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
   deletedAt     DateTime?    @map("deleted_at")
@@ -316,6 +318,7 @@ model Customer {
   ownerships VehicleOwnership[]
   orders     RepairOrder[]
   bookings   Booking[]
+  careTasks  CareTask[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, phone])
@@ -777,4 +780,120 @@ model Booking {
   @@index([customerId])
   @@index([vehicleId])
   @@map("bookings")
+}
+
+// ---------------- Vòng 1.5b · Lịch gọi chăm sóc khách ----------------
+
+enum CareKind {
+  DANG_KIEM
+  BAO_HIEM
+  BAO_DUONG
+  HOI_THAM
+  KHAC
+}
+
+enum CareStatus {
+  /// Cần gọi (tới hạn hoặc sắp tới)
+  CAN_GOI
+  /// Khách hẹn gọi lại / không nghe máy: hạn gọi dời sang ngày khác
+  GOI_LAI
+  /// Xong (đã tư vấn, đã đặt lịch, khách không cần)
+  XONG
+  BO_QUA
+}
+
+enum CallOutcome {
+  DA_TU_VAN
+  DAT_LICH
+  KHONG_NGHE
+  GOI_LAI_SAU
+  KHONG_CAN
+  SAI_SO
+}
+
+/// Việc gọi chăm sóc khách: hệ thống tự tạo theo mốc (đăng kiểm, bảo hiểm, bảo dưỡng, hỏi thăm sau sửa) hoặc tạo tay
+model CareTask {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  branchId    String?      @map("branch_id") @db.Uuid
+  customerId  String       @map("customer_id") @db.Uuid
+  vehicleId   String?      @map("vehicle_id") @db.Uuid
+  orderId     String?      @map("order_id") @db.Uuid
+  kind        CareKind
+  /// Chống tạo trùng khi quét lại (VD: DANG_KIEM:<xe>:2027-01-15)
+  refKey      String       @map("ref_key")
+  title       String
+  /// Ngày cần gọi
+  dueDate     DateTime     @map("due_date") @db.Date
+  /// Mốc gốc (ngày hết hạn đăng kiểm, ngày giao xe…)
+  eventDate   DateTime?    @map("event_date") @db.Date
+  status      CareStatus   @default(CAN_GOI)
+  attempts    Int          @default(0)
+  lastOutcome CallOutcome? @map("last_outcome")
+  doneAt      DateTime?    @map("done_at")
+  createdBy   String?      @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  calls    CallLog[]
+
+  @@unique([tenantId, refKey])
+  @@index([tenantId, status, dueDate])
+  @@index([customerId])
+  @@map("care_tasks")
+}
+
+model CallLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  taskId    String      @map("task_id") @db.Uuid
+  outcome   CallOutcome
+  note      String?
+  /// Hẹn gọi lại
+  nextAt    DateTime?   @map("next_at") @db.Date
+  bookingId String?     @map("booking_id") @db.Uuid
+  actorId   String?     @map("actor_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  task CareTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("call_logs")
+}
+
+// ---------------- Vòng 1.5c · Thu chi & công nợ ----------------
+
+enum CashType {
+  THU
+  CHI
+}
+
+/// Phiếu thu / chi ngoài đơn hàng (tiền thu theo đơn nằm ở bảng payments). Ghi nhầm thì huỷ phiếu, không xoá.
+model CashEntry {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  branchId     String        @map("branch_id") @db.Uuid
+  /// PT000001 (thu) · PCH000001 (chi)
+  code         String
+  type         CashType
+  /// Khoản mục: THU_NO_DAU_KY, THU_KHAC, CHI_NHA_CUNG_CAP, LUONG, DIEN_NUOC, MAT_BANG, CONG_CU, CHI_KHAC…
+  category     String
+  amount       BigInt
+  method       PaymentMethod
+  /// Người nộp / người nhận (ghi tay)
+  counterparty String?
+  customerId   String?       @map("customer_id") @db.Uuid
+  supplierId   String?       @map("supplier_id") @db.Uuid
+  note         String?
+  occurredAt   DateTime      @default(now()) @map("occurred_at")
+  createdBy    String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  voidedAt     DateTime?     @map("voided_at")
+  voidedBy     String?       @map("voided_by") @db.Uuid
+  voidReason   String?       @map("void_reason")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId, occurredAt])
+  @@index([customerId])
+  @@map("cash_entries")
 }
