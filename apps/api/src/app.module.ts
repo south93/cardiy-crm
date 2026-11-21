@@ -1,4 +1,5 @@
 import { BookingsModule } from './bookings/bookings.controller';
+import { CareModule } from './care/care.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from './audit/audit.module';
@@ -13,6 +14,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, RedisModule, AuditModule, AuthModule, FilesModule, OrgModule, CrmModule, OrdersModule, InventoryModule, BookingsModule, HealthModule],
+  imports: [AppConfigModule, PrismaModule, RedisModule, AuditModule, AuthModule, FilesModule, OrgModule, CrmModule, OrdersModule, InventoryModule, BookingsModule, CareModule, HealthModule],
 })
 export class AppModule {}
