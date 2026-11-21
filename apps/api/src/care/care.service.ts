@@ -152,7 +152,7 @@ export class CareService {
       tenantId: a.tenantId,
       AND: [this.branchWhere(a), viewWhere],
       ...(q.kind ? { kind: q.kind } : {}),
-      ...(text ? { customer: { OR: [{ searchText: { contains: searchKey(text) } }, { phone: { contains: text.replace(/\D/g, '') || '§' } }] } } : {}),
+      ...(text ? { customer: { OR: [{ searchText: { contains: searchKey(text) } }, { phone: { contains: text.replace(/\D/g, '').length >= 3 ? text.replace(/\D/g, '') : '§' } }] } } : {}),
     };
     const [total, rows, counts] = await Promise.all([
       this.prisma.careTask.count({ where }),
