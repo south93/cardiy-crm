@@ -50,6 +50,8 @@ const listSchema = z.object({
   customerId: z.string().uuid().optional(),
   vehicleId: z.string().uuid().optional(),
   q: z.string().max(100).optional(),
+  /** me = việc của tôi (KTV chính là mình), none = chưa có KTV nhận */
+  tech: z.enum(['me', 'none']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

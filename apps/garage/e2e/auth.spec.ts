@@ -35,7 +35,7 @@ test.describe('Đăng nhập & phân quyền', () => {
 
   test('Kỹ thuật viên: menu tối giản, không có Tổng quan / Nhân viên; vào thẳng Nhân viên bị chặn', async ({ page, isMobile }) => {
     await loginUI(page, PHONES.tech);
-    await expect(page).toHaveURL(/\/trang-chu$/);
+    await expect(page).toHaveURL(/\/viec-cua-toi$/);
     if (isMobile) await page.getByTestId('mobile-menu').click();
     const sidebar = page.getByTestId('sidebar');
     await expect(sidebar.getByRole('link', { name: 'Đơn đang xử lý' })).toBeVisible();

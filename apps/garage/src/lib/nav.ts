@@ -23,6 +23,7 @@ import {
   CarFront,
   ChartLine,
   ClipboardCheck,
+  ClipboardList,
   Inbox,
   LifeBuoy,
   Package,
@@ -98,6 +99,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'Dịch vụ',
     items: [
+      { href: '/viec-cua-toi', label: 'Việc của tôi', icon: ClipboardList, screen: 'A4.01', round: '1.5', tone: 'sky', permission: 'ro.task.update', built: true },
       { href: '/lich-sua-chua', label: 'Lịch sửa chữa', icon: CalendarDays, screen: 'A3.40', round: '1.5', tone: 'peach', permission: 'booking.view', built: true },
       { href: '/lich-goi', label: 'Lịch gọi', icon: PhoneCall, screen: 'A3.41', round: '1.5', tone: 'rose', permission: 'customer.view', built: true },
     ],
@@ -178,5 +180,8 @@ export function visibleNav(permissions: readonly string[], workspace: TenantKind
 
 /** Trang đầu tiên người dùng được vào (KTV không có Tổng quan → vào Trang chủ). */
 export function homeFor(permissions: readonly string[], workspace: TenantKind): string {
-  return permissions.includes('dashboard.view') && workspace === 'GARAGE' ? '/' : '/trang-chu';
+  if (workspace === 'GARAGE' && permissions.includes('dashboard.view')) return '/';
+  // KTV: vào thẳng danh sách việc
+  if (workspace === 'GARAGE' && permissions.includes('ro.task.update')) return '/viec-cua-toi';
+  return '/trang-chu';
 }

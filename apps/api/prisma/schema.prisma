@@ -484,13 +484,14 @@ model RepairOrder {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  branch   Branch               @relation(fields: [branchId], references: [id])
-  customer Customer             @relation(fields: [customerId], references: [id])
-  vehicle  Vehicle?             @relation(fields: [vehicleId], references: [id])
-  items    OrderItem[]
-  payments Payment[]
-  history  OrderStatusHistory[]
-  booking  Booking?
+  branch     Branch               @relation(fields: [branchId], references: [id])
+  customer   Customer             @relation(fields: [customerId], references: [id])
+  vehicle    Vehicle?             @relation(fields: [vehicleId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+  history    OrderStatusHistory[]
+  booking    Booking?
+  inspection Inspection?
 
   @@unique([tenantId, code])
   @@index([tenantId, status, receivedAt])
@@ -896,4 +897,26 @@ model CashEntry {
   @@index([tenantId, branchId, occurredAt])
   @@index([customerId])
   @@map("cash_entries")
+}
+
+// ---------------- Vòng 1.5e · App kỹ thuật viên ----------------
+
+/// Phiếu kiểm tra xe điện tử: mỗi đơn một phiếu, KTV nhập trên điện thoại; bản in A4 lấy dữ liệu từ đây
+model Inspection {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  orderId     String    @unique @map("order_id") @db.Uuid
+  /// InspectionData (@cardiy/shared): lốp, gạt mưa, an toàn, gầm, khuyến nghị, kiểm tra cuối
+  data        Json      @default("{}")
+  /// KTV kiểm tra (membership id)
+  inspectorId String?   @map("inspector_id") @db.Uuid
+  completedAt DateTime? @map("completed_at")
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("inspections")
 }
