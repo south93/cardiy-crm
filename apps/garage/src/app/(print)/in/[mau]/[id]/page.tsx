@@ -1,5 +1,6 @@
 'use client';
 
+import { FINAL_CHECK_ITEMS, SAFETY_ITEMS_LEFT, SAFETY_ITEMS_RIGHT, UNDER_FRONT_ITEMS, UNDER_REAR_ITEMS, WIPER_ITEMS, INSPECTION_REQUESTS, type InspectionData, type InspectionLevel, type TyreCheck } from '@cardiy/shared';
 import { Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -25,6 +26,7 @@ interface Item {
   section: string | null;
 }
 interface PrintData {
+  inspection?: { data: InspectionData; completedAt: string | null; inspector: string | null } | null;
   form: Form;
   printedAt: string;
   totalInWords: string | null;
@@ -417,66 +419,75 @@ function ServiceSheet({ d, variant, invoice }: { d: PrintData; variant: 'lop' | 
 }
 
 // ---------------- Phiếu kiểm tra xe (2 trang) ----------------
-const Box = ({ tone }: { tone?: 'g' | 'y' | 'r' }) => (
-  <span className={`inline-block h-[11px] w-[11px] shrink-0 rounded-[2px] border ${tone === 'g' ? 'border-emerald-600' : tone === 'y' ? 'border-amber-500' : tone === 'r' ? 'border-rose-600' : 'border-slate-500'}`} />
-);
-const Chips = () => (
-  <span className="inline-flex gap-[3px]">
-    <span className="h-[8px] w-[14px] rounded-sm bg-emerald-200" />
-    <span className="h-[8px] w-[14px] rounded-sm bg-amber-200" />
-    <span className="h-[8px] w-[14px] rounded-sm bg-rose-200" />
+const BOX_FILL = { g: 'bg-emerald-600 border-emerald-600', y: 'bg-amber-500 border-amber-500', r: 'bg-rose-600 border-rose-600', n: 'bg-slate-700 border-slate-700' } as const;
+/** Ô tick; on = đã tick (tô màu, có dấu ✓) */
+const Box = ({ tone, on }: { tone?: 'g' | 'y' | 'r'; on?: boolean }) => (
+  <span
+    className={`inline-flex h-[11px] w-[11px] shrink-0 items-center justify-center rounded-[2px] border text-[8px] font-bold leading-none text-white ${on ? BOX_FILL[tone ?? 'n'] : tone === 'g' ? 'border-emerald-600' : tone === 'y' ? 'border-amber-500' : tone === 'r' ? 'border-rose-600' : 'border-slate-500'}`}
+    data-on={on ? '1' : undefined}
+  >
+    {on ? '✓' : ''}
   </span>
 );
-const Dots = ({ unit }: { unit?: string }) => (
+const LEVEL_TONE: Record<InspectionLevel, 'g' | 'y' | 'r'> = { TOT: 'g', CHU_Y: 'y', THAY_THE: 'r' };
+const Chips = ({ value }: { value?: InspectionLevel | null }) => (
+  <span className="inline-flex gap-[3px]">
+    {(['TOT', 'CHU_Y', 'THAY_THE'] as const).map((l) => (
+      <span
+        key={l}
+        className={`h-[8px] w-[14px] rounded-sm ${value === l ? (l === 'TOT' ? 'bg-emerald-600' : l === 'CHU_Y' ? 'bg-amber-500' : 'bg-rose-600') : l === 'TOT' ? 'bg-emerald-200' : l === 'CHU_Y' ? 'bg-amber-200' : 'bg-rose-200'}`}
+        data-on={value === l ? '1' : undefined}
+      />
+    ))}
+  </span>
+);
+const Dots = ({ unit, value }: { unit?: string; value?: ReactNode }) => (
   <span className="flex flex-1 items-end gap-1">
-    <span className="h-3 flex-1 border-b border-dotted border-slate-400" />
+    <span className="min-h-3 flex-1 border-b border-dotted border-slate-400 px-1 font-semibold text-slate-900">{value}</span>
     {unit && <span>{unit}</span>}
   </span>
 );
+const dec = (v: number | null | undefined) => (v === null || v === undefined ? '' : v.toLocaleString('vi-VN'));
 const Side = ({ label }: { label: string }) => (
   <div className="flex w-[7mm] shrink-0 items-center justify-center bg-[#1d4f9c]">
     <span className="-rotate-90 whitespace-nowrap text-[9px] font-bold uppercase text-white">{label}</span>
   </div>
 );
 
-function Tyre({ name }: { name: string }) {
+function Tyre({ name, t }: { name: string; t?: TyreCheck }) {
   return (
     <div className="rounded border border-slate-300 p-1.5">
       <div className="mb-1 text-[10px] font-bold text-[#1d4f9c]">◎ {name}</div>
       <div className="space-y-[3px]">
         <div className="flex items-center justify-between gap-2">
           <span>Mòn / Lão hóa / Xì hơi / Phù</span>
-          <Chips />
+          <Chips value={t?.wear} />
         </div>
         <div className="flex items-end gap-1">
           <span>Hãng / Quy cách</span>
-          <Dots />
+          <Dots value={t?.brand} />
         </div>
         <div className="flex items-end gap-1">
           <span>Áp suất lốp</span>
-          <Dots unit="Bar" />
+          <Dots unit="Bar" value={dec(t?.pressure)} />
         </div>
         <div className="flex items-center justify-between gap-2">
           <span>Hư hỏng van</span>
-          <Chips />
+          <Chips value={t?.valve} />
         </div>
         <div className="flex items-end gap-1">
           <span>Độ sâu gai</span>
-          <Dots unit="mm" />
+          <Dots unit="mm" value={dec(t?.tread)} />
         </div>
       </div>
     </div>
   );
 }
 
-const SAFETY_L = ['Lốp xe', 'Gạt mưa', 'Nước rửa kính', 'Má phanh', 'Đĩa phanh', 'Dầu phanh', 'Dầu động cơ'];
-const SAFETY_R = ['Lọc dầu động cơ', 'Nước làm mát', 'Ắc quy', 'Lọc gió động cơ', 'Lọc gió điều hòa', 'Góc đặt bánh xe'];
-const UNDER_FRONT = ['Phuộc trước', 'Tăm bông phuộc', 'Chụp bụi phuộc', 'Chụp bụi láp', 'Chụp bụi thước lái', 'Bạc đạn bánh', 'Rotuyn thanh giằng', 'Rotuyn lái trong', 'Rotuyn lái ngoài', 'Rotuyn trụ trên', 'Rotuyn trụ dưới', 'Cao su càng A lớn – dưới', 'Cao su càng A nhỏ – dưới'];
-const UNDER_FRONT2 = ['Cao su càng A lớn – trên', 'Cao su càng A nhỏ – trên', 'Cao su cung D'];
-const UNDER_REAR = ['Phuộc sau', 'Tăm bông phuộc', 'Chụp bụi phuộc', 'Bạc đạn bánh', 'Rotuyn thanh giằng', 'Cao su cung D', 'Cao su chữ Y', 'Cao su thanh giằng dọc'];
-const FINAL = ['Hoàn thành sửa chữa, siết đủ lực', 'Lốp bình thường, áp suất về chuẩn', 'Hệ thống phanh bình thường', 'Gạt mưa bình thường', 'Hệ thống đèn bình thường', 'Dầu / dung dịch đủ, đã reset bảo dưỡng', 'Ắc quy khỏe, đấu nối chắc', 'Giảm xóc, chụp bụi không hư', 'Giá đỡ, gầm, cao su giằng không hư', 'Không bỏ sót ốp, phụ kiện táp-lô', 'Không bỏ quên dụng cụ trên xe'];
+const UNDER_FRONT = UNDER_FRONT_ITEMS.slice(0, 13);
+const UNDER_FRONT2 = UNDER_FRONT_ITEMS.slice(13);
 
-function SafetyTable({ rows }: { rows: string[] }) {
+function SafetyTable({ rows, values }: { rows: readonly string[]; values?: Record<string, InspectionLevel> }) {
   return (
     <table className="w-full border-collapse">
       <thead>
@@ -491,9 +502,9 @@ function SafetyTable({ rows }: { rows: string[] }) {
         {rows.map((r) => (
           <tr key={r}>
             <td className="border border-slate-300 px-1 py-[2.5px]">{r}</td>
-            {['g', 'y', 'r'].map((t) => (
-              <td key={t} className="border border-slate-300 text-center">
-                <Box />
+            {(['TOT', 'CHU_Y', 'THAY_THE'] as const).map((l) => (
+              <td key={l} className="border border-slate-300 text-center">
+                <Box tone={values?.[r] === l ? LEVEL_TONE[l] : undefined} on={values?.[r] === l} />
               </td>
             ))}
           </tr>
@@ -503,20 +514,21 @@ function SafetyTable({ rows }: { rows: string[] }) {
   );
 }
 
-function UnderTable({ title, rows, sub }: { title: string; rows: string[]; sub?: { title: string; rows: string[] } }) {
-  const tri = (
+type UnderValues = InspectionData['underFront'];
+function UnderTable({ title, rows, values, sub }: { title: string; rows: readonly string[]; values?: UnderValues; sub?: { title: string; rows: readonly string[]; values?: UnderValues } }) {
+  const tri = (v?: InspectionLevel | null) => (
     <span className="inline-flex gap-[2px]">
-      <Box tone="g" />
-      <Box tone="y" />
-      <Box tone="r" />
+      <Box tone="g" on={v === 'TOT'} />
+      <Box tone="y" on={v === 'CHU_Y'} />
+      <Box tone="r" on={v === 'THAY_THE'} />
     </span>
   );
-  const body = (rs: string[]) =>
+  const body = (rs: readonly string[], vs?: UnderValues) =>
     rs.map((r, i) => (
       <tr key={r + i}>
         <td className="border border-slate-300 px-1 py-[2px]">{r}</td>
-        <td className="border border-slate-300 text-center">{tri}</td>
-        <td className="border border-slate-300 text-center">{tri}</td>
+        <td className="border border-slate-300 text-center">{tri(vs?.[r]?.L)}</td>
+        <td className="border border-slate-300 text-center">{tri(vs?.[r]?.R)}</td>
       </tr>
     ));
   return (
@@ -529,7 +541,7 @@ function UnderTable({ title, rows, sub }: { title: string; rows: string[]; sub?:
         </tr>
       </thead>
       <tbody>
-        {body(rows)}
+        {body(rows, values)}
         {sub && (
           <>
             <tr>
@@ -537,7 +549,7 @@ function UnderTable({ title, rows, sub }: { title: string; rows: string[]; sub?:
                 {sub.title}
               </td>
             </tr>
-            {body(sub.rows)}
+            {body(sub.rows, sub.values)}
           </>
         )}
       </tbody>
@@ -604,6 +616,7 @@ function Bar({ children, right }: { children: ReactNode; right?: ReactNode }) {
 
 function InspectionSheet({ d }: { d: PrintData }) {
   const { order: o, settings: s } = d;
+  const k: InspectionData = d.inspection?.data ?? {};
   const v = o.vehicle;
   const money = o.total !== null;
   const logo = d.logoUrl ? (
@@ -649,7 +662,7 @@ function InspectionSheet({ d }: { d: PrintData }) {
           <Line label="Biển số xe:">
             <b>{v?.plate}</b>
           </Line>
-          <Line label="Cấp bảo dưỡng:" />
+          <Line label="Cấp bảo dưỡng:">{k.maintenanceLevel}</Line>
           <Line label="Hãng xe:">{v?.make}</Line>
           <Line label="Nhiên liệu:">{v?.fuel}</Line>
           <Line label="Hộp số:">{v?.transmission}</Line>
@@ -673,9 +686,9 @@ function InspectionSheet({ d }: { d: PrintData }) {
           <div className="flex-1 p-2">
             <div className="flex flex-wrap items-center gap-3 font-bold text-[#1d4f9c]">
               YÊU CẦU CỦA KHÁCH HÀNG:
-              {['Thay lốp', 'Vá lốp', 'Bảo dưỡng', 'Rửa xe', 'Khác'].map((x) => (
+              {INSPECTION_REQUESTS.map((x) => (
                 <span key={x} className="flex items-center gap-1 font-normal text-slate-700">
-                  <Box /> {x}
+                  <Box on={k.requests?.includes(x)} /> {x}
                 </span>
               ))}
             </div>
@@ -691,29 +704,28 @@ function InspectionSheet({ d }: { d: PrintData }) {
           <div className="grid flex-1 grid-cols-[1fr_1.15fr_1fr] gap-2 p-2">
             <div className="space-y-2">
               <div className="font-bold">Kiểm tra lốp xe (thay theo 3 năm / 60.000 km)</div>
-              <Tyre name="Trước trái" />
-              <Tyre name="Sau trái" />
+              <Tyre name="Trước trái" t={k.tyres?.FL} />
+              <Tyre name="Sau trái" t={k.tyres?.RL} />
             </div>
             <div>
               <div className="font-bold">Kiểm tra chức năng gạt mưa</div>
-              <div className="flex items-center justify-between">
-                <span>Vệt gạt nước</span>
-                <Chips />
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Lưỡi gạt (cao su lão hóa, nứt)</span>
-                <Chips />
-              </div>
+              {WIPER_ITEMS.map((w) => (
+                <div key={w} className="flex items-center justify-between">
+                  <span>{w}</span>
+                  <Chips value={k.wiper?.[w]} />
+                </div>
+              ))}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/print/so-do-xe.png" alt="Sơ đồ thân xe" className="mt-1 w-full" />
               <div className="mt-0.5 text-center text-[8.5px]">▼ Móp lõm &nbsp; ▲ Trầy xước &nbsp; ◆ Đá văng &nbsp; ● Sơn lại</div>
+              {k.bodyNote && <div className="mt-0.5 text-[8.5px] font-semibold">Thân vỏ: {k.bodyNote}</div>}
               <div className="mt-1 flex items-end gap-1 rounded border border-slate-300 p-1.5 font-bold">
-                Áp suất lốp dự phòng <Dots unit="Bar" />
+                Áp suất lốp dự phòng <Dots unit="Bar" value={dec(k.sparePressure)} />
               </div>
             </div>
             <div className="space-y-2 pt-[14px]">
-              <Tyre name="Trước phải" />
-              <Tyre name="Sau phải" />
+              <Tyre name="Trước phải" t={k.tyres?.FR} />
+              <Tyre name="Sau phải" t={k.tyres?.RR} />
             </div>
           </div>
         </section>
@@ -721,8 +733,8 @@ function InspectionSheet({ d }: { d: PrintData }) {
         <section className="mt-1.5 flex border border-[#1d4f9c]">
           <Side label="Kiểm tra an toàn xe" />
           <div className="grid flex-1 grid-cols-2 gap-2 p-2">
-            <SafetyTable rows={SAFETY_L} />
-            <SafetyTable rows={SAFETY_R} />
+            <SafetyTable rows={SAFETY_ITEMS_LEFT} values={k.safety} />
+            <SafetyTable rows={SAFETY_ITEMS_RIGHT} values={k.safety} />
           </div>
         </section>
 
@@ -730,19 +742,19 @@ function InspectionSheet({ d }: { d: PrintData }) {
           <Side label="Kiểm tra gầm xe (24)" />
           <div className="flex-1 p-2">
             <div className="grid grid-cols-2 gap-2">
-              <UnderTable title="GẦM TRƯỚC (trái – phải)" rows={UNDER_FRONT} />
-              <UnderTable title="GẦM TRƯỚC (tiếp)" rows={UNDER_FRONT2} sub={{ title: 'GẦM SAU (trái – phải)', rows: UNDER_REAR }} />
+              <UnderTable title="GẦM TRƯỚC (trái – phải)" rows={UNDER_FRONT} values={k.underFront} />
+              <UnderTable title="GẦM TRƯỚC (tiếp)" rows={UNDER_FRONT2} values={k.underFront} sub={{ title: 'GẦM SAU (trái – phải)', rows: UNDER_REAR_ITEMS, values: k.underRear }} />
             </div>
             <div className="mt-0.5 text-[8px] text-slate-500">Mỗi bên có 3 ô, tick theo thứ tự: ô 1 = TỐT (xanh lá) · ô 2 = CHÚ Ý (vàng) · ô 3 = THAY THẾ (đỏ)</div>
           </div>
         </section>
 
         <div className="mt-1.5 flex items-end gap-1 font-bold">
-          Khuyến nghị của kỹ thuật viên: <Dots />
+          Khuyến nghị của kỹ thuật viên: <Dots value={<span data-testid="print-recommendation">{k.recommendation}</span>} />
         </div>
         <section className="mt-1.5 grid grid-cols-3 gap-3">
           {[
-            ['KỸ THUẬT VIÊN', o.technician?.name],
+            ['KỸ THUẬT VIÊN', o.technician?.name ?? d.inspection?.inspector],
             ['CỐ VẤN DỊCH VỤ', o.advisor?.name],
             ['KHÁCH HÀNG', o.customer.name],
           ].map(([w, name]) => (
@@ -786,11 +798,15 @@ function InspectionSheet({ d }: { d: PrintData }) {
         <div className="mt-2.5">
           <Bar>Hạng mục đề xuất từ kiểm tra an toàn</Bar>
         </div>
-        <div className="mt-1 space-y-3 border border-slate-300 p-2">
-          <div className="h-2.5 border-b border-dotted border-slate-400" />
-          <div className="h-2.5 border-b border-dotted border-slate-400" />
-          <div className="h-2.5 border-b border-dotted border-slate-400" />
-        </div>
+        {k.suggestions ? (
+          <div className="mt-1 min-h-[16mm] whitespace-pre-line border border-slate-300 p-2 text-[10px]">{k.suggestions}</div>
+        ) : (
+          <div className="mt-1 space-y-3 border border-slate-300 p-2">
+            <div className="h-2.5 border-b border-dotted border-slate-400" />
+            <div className="h-2.5 border-b border-dotted border-slate-400" />
+            <div className="h-2.5 border-b border-dotted border-slate-400" />
+          </div>
+        )}
 
         <div className="mt-2.5">
           <Bar right={<Line label="Dự kiến hoàn thành:" className="w-[70mm]" />}>Hạng mục sửa chữa phát sinh</Bar>
@@ -825,16 +841,16 @@ function InspectionSheet({ d }: { d: PrintData }) {
           </Bar>
         </div>
         <div className="mt-1 grid grid-cols-3 gap-x-4 gap-y-1.5 border border-slate-300 p-2">
-          {FINAL.map((f) => (
+          {FINAL_CHECK_ITEMS.map((f) => (
             <div key={f} className="flex items-center justify-between gap-2">
               <span>{f}</span>
               <span className="flex gap-1">
-                <Box tone="g" />
-                <Box tone="r" />
+                <Box tone="g" on={k.final?.[f] === true} />
+                <Box tone="r" on={k.final?.[f] === false} />
               </span>
             </div>
           ))}
-          <div>Khác: ......................................</div>
+          <div>Khác: {k.finalOther || '......................................'}</div>
         </div>
         <div className="ml-auto mt-2 flex w-[110mm] items-end gap-1 font-bold">
           Nhân viên kiểm tra cuối: <Dots />

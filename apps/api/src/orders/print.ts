@@ -127,9 +127,13 @@ export class PrintService {
     const bank = BANKS.find((b) => b.bin === s.bankBin);
     const taxBank = [s.tenantTaxCode, s.accountNo ? `${bank?.code ?? ''} ${s.accountNo}`.trim() : null].filter(Boolean).join(' · ');
     const customerPays = order.customerPays ?? total;
+    // Phiếu kiểm tra: in kèm kết quả KTV đã nhập trên app (chưa nhập thì in phiếu trắng để tick tay)
+    const inspection = form === 'kiem-tra' ? await this.prisma.inspection.findUnique({ where: { orderId: id }, select: { data: true, completedAt: true, inspectorId: true } }) : null;
+    const inspector = inspection?.inspectorId ? await this.prisma.membership.findUnique({ where: { id: inspection.inspectorId }, include: { user: { select: { fullName: true } } } }) : null;
     return {
       form,
       order,
+      inspection: inspection ? { data: inspection.data, completedAt: inspection.completedAt, inspector: inspector?.user.fullName ?? null } : null,
       settings: { ...settings, inspectionNote: (settings.inspectionNote ?? '').replace('{hotline}', settings.hotline || '______________') },
       logoUrl,
       linkQr,

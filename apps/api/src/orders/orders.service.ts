@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { formatPlate, normalizePlate, searchKey } from '@cardiy/shared';
+import { formatPlate, inspectionSummary, normalizePlate, searchKey, type InspectionData } from '@cardiy/shared';
 import { Prisma, type OrderItemKind, type PaymentMethod } from '@prisma/client';
 import { AccessService, type Access } from '../auth/access.service';
 import { AuditService } from '../audit/audit.service';
@@ -45,6 +45,7 @@ export interface OrderListQuery {
   customerId?: string;
   vehicleId?: string;
   q?: string;
+  tech?: 'me' | 'none';
   page: number;
   pageSize: number;
 }
@@ -132,6 +133,7 @@ export class OrdersService {
       ...statusFilter,
       ...(q.customerId ? { customerId: q.customerId } : {}),
       ...(q.vehicleId ? { vehicleId: q.vehicleId } : {}),
+      ...(q.tech === 'me' ? { technicianId: a.membershipId } : q.tech === 'none' ? { technicianId: null } : {}),
       ...(text
         ? {
             OR: [
@@ -154,6 +156,7 @@ export class OrdersService {
           customer: { select: { id: true, name: true, phone: true } },
           vehicle: { select: { id: true, plateNo: true, make: true, model: true } },
           branch: { select: { id: true, code: true, name: true } },
+          inspection: { select: { completedAt: true, data: true } },
           _count: { select: { items: true } },
         },
       }),
@@ -178,6 +181,7 @@ export class OrdersService {
         request: r.request,
         technician: r.technicianId ? (names.get(r.technicianId) ?? null) : null,
         itemCount: r._count.items,
+        inspection: r.inspection ? { completedAt: r.inspection.completedAt, ...inspectionSummary(r.inspection.data as InspectionData) } : null,
         total: money ? num(r.total) : null,
         paid: money ? num(r.paid) : null,
         paymentState: money ? paymentState(num(r.total), num(r.paid)) : null,

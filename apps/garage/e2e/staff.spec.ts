@@ -30,7 +30,9 @@ test.describe('Nhân viên, cài đặt, bảo mật', () => {
     await cp.getByLabel('Mật khẩu mới', { exact: true }).fill('KtvMoi2026');
     await cp.getByLabel('Nhập lại mật khẩu mới').fill('KtvMoi2026');
     await cp.getByRole('button', { name: 'Đổi mật khẩu' }).click();
-    await expect(page).toHaveURL(/\/trang-chu$/);
+    // KTV vào thẳng "Việc của tôi"
+    await expect(page).toHaveURL(/\/viec-cua-toi$/);
+    await page.goto('/trang-chu');
     await expect(page.getByTestId('home-grid')).toContainText('KTV Thử Nghiệm');
   });
 
