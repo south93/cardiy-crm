@@ -1,9 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
-
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
 describe('Thu chi & công nợ', () => {
   let app: INestApplication;

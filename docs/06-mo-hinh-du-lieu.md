@@ -209,6 +209,41 @@ erDiagram
     uuid assignee_id FK }
 ```
 
+## D2b · Phiếu kiểm tra xe & app chủ xe (đã làm: vòng 1.5e, 2.1)
+
+```mermaid
+erDiagram
+  repair_orders ||--o| inspections : "phiếu kiểm tra"
+  users ||--o{ customer_links : "là chủ xe"
+  customers ||--o| customer_links : "liên kết app"
+  customers ||--o{ customer_invites : "lời mời"
+  users ||--o{ owner_sessions : "phiên app"
+  inspections { uuid id PK
+    uuid order_id FK "1 đơn 1 phiếu"
+    json data "lốp, an toàn, gầm, khuyến nghị, kiểm tra cuối"
+    uuid inspector_id
+    datetime completed_at }
+  customer_links { uuid id PK
+    uuid user_id FK
+    uuid tenant_id
+    uuid customer_id FK "unique"
+    datetime created_at }
+  customer_invites { uuid id PK
+    uuid customer_id FK
+    string token_hash "chỉ lưu băm, dùng 1 lần"
+    datetime expires_at "30 ngày"
+    datetime used_at
+    datetime revoked_at }
+  owner_sessions { uuid id PK
+    uuid user_id FK
+    string token_hash
+    datetime expires_at
+    datetime revoked_at }
+```
+
+- Chủ xe dùng chung bảng `users` (một người vừa là nhân viên vừa là khách vẫn một tài khoản), nhưng **phiên đăng nhập tách riêng**: token loại `owner`, cookie `cardiy_ort`, bảng `owner_sessions`. Token nhân viên không gọi được API chủ xe và ngược lại.
+- Chủ xe chỉ thấy xe **đang** đứng tên hồ sơ khách đã liên kết, và chỉ đơn của chính hồ sơ đó (không thấy đơn của chủ cũ). Bán xe (chuyển chủ) là hết quyền xem.
+
 ## D3 · Kho, danh mục chuẩn, gian hàng trên sàn
 
 ```mermaid
@@ -410,7 +445,7 @@ erDiagram
   rental_vehicles ||--o{ rental_contracts : ""
   users ||--o{ rental_contracts : "thuê"
   users ||--o{ used_car_listings : "đăng"
-  used_car_listings |o--o| inspections : "kiểm định"
+  used_car_listings |o--o| used_car_appraisals : "kiểm định"
   used_car_listings ||--o{ chat_threads : ""
   users ||--o{ posts : ""
   posts ||--o{ comments : ""
@@ -453,7 +488,7 @@ erDiagram
     uuid vehicle_id FK
     bigint price
     string status }
-  inspections { uuid id PK
+  used_car_appraisals { uuid id PK
     uuid listing_id FK
     uuid tenant_id FK
     json checklist

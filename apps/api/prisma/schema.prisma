@@ -106,8 +106,10 @@ model User {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  sessions    Session[]
+  memberships   Membership[]
+  sessions      Session[]
+  customerLinks CustomerLink[]
+  ownerSessions OwnerSession[]
 
   @@map("users")
 }
@@ -319,6 +321,9 @@ model Customer {
   orders     RepairOrder[]
   bookings   Booking[]
   careTasks  CareTask[]
+
+  appLink    CustomerLink?
+  appInvites CustomerInvite[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, phone])
@@ -919,4 +924,57 @@ model Inspection {
 
   @@index([tenantId])
   @@map("inspections")
+}
+
+// ---------------- Vòng 2.1 · App chủ xe ----------------
+
+/// Tài khoản (users) của chủ xe ↔ hồ sơ khách ở một garage. Một hồ sơ khách chỉ gắn một tài khoản; một tài khoản có thể là khách của nhiều garage.
+model CustomerLink {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  customerId String   @unique @map("customer_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([userId])
+  @@map("customer_links")
+}
+
+/// Lời mời dùng app: garage gửi link / QR cho khách; khách mở link để kích hoạt tài khoản. Token chỉ lưu dạng băm, dùng một lần.
+model CustomerInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@map("customer_invites")
+}
+
+/// Phiên đăng nhập app chủ xe (tách khỏi phiên nhân viên: cookie riêng, token loại "owner")
+model OwnerSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  userAgent String?   @map("user_agent")
+  ip        String?
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  rotatedAt DateTime? @map("rotated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("owner_sessions")
 }

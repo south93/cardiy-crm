@@ -1,8 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
 const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 
 describe('Lịch hẹn', () => {

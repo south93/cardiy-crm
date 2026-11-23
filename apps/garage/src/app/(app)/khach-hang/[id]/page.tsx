@@ -1,6 +1,7 @@
 'use client';
 
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Spinner, Tabs } from '@cardiy/ui';
+import { CustomerAppCard } from '@/components/customer-app-card';
 import { CalendarClock, Car, ChevronLeft, MessageCircle, Pencil, Phone, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -243,6 +244,7 @@ function CustomerProfile() {
               </p>
             )}
           </Card>
+          {can('customer.view') && <CustomerAppCard customerId={c.id} hasPhone={!!c.phone} />}
           {can('customer.view') && <CareHistory customerId={c.id} />}
           {can('customer.manage') && (
             <button

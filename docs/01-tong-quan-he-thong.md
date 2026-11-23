@@ -62,7 +62,7 @@ flowchart TB
 
   subgraph FE["Frontend · Next.js + TypeScript (một monorepo)"]
     W1["apps/web<br/>A1 Sàn công khai · SSR/SEO"]:::app
-    W2["apps/customer<br/>A2 App chủ xe · PWA"]:::app
+    W2["A2 App chủ xe · PWA<br/>tạm chạy trong apps/garage, đường dẫn /app"]:::app
     W3["apps/garage<br/>A3 CRM PLG + A4 KTV + A5 Cứu hộ<br/>+ A7 Cổng đối tác + A6 Admin sàn"]:::app
     W4["apps/admin<br/>A6 Admin sàn"]:::app
     UI["packages/ui · design system dùng chung"]:::app

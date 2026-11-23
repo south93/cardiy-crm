@@ -20,6 +20,6 @@ import { MeController } from './me.controller';
   ],
   controllers: [AuthController, MeController],
   providers: [AuthService, AccessService, { provide: APP_GUARD, useClass: AuthGuard }],
-  exports: [AuthService, AccessService],
+  exports: [AuthService, AccessService, JwtModule],
 })
 export class AuthModule {}

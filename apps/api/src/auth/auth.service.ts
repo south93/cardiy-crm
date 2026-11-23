@@ -225,7 +225,7 @@ export class AuthService {
 
   // ---------------- Chống dò mật khẩu ----------------
 
-  private async assertNotLocked(key: string): Promise<void> {
+  async assertNotLocked(key: string): Promise<void> {
     try {
       const fails = Number((await this.redis.client.get(key)) ?? 0);
       if (fails >= this.config.get('LOGIN_MAX_FAILS')) {
@@ -240,7 +240,7 @@ export class AuthService {
     }
   }
 
-  private async registerFail(key: string): Promise<void> {
+  async registerFail(key: string): Promise<void> {
     try {
       const n = await this.redis.client.incr(key);
       if (n === 1) await this.redis.client.expire(key, this.config.get('LOGIN_LOCK_MINUTES') * 60);
@@ -249,7 +249,7 @@ export class AuthService {
     }
   }
 
-  private async clearFails(key: string): Promise<void> {
+  async clearFails(key: string): Promise<void> {
     try {
       await this.redis.client.del(key);
     } catch {

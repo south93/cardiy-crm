@@ -1,7 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginUI, PHONES, randomPhone } from './helpers';
-
-const randomPlate = () => `61E${String(Math.floor(10000 + Math.random() * 89999))}`;
+import { loginUI, PHONES, randomPhone, randomPlate } from './helpers';
 
 test.describe('App kỹ thuật viên', () => {
   test('KTV: nhận việc → bắt đầu sửa → nhập phiếu kiểm tra trên điện thoại → hoàn tất → bản in có kết quả', async ({ page, request }) => {

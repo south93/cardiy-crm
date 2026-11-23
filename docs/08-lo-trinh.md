@@ -45,9 +45,9 @@ flowchart LR
 ### P2 · Kết nối chủ xe (3 vòng)
 | Vòng | Nội dung |
 |---|---|
-| 2.1 | App chủ xe (PWA): đăng ký, xe của tôi, lịch sử sửa chữa |
+| 2.1 | App chủ xe (PWA, đường dẫn `/app`): kích hoạt bằng link / QR garage gửi (chưa có OTP SMS), xe của tôi, nhắc hạn đăng kiểm / bảo hiểm, cập nhật km, lịch sử sửa chữa, chi tiết đơn & tiến độ |
 | 2.2 | Đặt lịch online, theo dõi tiến độ realtime, duyệt báo giá trên điện thoại |
-| 2.3 | Thông tin thanh toán của garage, đánh giá, nhắc bảo dưỡng, Zalo ZNS, hoá đơn điện tử |
+| 2.3 | Thông tin thanh toán của garage, đánh giá, nhắc bảo dưỡng, Zalo ZNS, hoá đơn điện tử, **đăng ký / quên mật khẩu bằng OTP** (SMS hoặc Zalo) |
 
 🎯 **Mốc demo 2:** khách thật đặt lịch và duyệt báo giá qua app.
 

@@ -1,7 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginUI, PHONES, randomPhone } from './helpers';
-
-const randomPlate = () => `61K${String(Math.floor(10000 + Math.random() * 89999))}`;
+import { loginUI, PHONES, randomPhone, randomPlate } from './helpers';
 
 test.describe('Lịch gọi', () => {
   test.skip(({ isMobile }) => isMobile, 'làm trên máy tính');

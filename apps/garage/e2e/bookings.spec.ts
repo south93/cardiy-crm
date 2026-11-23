@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { loginUI, PHONES, randomPhone } from './helpers';
+import { loginUI, PHONES, randomPhone, randomPlate } from './helpers';
 
-const randomPlate = () => `61K${String(Math.floor(10000 + Math.random() * 89999))}`;
 const fmt = (p: string) => `${p.slice(0, 3)}-${p.slice(3, 6)}.${p.slice(6)}`;
 
 test.describe('Lịch hẹn', () => {
