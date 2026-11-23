@@ -27,6 +27,9 @@ const entrySchema = z.object({
 const debtList = z.object({ q: z.string().max(100).optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(30) });
 const collectSchema = z.object({ amount: money, method: z.enum(METHODS), note: z.string().trim().max(300).optional().nullable(), branchId: z.string().uuid() });
 
+const payList = z.object({ q: z.string().max(100).optional(), all: z.coerce.boolean().optional() });
+const paySchema = z.object({ amount: money, method: z.enum(['TIEN_MAT', 'CHUYEN_KHOAN', 'THE']), branchId: z.string().uuid(), note: z.string().trim().max(300).optional().nullable() });
+
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}
@@ -54,6 +57,30 @@ export class FinanceController {
   @HttpCode(200)
   void(@CurrentAuth() auth: RequestAuth, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(z.object({ reason: z.string().trim().min(3, 'Cần nhập lý do huỷ').max(300) }))) dto: { reason: string }, @Req() req: Request) {
     return this.finance.voidEntry(auth.access, id, dto.reason, clientIp(req));
+  }
+
+  @RequirePermissions('finance.view')
+  @Get('opening-fund')
+  openingFund(@CurrentAuth() auth: RequestAuth, @Query(new ZodPipe(z.object({ branchId: z.string().uuid() }))) q: { branchId: string }) {
+    return this.finance.openingFund(auth.access, q.branchId);
+  }
+
+  @RequirePermissions('finance.view')
+  @Get('payables')
+  payables(@CurrentAuth() auth: RequestAuth, @Query(new ZodPipe(payList)) q: z.infer<typeof payList>) {
+    return this.finance.payables(auth.access, q);
+  }
+
+  @RequirePermissions('finance.view')
+  @Get('payables/:supplierId')
+  payable(@CurrentAuth() auth: RequestAuth, @Param('supplierId', ParseUUIDPipe) id: string) {
+    return this.finance.payable(auth.access, id);
+  }
+
+  @RequirePermissions('finance.manage')
+  @Post('payables/:supplierId/pay')
+  pay(@CurrentAuth() auth: RequestAuth, @Param('supplierId', ParseUUIDPipe) id: string, @Body(new ZodPipe(paySchema)) dto: z.infer<typeof paySchema>, @Req() req: Request) {
+    return this.finance.paySupplier(auth.access, id, dto, clientIp(req));
   }
 
   @RequirePermissions('finance.view')

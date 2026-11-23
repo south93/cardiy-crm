@@ -1,6 +1,7 @@
 /** Khoản mục thu / chi và luật phân bổ thu nợ (thuần, test riêng). */
 export const CATEGORIES = {
   THU: [
+    { code: 'QUY_DAU_KY', label: 'Quỹ đầu kỳ chi nhánh (ký quỹ)' },
     { code: 'THU_NO_DAU_KY', label: 'Thu công nợ đầu kỳ (AppSheet)' },
     { code: 'THU_KHAC', label: 'Thu khác' },
   ],

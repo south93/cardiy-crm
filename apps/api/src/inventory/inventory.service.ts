@@ -42,6 +42,7 @@ export interface SupplierInput {
   address?: string | null;
   taxCode?: string | null;
   note?: string | null;
+  openingPayable?: number;
 }
 
 export interface DocInput {
@@ -352,7 +353,14 @@ export class InventoryService {
         { total: Number(t._sum.total ?? 0n), count: t._count },
       ]),
     );
-    return rows.map(({ searchText: _s, deletedAt: _d, ...r }) => ({ ...r, purchased: totals.get(r.id)?.total ?? 0, receipts: totals.get(r.id)?.count ?? 0 }));
+    const paid = new Map(
+      (await this.prisma.cashEntry.groupBy({ by: ['supplierId'], where: { tenantId: a.tenantId, category: 'CHI_NHA_CUNG_CAP', voidedAt: null, supplierId: { in: rows.map((r) => r.id) } }, _sum: { amount: true } })).map((p) => [p.supplierId, Number(p._sum.amount ?? 0n)]),
+    );
+    return rows.map(({ searchText: _s, deletedAt: _d, openingPayable, ...r }) => {
+      const purchased = totals.get(r.id)?.total ?? 0;
+      const opening = Number(openingPayable);
+      return { ...r, openingPayable: opening, purchased, receipts: totals.get(r.id)?.count ?? 0, paid: paid.get(r.id) ?? 0, balance: opening + purchased - (paid.get(r.id) ?? 0) };
+    });
   }
 
   async saveSupplier(a: Access, id: string | null, dto: SupplierInput, ip?: string) {
@@ -362,20 +370,21 @@ export class InventoryService {
       address: dto.address?.trim() || null,
       taxCode: dto.taxCode?.trim() || null,
       note: dto.note?.trim() || null,
+      ...(dto.openingPayable !== undefined ? { openingPayable: BigInt(dto.openingPayable) } : {}),
     };
     const searchText = searchKey(data.name, data.phone, data.taxCode);
     if (id) {
       const s = await this.prisma.supplier.findFirst({ where: { id, tenantId: a.tenantId, deletedAt: null } });
       if (!s) throw new NotFoundException('Không tìm thấy nhà cung cấp');
       await this.prisma.supplier.update({ where: { id }, data: { ...data, searchText: searchKey(s.code, data.name, data.phone, data.taxCode) } });
-      await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'supplier.updated', entity: 'supplier', entityId: id, after: data, ip });
+      await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'supplier.updated', entity: 'supplier', entityId: id, after: { ...data, openingPayable: dto.openingPayable ?? null }, ip });
       return { id };
     }
     const s = await this.prisma.$transaction(async (tx) => {
       const code = `NCC${String(await reserveNumbers(tx, a.tenantId, 'supplier')).padStart(4, '0')}`;
       return tx.supplier.create({ data: { ...data, tenantId: a.tenantId, code, searchText: `${searchKey(code)} ${searchText}` } });
     });
-    await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'supplier.created', entity: 'supplier', entityId: s.id, after: data, ip });
+    await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'supplier.created', entity: 'supplier', entityId: s.id, after: { ...data, openingPayable: dto.openingPayable ?? null }, ip });
     return { id: s.id, code: s.code };
   }
 

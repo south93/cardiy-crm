@@ -644,18 +644,20 @@ model StockLevel {
 }
 
 model Supplier {
-  id         String    @id @default(uuid()) @db.Uuid
-  tenantId   String    @map("tenant_id") @db.Uuid
-  code       String
-  name       String
-  phone      String?
-  address    String?
-  taxCode    String?   @map("tax_code")
-  note       String?
-  searchText String    @default("") @map("search_text")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  code           String
+  name           String
+  phone          String?
+  address        String?
+  taxCode        String?   @map("tax_code")
+  note           String?
+  /// Còn nợ nhà cung cấp lúc bắt đầu dùng hệ thống (đồng); công nợ = nợ đầu kỳ + phiếu nhập − phiếu chi trả NCC
+  openingPayable BigInt    @default(0) @map("opening_payable")
+  searchText     String    @default("") @map("search_text")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
   documents StockDocument[]
 
