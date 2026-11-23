@@ -65,11 +65,11 @@ const errMsg = (e: unknown, f: string) => (e instanceof ApiError ? (e.errors?.[0
 const dayStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const CASH_METHODS = METHODS.filter((m) => m.value !== 'BAO_HIEM');
 
-function Stat({ label, value, tone = '' }: { label: string; value: number; tone?: string }) {
+function Stat({ label, value, tone = '', small = false }: { label: string; value: number; tone?: string; small?: boolean }) {
   return (
-    <Card className="p-4">
+    <Card className={small ? 'p-3' : 'p-4'}>
       <div className="text-xs text-slate-500">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${tone}`}>{fmtMoney(value)}</div>
+      <div className={`mt-1 whitespace-nowrap font-semibold tabular-nums ${small ? 'text-base' : 'text-xl'} ${tone}`}>{fmtMoney(value)}</div>
     </Card>
   );
 }
@@ -83,22 +83,41 @@ function EntryForm({ type, branchId, onDone }: { type: 'THU' | 'CHI'; branchId: 
   const [note, setNote] = useState('');
   const [date, setDate] = useState(dayStr(new Date()));
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [supplierId, setSupplierId] = useState('');
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; balance: number }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     api<Categories>('/finance/categories').then((c) => {
-      setCats(c);
-      setCategory(c[type].find((x) => x.code !== 'THU_NO_DAU_KY')?.code ?? c[type][0]!.code);
+      const list = { ...c, THU: c.THU.filter((x) => x.code !== 'QUY_DAU_KY') };
+      setCats(list);
+      setCategory(list[type].find((x) => x.code !== 'THU_NO_DAU_KY')?.code ?? list[type][0]!.code);
     });
   }, [type]);
   const needCustomer = category === 'THU_NO_DAU_KY';
+  const needSupplier = category === 'CHI_NHA_CUNG_CAP';
+  useEffect(() => {
+    if (needSupplier && !suppliers) api<{ items: { id: string; name: string; balance: number }[] }>('/finance/payables').then((r) => setSuppliers(r.items.filter((x) => x.balance > 0)));
+  }, [needSupplier, suppliers]);
+  const supplier = suppliers?.find((x) => x.id === supplierId);
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
       const today = dayStr(new Date()) === date;
       await api('/finance/entries', {
-        body: { type, branchId, category, amount: parseMoney(amount), method, counterparty: party || null, note: note || null, customerId: customer?.id ?? null, occurredAt: today ? null : new Date(`${date}T12:00:00`).toISOString() },
+        body: {
+          type,
+          branchId,
+          category,
+          amount: parseMoney(amount),
+          method,
+          counterparty: needSupplier ? (supplier?.name ?? null) : party || null,
+          note: note || null,
+          customerId: customer?.id ?? null,
+          supplierId: needSupplier ? supplierId || null : null,
+          occurredAt: today ? null : new Date(`${date}T12:00:00`).toISOString(),
+        },
       });
       onDone();
     } catch (e) {
@@ -134,7 +153,20 @@ function EntryForm({ type, branchId, onDone }: { type: 'THU' | 'CHI'; branchId: 
           </Select>
         )}
       </Field>
-      {needCustomer ? (
+      {needSupplier ? (
+        <Field label="Nhà cung cấp" className="sm:col-span-2">
+          {(id) => (
+            <Select id={id} value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+              <option value="">— Chọn nhà cung cấp đang nợ —</option>
+              {suppliers?.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name} · còn nợ {fmtMoney(x.balance)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      ) : needCustomer ? (
         <div className="sm:col-span-2">
           <div className="mb-1.5 text-sm font-medium text-slate-700">Khách hàng</div>
           {customer ? (
@@ -157,12 +189,76 @@ function EntryForm({ type, branchId, onDone }: { type: 'THU' | 'CHI'; branchId: 
         {(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} />}
       </Field>
       <div className="flex justify-end sm:col-span-2">
-        <Button onClick={() => void save()} disabled={busy || !parseMoney(amount) || (needCustomer && !customer)} data-testid="save-entry">
+        <Button onClick={() => void save()} disabled={busy || !parseMoney(amount) || (needCustomer && !customer) || (needSupplier && !supplierId)} data-testid="save-entry">
           {busy && <Spinner />}
           Lưu phiếu {type === 'THU' ? 'thu' : 'chi'}
         </Button>
       </div>
     </div>
+  );
+}
+
+interface Fund {
+  id: string;
+  code: string;
+  amount: number;
+  occurredAt: string;
+  note: string | null;
+}
+
+/** Quỹ đầu kỳ (ký quỹ) của chi nhánh: nhập một lần; nhập sai thì huỷ phiếu trong sổ quỹ rồi nhập lại */
+function OpeningFund({ branchId, version, onSaved }: { branchId: string; version: number; onSaved: () => void }) {
+  const { can } = useAuth();
+  const [fund, setFund] = useState<Fund | null | undefined>(undefined);
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(dayStr(new Date()));
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ fund: Fund | null }>(`/finance/opening-fund?branchId=${branchId}`).then((r) => setFund(r.fund));
+  }, [branchId, version]);
+  if (fund === undefined) return null;
+  if (fund)
+    return (
+      <p className="text-sm text-slate-600" data-testid="opening-fund">
+        Quỹ đầu kỳ chi nhánh: <b>{fmtMoney(fund.amount)}</b> (phiếu {fund.code}, {fmtDate(fund.occurredAt)})
+      </p>
+    );
+  if (!can('finance.manage')) return null;
+  return (
+    <>
+      <Alert tone="peach" className="flex flex-wrap items-center gap-3" data-testid="opening-fund-missing">
+        <span className="flex-1">Chi nhánh chưa nhập quỹ đầu kỳ (tiền ký quỹ đang có trong két). Nhập để số tồn quỹ tiền mặt đúng với thực tế.</span>
+        <Button variant="outline" onClick={() => setOpen(true)} data-testid="set-opening-fund">
+          Nhập quỹ đầu kỳ
+        </Button>
+      </Alert>
+      <Dialog open={open} onClose={() => setOpen(false)} title="Nhập quỹ đầu kỳ chi nhánh">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {error && <Alert className="sm:col-span-2">{error}</Alert>}
+          <Field label="Số tiền quỹ">{(id) => <Input id={id} inputMode="numeric" value={amount} onChange={(e) => setAmount(moneyInput(parseMoney(e.target.value)))} placeholder="VD: 18.000.000" autoFocus />}</Field>
+          <Field label="Tính từ ngày">{(id) => <Input id={id} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}</Field>
+          <div className="flex justify-end sm:col-span-2">
+            <Button
+              disabled={!parseMoney(amount)}
+              onClick={async () => {
+                setError(null);
+                try {
+                  await api('/finance/entries', { body: { type: 'THU', branchId, category: 'QUY_DAU_KY', amount: parseMoney(amount), method: 'TIEN_MAT', note: 'Quỹ đầu kỳ (ký quỹ)', occurredAt: new Date(`${date}T00:01:00`).toISOString() } });
+                  setOpen(false);
+                  onSaved();
+                } catch (e) {
+                  setError(errMsg(e, 'Không lưu được'));
+                }
+              }}
+              data-testid="save-opening-fund"
+            >
+              Lưu quỹ đầu kỳ
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </>
   );
 }
 
@@ -177,6 +273,7 @@ function CashBook({ branchId }: { branchId: string }) {
   const [voiding, setVoiding] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fundVersion, setFundVersion] = useState(0);
 
   useEffect(() => {
     const now = new Date();
@@ -231,6 +328,7 @@ function CashBook({ branchId }: { branchId: string }) {
           </>
         )}
       </div>
+      <OpeningFund branchId={branchId} version={fundVersion} onSaved={() => (setFundVersion((v) => v + 1), void load())} />
       {error && <Alert>{error}</Alert>}
       {!book ? (
         <Spinner className="h-6 w-6 text-brand-600" />
@@ -545,11 +643,223 @@ function Debts({ branchId }: { branchId: string }) {
   );
 }
 
+interface PayRow {
+  id: string;
+  code: string;
+  name: string;
+  phone: string | null;
+  opening: number;
+  purchased: number;
+  receipts: number;
+  paid: number;
+  balance: number;
+  lastPurchaseAt: string | null;
+}
+interface PayDetail extends Omit<PayRow, 'code' | 'name' | 'phone'> {
+  supplier: { id: string; code: string; name: string; phone: string | null };
+  rows: { kind: 'NHAP' | 'TRA'; id: string; code: string; ref: string | null; at: string; increase: number; decrease: number; branch: string; voided: boolean; method: PaymentMethod | null; note: string | null; balance: number }[];
+}
+
+function PayDialog({ supplierId, branchId, onDone }: { supplierId: string; branchId: string; onDone: () => void }) {
+  const { can } = useAuth();
+  const [d, setD] = useState<PayDetail | null>(null);
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('CHUYEN_KHOAN');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api<PayDetail>(`/finance/payables/${supplierId}`).then((x) => (setD(x), setAmount(moneyInput(Math.max(0, x.balance)))));
+  }, [supplierId]);
+  if (!d) return <Spinner className="text-brand-600" />;
+  return (
+    <div className="space-y-4" data-testid="payable-dialog">
+      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        <Stat small label="Nợ đầu kỳ" value={d.opening} />
+        <Stat small label="Đã nhập hàng" value={d.purchased} />
+        <Stat small label="Đã trả" value={d.paid} />
+        <Stat small label="Còn nợ" value={d.balance} tone="text-rose-600" />
+      </div>
+      {can('finance.manage') && d.balance > 0 && (
+        <div className="grid gap-3 rounded-2xl bg-slate-50 p-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end">
+          <Field label="Số tiền trả">{(id) => <Input id={id} inputMode="numeric" value={amount} onChange={(e) => setAmount(moneyInput(parseMoney(e.target.value)))} />}</Field>
+          <Field label="Hình thức">
+            {(id) => (
+              <Select id={id} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+                {CASH_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field label="Ghi chú">{(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: trả HĐ 0012" />}</Field>
+          <Button
+            disabled={busy || !parseMoney(amount)}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await api(`/finance/payables/${supplierId}/pay`, { body: { amount: parseMoney(amount), method, branchId, note: note || null } });
+                onDone();
+              } catch (e) {
+                setError(errMsg(e, 'Không lưu được phiếu chi'));
+                setBusy(false);
+              }
+            }}
+            data-testid="save-pay"
+          >
+            Lập phiếu chi
+          </Button>
+          {error && <Alert className="sm:col-span-4">{error}</Alert>}
+        </div>
+      )}
+      <div className="max-h-80 overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+              <th className="py-2 pr-2 font-semibold">Ngày</th>
+              <th className="px-2 py-2 font-semibold">Chứng từ</th>
+              <th className="px-2 py-2 text-right font-semibold">Nhập (tăng nợ)</th>
+              <th className="px-2 py-2 text-right font-semibold">Trả (giảm nợ)</th>
+              <th className="py-2 pl-2 text-right font-semibold">Còn nợ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.rows.map((r) => (
+              <tr key={r.id} className={`border-b border-slate-50 ${r.voided ? 'text-slate-400 line-through' : ''}`}>
+                <td className="py-2 pr-2">{fmtDate(r.at)}</td>
+                <td className="px-2 py-2">
+                  <span className="font-mono">{r.code}</span>
+                  <span className="text-xs text-slate-500">
+                    {' '}
+                    · {r.branch}
+                    {r.ref && ` · HĐ ${r.ref}`}
+                    {r.method && ` · ${methodLabel(r.method)}`}
+                    {r.voided && ' · đã huỷ'}
+                  </span>
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums">{r.increase ? fmtMoney(r.increase) : ''}</td>
+                <td className="px-2 py-2 text-right tabular-nums">{r.decrease ? fmtMoney(r.decrease) : ''}</td>
+                <td className="py-2 pl-2 text-right font-medium tabular-nums">{fmtMoney(r.balance)}</td>
+              </tr>
+            ))}
+            <tr className="text-slate-500">
+              <td className="py-2 pr-2">—</td>
+              <td className="px-2 py-2">Nợ đầu kỳ</td>
+              <td />
+              <td />
+              <td className="py-2 pl-2 text-right tabular-nums">{fmtMoney(d.opening)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Công nợ phải trả nhà cung cấp: nợ đầu kỳ + phiếu nhập − phiếu chi trả NCC */
+function Payables({ branchId }: { branchId: string }) {
+  const { can } = useAuth();
+  const [q, setQ] = useState('');
+  const [all, setAll] = useState(false);
+  const [data, setData] = useState<{ totalPayable: number; items: PayRow[] } | null>(null);
+  const [open, setOpen] = useState<PayRow | null>(null);
+  const seq = useRef(0);
+  const load = useCallback(async () => {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set('q', q.trim());
+    if (all) p.set('all', 'true');
+    const my = ++seq.current;
+    const res = await api<{ totalPayable: number; items: PayRow[] }>(`/finance/payables?${p}`);
+    if (my === seq.current) setData(res);
+  }, [q, all]);
+  useEffect(() => {
+    const t = setTimeout(() => void load(), q ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [load, q]);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full md:w-72">
+          <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên nhà cung cấp…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm nhà cung cấp" />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Hiện cả NCC đã trả hết
+        </label>
+        {data && (
+          <span className="text-sm text-slate-600" data-testid="payable-total">
+            Tổng còn nợ nhà cung cấp: <b className="text-rose-600">{fmtMoney(data.totalPayable)}</b>
+          </span>
+        )}
+      </div>
+      <Card className="overflow-hidden">
+        {!data ? (
+          <div className="grid place-items-center p-10">
+            <Spinner className="h-6 w-6 text-brand-600" />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="payable-table">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-3 font-semibold">Nhà cung cấp</th>
+                  <th className="px-3 py-3 text-right font-semibold">Nợ đầu kỳ</th>
+                  <th className="px-3 py-3 text-right font-semibold">Đã nhập</th>
+                  <th className="px-3 py-3 text-right font-semibold">Đã trả</th>
+                  <th className="px-3 py-3 text-right font-semibold">Còn nợ</th>
+                  <th className="px-3 py-3 font-semibold">Nhập gần nhất</th>
+                  <th className="w-28" />
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-50 last:border-0" data-testid="payable-row">
+                    <td className="px-5 py-3">
+                      <div className="font-medium">{r.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {r.phone ?? r.code}
+                        {r.receipts > 0 && ` · ${r.receipts} phiếu nhập`}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-right tabular-nums">{r.opening ? fmtMoney(r.opening) : '—'}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{r.purchased ? fmtMoney(r.purchased) : '—'}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{r.paid ? fmtMoney(r.paid) : '—'}</td>
+                    <td className={`px-3 py-3 text-right font-semibold tabular-nums ${r.balance > 0 ? 'text-rose-600' : ''}`}>{fmtMoney(r.balance)}</td>
+                    <td className="px-3 py-3 text-slate-500">{r.lastPurchaseAt ? fmtDate(r.lastPurchaseAt) : '—'}</td>
+                    <td className="px-3 py-3 text-right">
+                      <Button variant="outline" className="whitespace-nowrap" onClick={() => setOpen(r)} data-testid="open-payable">
+                        {can('finance.manage') && r.balance > 0 ? 'Trả tiền' : 'Chi tiết'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {!data.items.length && (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
+                      Không còn nợ nhà cung cấp nào.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Dialog open={open !== null} onClose={() => setOpen(null)} title={open ? `Công nợ · ${open.name}` : ''} wide>
+        {open && <PayDialog supplierId={open.id} branchId={branchId} onDone={() => (setOpen(null), void load())} />}
+      </Dialog>
+    </div>
+  );
+}
+
 function Finance() {
   const { me } = useAuth();
   const current = useCurrentBranch();
   const [branch, setBranch] = useState('');
-  const [tab, setTab] = useState<'so-quy' | 'cong-no'>('so-quy');
+  const [tab, setTab] = useState<'so-quy' | 'cong-no' | 'cong-no-ncc'>('so-quy');
   useEffect(() => {
     if (current && !branch) setBranch(current);
   }, [current, branch]);
@@ -560,6 +870,7 @@ function Finance() {
           tabs={[
             { value: 'so-quy' as const, label: 'Sổ quỹ' },
             { value: 'cong-no' as const, label: 'Công nợ khách' },
+            { value: 'cong-no-ncc' as const, label: 'Công nợ NCC' },
           ]}
           value={tab}
           onChange={setTab}
@@ -574,7 +885,7 @@ function Finance() {
           </Select>
         )}
       </div>
-      {branch && (tab === 'so-quy' ? <CashBook branchId={branch} /> : <Debts branchId={branch} />)}
+      {branch && (tab === 'so-quy' ? <CashBook branchId={branch} /> : tab === 'cong-no' ? <Debts branchId={branch} /> : <Payables branchId={branch} />)}
     </div>
   );
 }

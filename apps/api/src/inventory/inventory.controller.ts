@@ -45,7 +45,7 @@ const listSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
-const supplierSchema = z.object({ name: z.string().trim().min(1, 'Cần nhập tên nhà cung cấp').max(150), phone: text(20), address: text(300), taxCode: text(20), note: text(1000) });
+const supplierSchema = z.object({ name: z.string().trim().min(1, 'Cần nhập tên nhà cung cấp').max(150), phone: text(20), address: text(300), taxCode: text(20), note: text(1000), openingPayable: z.coerce.number().int().min(0).max(1_000_000_000_000).optional() });
 const docSchema = z.object({
   type: z.enum(['NHAP', 'CHUYEN', 'DIEU_CHINH']),
   branchId: z.string().uuid(),

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
+import { moneyInput, parseMoney } from '@/lib/orders';
 
 interface Supplier {
   id: string;
@@ -17,8 +18,11 @@ interface Supplier {
   note: string | null;
   purchased: number;
   receipts: number;
+  openingPayable: number;
+  paid: number;
+  balance: number;
 }
-const empty = { name: '', phone: '', address: '', taxCode: '', note: '' };
+const empty = { name: '', phone: '', address: '', taxCode: '', note: '', openingPayable: '' };
 
 function Suppliers() {
   const [q, setQ] = useState('');
@@ -37,7 +41,7 @@ function Suppliers() {
     if (!edit) return;
     setError(null);
     try {
-      await api(edit.id ? `/suppliers/${edit.id}` : '/suppliers', { method: edit.id ? 'PATCH' : 'POST', body: edit.v });
+      await api(edit.id ? `/suppliers/${edit.id}` : '/suppliers', { method: edit.id ? 'PATCH' : 'POST', body: { ...edit.v, openingPayable: parseMoney(edit.v.openingPayable) } });
       setEdit(null);
       await load();
     } catch (err) {
@@ -71,6 +75,7 @@ function Suppliers() {
                 <th className="px-5 py-3 font-semibold">Nhà cung cấp</th>
                 <th className="px-3 py-3 font-semibold">Liên hệ</th>
                 <th className="px-3 py-3 text-right font-semibold">Đã nhập</th>
+                <th className="px-3 py-3 text-right font-semibold">Còn nợ</th>
                 <th className="w-12" />
               </tr>
             </thead>
@@ -92,8 +97,11 @@ function Suppliers() {
                     <div className="tabular-nums">{fmtMoney(s.purchased)}</div>
                     <div className="text-xs text-slate-500">{s.receipts} phiếu nhập</div>
                   </td>
+                  <td className={`px-3 py-3 text-right font-semibold tabular-nums ${s.balance > 0 ? 'text-rose-600' : 'text-slate-400'}`} data-testid="supplier-balance">
+                    {s.balance ? fmtMoney(s.balance) : '—'}
+                  </td>
                   <td className="px-3 py-3">
-                    <button type="button" aria-label={`Sửa ${s.name}`} onClick={() => (setEdit({ id: s.id, v: { name: s.name, phone: s.phone ?? '', address: s.address ?? '', taxCode: s.taxCode ?? '', note: s.note ?? '' } }), setError(null))} className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
+                    <button type="button" aria-label={`Sửa ${s.name}`} onClick={() => (setEdit({ id: s.id, v: { name: s.name, phone: s.phone ?? '', address: s.address ?? '', taxCode: s.taxCode ?? '', note: s.note ?? '', openingPayable: moneyInput(s.openingPayable) } }), setError(null))} className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">
                       <Pencil className="h-4 w-4" />
                     </button>
                   </td>
@@ -101,7 +109,7 @@ function Suppliers() {
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={4} className="px-5 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
                     {q ? 'Không tìm thấy.' : 'Chưa có nhà cung cấp.'}
                   </td>
                 </tr>
@@ -132,6 +140,9 @@ function Suppliers() {
             <Field label="Số điện thoại">{(id) => <Input id={id} value={edit.v.phone} onChange={set('phone')} />}</Field>
             <Field label="Mã số thuế">{(id) => <Input id={id} value={edit.v.taxCode} onChange={set('taxCode')} />}</Field>
             <Field label="Địa chỉ" className="sm:col-span-2">{(id) => <Input id={id} value={edit.v.address} onChange={set('address')} />}</Field>
+            <Field label="Nợ đầu kỳ (còn nợ NCC lúc bắt đầu dùng hệ thống)" className="sm:col-span-2">
+              {(id) => <Input id={id} inputMode="numeric" value={edit.v.openingPayable} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, openingPayable: moneyInput(parseMoney(e.target.value)) } })} placeholder="0" />}
+            </Field>
             <Field label="Ghi chú" className="sm:col-span-2">{(id) => <Input id={id} value={edit.v.note} onChange={set('note')} />}</Field>
           </form>
         )}
