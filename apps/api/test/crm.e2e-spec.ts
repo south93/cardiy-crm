@@ -1,9 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
 /** Biển số ngẫu nhiên hợp lệ cho mỗi lần chạy (dữ liệu giả). */
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
 
 /** CSV giả theo đúng định dạng AppSheet của PLG (không dùng dữ liệu khách thật). */
 export function appsheetCsv(rows: { name: string; phone: string; plates: string; source?: string; branch?: string }[]) {

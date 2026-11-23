@@ -1,9 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
 const uniq = () => Math.random().toString(36).slice(2, 7).toUpperCase();
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
 
 describe('Danh mục sản phẩm & kho', () => {
   let app: INestApplication;

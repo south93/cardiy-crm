@@ -1,8 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
-
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
 describe('Đơn hàng', () => {
   let app: INestApplication;

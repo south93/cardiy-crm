@@ -1,0 +1,16 @@
+{
+  "name": "Xe của tôi",
+  "short_name": "Xe của tôi",
+  "description": "Theo dõi xe, lịch sử sửa chữa và đơn đang làm tại garage",
+  "start_url": "/app",
+  "scope": "/app",
+  "display": "standalone",
+  "background_color": "#eef3fb",
+  "theme_color": "#1f4e9c",
+  "lang": "vi",
+  "icons": [
+    { "src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

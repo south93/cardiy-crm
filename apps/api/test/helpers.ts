@@ -57,3 +57,13 @@ export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 export function randomPhone(): string {
   return '09' + String(Math.floor(10_000_000 + Math.random() * 89_999_999));
 }
+
+const SERIES = 'ABCDEFGHKLMNPSTUVXYZ';
+/**
+ * Biển số ngẫu nhiên hợp lệ (mã tỉnh 11–99 + seri + 5 số ≈ 160 triệu giá trị).
+ * CSDL kiểm thử tích luỹ dữ liệu qua nhiều lần chạy: dải hẹp (VD "61C" + 5 số) sớm muộn sẽ sinh trùng biển đã có.
+ */
+export function randomPlate(): string {
+  const province = 11 + Math.floor(Math.random() * 89);
+  return `${province}${SERIES[Math.floor(Math.random() * SERIES.length)]}${10000 + Math.floor(Math.random() * 90000)}`;
+}

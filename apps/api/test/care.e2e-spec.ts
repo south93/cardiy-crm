@@ -1,9 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { bearer, createApp, login, PHONES, randomPhone } from './helpers';
+import { bearer, createApp, login, PHONES, randomPhone, randomPlate } from './helpers';
 
-const randomPlate = () => `61C${String(Math.floor(10000 + Math.random() * 89999))}`;
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 const days = (n: number) => new Date(Date.now() + 7 * 3_600_000 + n * 86_400_000);
 

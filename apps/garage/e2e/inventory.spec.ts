@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginUI, PHONES, randomPhone } from './helpers';
+import { loginUI, PHONES, randomPhone, randomPlate } from './helpers';
 
 const tag = () => Math.random().toString(36).slice(2, 7).toUpperCase();
 
@@ -69,7 +69,7 @@ test.describe('Danh mục & kho', () => {
     const cf = page.locator('#customer-form');
     await cf.getByLabel('Họ tên / cách gọi').fill(`Khách Kho ${t}`);
     await cf.getByLabel('Số điện thoại', { exact: true }).fill(randomPhone());
-    await cf.getByLabel('Biển số').fill(`61K${String(Math.floor(10000 + Math.random() * 89999))}`);
+    await cf.getByLabel('Biển số').fill(randomPlate());
     await cf.getByLabel('Hãng xe').fill('Toyota');
     await cf.getByRole('button', { name: 'Thêm khách và chọn' }).click();
     await expect(page.getByTestId('picked-customer')).toContainText(`Khách Kho ${t}`);
