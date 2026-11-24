@@ -19,6 +19,7 @@ interface OwnerVehicle {
   odometerKm: number | null;
   registrationExpiry: string | null;
   insuranceExpiry: string | null;
+  nextMaintenance: string | null;
   garage: string;
   visits: number;
   lastVisit: { date: string; km: number | null } | null;

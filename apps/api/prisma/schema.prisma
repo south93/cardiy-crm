@@ -53,6 +53,8 @@ model Tenant {
   printSettings Json?        @map("print_settings")
   /// Mốc nhắc chăm sóc khách (số ngày): đăng kiểm, bảo hiểm, bảo dưỡng, hỏi thăm sau sửa
   careSettings  Json?        @map("care_settings")
+  /// Gửi tin Zalo ZNS: bật/tắt, chế độ, mẫu tin từng sự kiện (vòng 2.3). Refresh token lưu riêng (mã hoá) ở zalo_tokens
+  zaloSettings  Json?        @map("zalo_settings")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
   deletedAt     DateTime?    @map("deleted_at")
@@ -502,6 +504,7 @@ model RepairOrder {
   booking    Booking?
   inspection Inspection?
   quotes     OrderQuote[]
+  review     OrderReview?
 
   @@unique([tenantId, code])
   @@index([tenantId, status, receivedAt])
@@ -1027,4 +1030,57 @@ model OrderQuote {
   @@index([orderId, sentAt])
   @@index([tenantId, status])
   @@map("order_quotes")
+}
+
+// ---------------- Vòng 2.3 · Zalo ZNS, OTP, đánh giá ----------------
+
+/// Token Zalo OA của garage (mã hoá AES-GCM). Refresh token dùng một lần: mỗi lần làm mới lưu lại token mới
+model ZaloToken {
+  tenantId        String    @id @map("tenant_id") @db.Uuid
+  refreshTokenEnc String    @map("refresh_token_enc")
+  accessTokenEnc  String?   @map("access_token_enc")
+  accessExpiresAt DateTime? @map("access_expires_at")
+  lastError       String?   @map("last_error")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("zalo_tokens")
+}
+
+/// Nhật ký tin ZNS đã gửi / lỗi (đối soát chi phí, xem lỗi mẫu tin)
+model ZaloMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  event      String
+  phone      String
+  templateId String   @map("template_id")
+  status     String
+  error      String?
+  msgId      String?  @map("msg_id")
+  refId      String?  @map("ref_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([refId])
+  @@map("zalo_messages")
+}
+
+/// Khách đánh giá đơn sau khi nhận xe (1–5 sao); garage trả lời
+model OrderReview {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  orderId    String    @unique @map("order_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  rating     Int
+  comment    String?
+  reply      String?
+  repliedBy  String?   @map("replied_by") @db.Uuid
+  repliedAt  DateTime? @map("replied_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("order_reviews")
 }

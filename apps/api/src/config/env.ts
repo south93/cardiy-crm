@@ -34,6 +34,14 @@ export const envSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_FORCE_PATH_STYLE: bool.default(true),
+
+  /** Ứng dụng Zalo (developers.zalo.me) của OA: gửi tin ZNS. Trống = chưa bật Zalo */
+  ZALO_APP_ID: z.string().optional(),
+  ZALO_APP_SECRET: z.string().optional(),
+  /** fake: không gọi Zalo thật, giữ tin trong bộ nhớ (test / demo) */
+  ZALO_TRANSPORT: z.enum(['http', 'fake']).default('http'),
+  ZALO_OAUTH_URL: z.string().default('https://oauth.zaloapp.com/v4/oa/access_token'),
+  ZALO_ZNS_URL: z.string().default('https://business.openapi.zalo.me/message/template'),
 });
 
 export type Env = z.infer<typeof envSchema>;

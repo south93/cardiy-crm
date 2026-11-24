@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 import {
   BadRequestException,
   Body,
@@ -7,6 +7,8 @@ import {
   Get,
   GoneException,
   HttpCode,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   Param,
@@ -14,6 +16,7 @@ import {
   Post,
   Req,
   Res,
+  ServiceUnavailableException,
   UnauthorizedException,
   type CanActivate,
   type ExecutionContext,
@@ -31,6 +34,10 @@ import { clientIp, type RequestAuth } from '../common/request-auth';
 import { ZodPipe } from '../common/zod.pipe';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
+import { ZaloService } from '../zalo/zalo';
+
+export type OtpPurpose = 'REGISTER' | 'RESET';
 
 export const OWNER_COOKIE = 'cardiy_ort';
 const INVITE_DAYS = 30;
@@ -79,6 +86,8 @@ export class OwnerAuthService {
     private readonly config: AppConfig,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
+    private readonly zalo: ZaloService,
   ) {}
 
   private appUrl() {
@@ -218,12 +227,103 @@ export class OwnerAuthService {
     return this.issue(s.userId, client);
   }
 
+  // ---------------- OTP qua Zalo: tự đăng ký / quên mật khẩu ----------------
+
+  private otpKey(purpose: OtpPurpose, phone: string) {
+    return `otp:${purpose}:${phone}`;
+  }
+
+  /** Gửi mã OTP qua Zalo ZNS của garage khách đang có hồ sơ */
+  async requestOtp(phoneInput: string, purpose: OtpPurpose) {
+    const phone = normalizeVnPhone(phoneInput);
+    if (!phone) throw new BadRequestException('Số điện thoại không hợp lệ');
+    const user = await this.prisma.user.findUnique({ where: { phone }, include: { customerLinks: { select: { tenantId: true } }, memberships: { where: { status: 'ACTIVE' }, select: { id: true } } } });
+    let tenantIds: string[];
+    if (purpose === 'REGISTER') {
+      if (user?.customerLinks.length) throw new ConflictException('Số này đã có tài khoản app. Đăng nhập hoặc chọn "Quên mật khẩu".');
+      if (user?.memberships.length) throw new ConflictException('Số này là tài khoản nhân viên. Xin garage gửi link mời để liên kết xe.');
+      tenantIds = [...new Set((await this.prisma.customer.findMany({ where: { phone, deletedAt: null, appLink: null }, select: { tenantId: true } })).map((c) => c.tenantId))];
+      if (!tenantIds.length) throw new NotFoundException('Số điện thoại chưa có hồ sơ khách tại garage. Vui lòng liên hệ garage.');
+    } else {
+      if (!user?.customerLinks.length) throw new NotFoundException('Không tìm thấy tài khoản app với số này');
+      if (user.memberships.length) throw new ConflictException('Tài khoản nhân viên: liên hệ quản lý garage để đặt lại mật khẩu.');
+      tenantIds = [...new Set(user.customerLinks.map((l) => l.tenantId))];
+    }
+    // Garage nào bật mẫu OTP thì gửi qua OA của garage đó
+    let tenantId: string | null = null;
+    for (const t of tenantIds) {
+      const st = await this.zalo.settings(t);
+      if (st.enabled && st.templates.OTP?.enabled && st.templates.OTP.templateId) {
+        tenantId = t;
+        break;
+      }
+    }
+    if (!tenantId) throw new ServiceUnavailableException('Garage chưa bật gửi mã qua Zalo. Vui lòng xin garage gửi link kích hoạt.');
+
+    const r = this.redis.client;
+    if (!(await r.set(`otp:cool:${phone}`, '1', 'EX', 60, 'NX'))) throw new HttpException('Vừa gửi mã, vui lòng đợi 60 giây rồi thử lại', HttpStatus.TOO_MANY_REQUESTS);
+    const day = await r.incr(`otp:day:${phone}`);
+    if (day === 1) await r.expire(`otp:day:${phone}`, 86_400);
+    if (day > 5) throw new HttpException('Đã gửi quá 5 mã trong ngày. Vui lòng thử lại ngày mai.', HttpStatus.TOO_MANY_REQUESTS);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    await r.set(this.otpKey(purpose, phone), sha256(code), 'EX', 300);
+    await r.del(`otp:try:${purpose}:${phone}`);
+    try {
+      await this.zalo.send(tenantId, 'OTP', phone, { otp: code, garage_name: await this.zalo.garage(tenantId) }, { strict: true });
+    } catch (e) {
+      await r.del(this.otpKey(purpose, phone), `otp:cool:${phone}`);
+      throw e;
+    }
+    return { sent: true, expiresIn: 300, garage: await this.zalo.garage(tenantId) };
+  }
+
+  /** Xác nhận OTP + đặt mật khẩu: đăng ký (tạo tài khoản, liên kết mọi hồ sơ khách cùng SĐT) hoặc đặt lại mật khẩu */
+  async verifyOtp(phoneInput: string, purpose: OtpPurpose, code: string, password: string, client: ClientInfo) {
+    const phone = normalizeVnPhone(phoneInput);
+    if (!phone) throw new BadRequestException('Số điện thoại không hợp lệ');
+    const r = this.redis.client;
+    const key = this.otpKey(purpose, phone);
+    const tries = await r.incr(`otp:try:${purpose}:${phone}`);
+    if (tries === 1) await r.expire(`otp:try:${purpose}:${phone}`, 300);
+    const saved = await r.get(key);
+    if (!saved) throw new BadRequestException('Mã đã hết hạn, vui lòng gửi mã mới');
+    if (tries > 5) {
+      await r.del(key);
+      throw new HttpException('Nhập sai quá nhiều lần, vui lòng gửi mã mới', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    if (saved !== sha256(code.trim())) throw new BadRequestException('Mã xác nhận không đúng');
+    const policy = checkPasswordPolicy(password);
+    if (policy) throw new BadRequestException(policy);
+    const hash = await this.auth.hashPassword(password);
+
+    const userId = await this.prisma.$transaction(async (tx) => {
+      let user = await tx.user.findUnique({ where: { phone }, include: { memberships: { where: { status: 'ACTIVE' } } } });
+      if (user?.memberships.length) throw new ConflictException('Tài khoản nhân viên: không đặt mật khẩu qua app chủ xe');
+      if (purpose === 'RESET') {
+        if (!user) throw new NotFoundException('Không tìm thấy tài khoản');
+        await tx.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
+        await tx.ownerSession.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      } else {
+        const customers = await tx.customer.findMany({ where: { phone, deletedAt: null, appLink: null }, orderBy: { createdAt: 'asc' } });
+        if (!customers.length && !user) throw new NotFoundException('Số điện thoại chưa có hồ sơ khách tại garage');
+        user = user ? await tx.user.update({ where: { id: user.id }, data: { passwordHash: hash }, include: { memberships: true } }) : await tx.user.create({ data: { phone, fullName: customers[0]!.name, passwordHash: hash }, include: { memberships: true } });
+        for (const c of customers) await tx.customerLink.create({ data: { userId: user.id, tenantId: c.tenantId, customerId: c.id } });
+      }
+      await this.audit.log({ actorId: user!.id, action: purpose === 'REGISTER' ? 'owner.registered_otp' : 'owner.password_reset_otp', entity: 'user', entityId: user!.id, ip: client.ip }, tx);
+      return user!.id;
+    });
+    await r.del(key, `otp:try:${purpose}:${phone}`);
+    return this.issue(userId, client);
+  }
+
   async logout(token?: string) {
     if (token) await this.prisma.ownerSession.updateMany({ where: { tokenHash: sha256(token), revokedAt: null }, data: { revokedAt: new Date() } });
   }
 }
 
 const tokenParam = z.string().min(20).max(100);
+const otpRequest = z.object({ phone: z.string().min(9).max(20), purpose: z.enum(['REGISTER', 'RESET']) });
+const otpVerify = otpRequest.extend({ code: z.string().regex(/^\d{6}$/, 'Mã gồm 6 chữ số'), password: z.string().min(1).max(200) });
 const activateSchema = z.object({ token: tokenParam, password: z.string().min(1).max(200) });
 const loginSchema = z.object({ phone: z.string().min(9).max(20), password: z.string().min(1).max(200) });
 
@@ -260,6 +360,20 @@ export class OwnerAuthController {
   @HttpCode(200)
   async login(@Body(new ZodPipe(loginSchema)) dto: z.infer<typeof loginSchema>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.send(res, await this.svc.login(dto.phone, dto.password, this.client(req)));
+  }
+
+  @Public()
+  @Post('otp/request')
+  @HttpCode(200)
+  requestOtp(@Body(new ZodPipe(otpRequest)) dto: z.infer<typeof otpRequest>) {
+    return this.svc.requestOtp(dto.phone, dto.purpose);
+  }
+
+  @Public()
+  @Post('otp/verify')
+  @HttpCode(200)
+  async verifyOtp(@Body(new ZodPipe(otpVerify)) dto: z.infer<typeof otpVerify>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    return this.send(res, await this.svc.verifyOtp(dto.phone, dto.purpose, dto.code, dto.password, this.client(req)));
   }
 
   @Public()

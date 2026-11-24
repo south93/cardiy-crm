@@ -45,6 +45,8 @@ services:
       CORS_ORIGINS: https://${DOMAIN}
       JWT_SECRET: ${JWT_SECRET:?Thiếu JWT_SECRET trong deploy/.env}
       AUTH_ENFORCE_2FA: ${AUTH_ENFORCE_2FA:-true}
+      ZALO_APP_ID: ${ZALO_APP_ID:-}
+      ZALO_APP_SECRET: ${ZALO_APP_SECRET:-}
       FILE_STORAGE: local
       FILE_LOCAL_DIR: /app/storage
       SEED_DEMO: ${SEED_DEMO:-false}

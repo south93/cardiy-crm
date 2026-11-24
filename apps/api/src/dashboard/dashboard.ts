@@ -81,6 +81,7 @@ export class DashboardService {
         GROUP BY i.name, i.kind ORDER BY 3 DESC LIMIT 6`,
     ]);
 
+    const rating = await this.prisma.orderReview.aggregate({ where: { tenantId: t, createdAt: { gte: from30 }, order: { branchId: { in: branches } } }, _avg: { rating: true }, _count: true });
     // Đủ 30 ngày, ngày không có doanh thu = 0
     const byDay = new Map(series.map((r) => [r.d.toISOString().slice(0, 10), r]));
     const days = Array.from({ length: 30 }, (_, i) => {
@@ -109,6 +110,8 @@ export class DashboardService {
       orders: { TIEP_NHAN: counts.TIEP_NHAN ?? 0, DANG_SUA: counts.DANG_SUA ?? 0, HOAN_THANH: counts.HOAN_THANH ?? 0, overdue },
       bookingsToday: bookings.map((b) => ({ id: b.id, at: b.scheduledAt, status: b.status, customer: b.customer.name, plate: b.vehicle ? formatPlate(b.vehicle.plateNo) : null, service: b.service })),
       careDue,
+      /** Đánh giá của khách trên app (30 ngày) */
+      rating: { avg: rating._avg.rating === null ? null : Math.round(rating._avg.rating * 10) / 10, count: rating._count },
       lowStock: n(lowStock[0]?.n),
       newCustomers,
       top: money ? top.map((r) => ({ name: r.name, kind: r.kind, revenue: n(r.revenue), qty: Number(r.qty) })) : [],

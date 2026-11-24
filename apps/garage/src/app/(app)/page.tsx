@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Card, CardTitle, Select, Spinner } from '@cardiy/ui';
-import { AlarmClock, Banknote, CalendarDays, Car, HandCoins, PackageX, PhoneCall, Receipt, UserPlus, Wallet } from 'lucide-react';
+import { AlarmClock, Banknote, Star, CalendarDays, Car, HandCoins, PackageX, PhoneCall, Receipt, UserPlus, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -18,6 +18,7 @@ interface Overview {
   orders: { TIEP_NHAN: number; DANG_SUA: number; HOAN_THANH: number; overdue: number };
   bookingsToday: { id: string; at: string; status: BookingStatus; customer: string; plate: string | null; service: string }[];
   careDue: number;
+  rating?: { avg: number | null; count: number };
   lowStock: number;
   newCustomers: number;
   top: { name: string; kind: string; revenue: number; qty: number }[];
@@ -160,7 +161,7 @@ export default function DashboardPage() {
           </div>
 
           {r && (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="ops-strip">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="ops-strip">
               {[
                 {
                   label: 'Xe trong xưởng',
@@ -173,6 +174,14 @@ export default function DashboardPage() {
                 { label: 'Lịch hẹn hôm nay', value: d.bookingsToday.length, sub: 'Xem lịch sửa chữa', href: '/lich-sua-chua', icon: CalendarDays },
                 { label: 'Khách cần gọi', value: d.careDue, sub: 'Đăng kiểm, bảo dưỡng, hỏi thăm', href: '/lich-goi', icon: PhoneCall },
                 { label: 'Hàng sắp hết', value: d.lowStock, sub: 'Dưới tồn tối thiểu', href: '/ton-kho', icon: PackageX, warn: d.lowStock > 0 },
+                {
+                  label: 'Đánh giá khách',
+                  value: d.rating?.avg ? `${d.rating.avg.toLocaleString('vi-VN')}★` : '—',
+                  sub: d.rating?.count ? `${d.rating.count} đánh giá · 30 ngày` : 'Chưa có đánh giá trên app',
+                  href: '/don-hoan-thanh',
+                  icon: Star,
+                  warn: !!d.rating?.avg && d.rating.avg < 4,
+                },
               ].map((x) => (
                 <Link key={x.label} href={x.href}>
                   <Card className="h-full p-4 hover:shadow-md">

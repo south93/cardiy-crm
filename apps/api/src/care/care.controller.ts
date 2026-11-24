@@ -1,9 +1,11 @@
-import { Body, Controller, Get, HttpCode, Module, Param, ParseUUIDPipe, Post, Put, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Module, NotFoundException, Param, ParseUUIDPipe, Post, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentAuth, RequirePermissions } from '../common/auth.decorators';
 import { clientIp, type RequestAuth } from '../common/request-auth';
 import { ZodPipe } from '../common/zod.pipe';
+import { PrismaService } from '../prisma/prisma.service';
+import { ZaloService } from '../zalo/zalo';
 import { CareService } from './care.service';
 
 const KINDS = ['DANG_KIEM', 'BAO_HIEM', 'BAO_DUONG', 'HOI_THAM', 'KHAC'] as const;
@@ -31,7 +33,22 @@ const settingsSchema = z.object({
 
 @Controller('care')
 export class CareController {
-  constructor(private readonly care: CareService) {}
+  constructor(
+    private readonly care: CareService,
+    private readonly prisma: PrismaService,
+    private readonly zalo: ZaloService,
+  ) {}
+
+  /** Gửi tin Zalo nhắc khách (bảo dưỡng / đăng kiểm / bảo hiểm) theo việc chăm sóc */
+  @RequirePermissions('customer.manage')
+  @Post('tasks/:id/zalo')
+  @HttpCode(200)
+  async sendZalo(@CurrentAuth() auth: RequestAuth, @Param('id', ParseUUIDPipe) id: string) {
+    const t = await this.prisma.careTask.findFirst({ where: { id, tenantId: auth.tenantId } });
+    if (!t || (t.branchId && auth.access.branchIds !== 'ALL' && !auth.access.branchIds.includes(t.branchId))) throw new NotFoundException('Không tìm thấy việc chăm sóc');
+    const x = (await this.zalo.careContext(id))!;
+    return this.zalo.send(auth.tenantId, 'CARE_REMINDER', x.phone, x.ctx, { refId: id });
+  }
 
   @RequirePermissions('customer.view')
   @Get('tasks')

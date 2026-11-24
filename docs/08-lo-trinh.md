@@ -48,7 +48,7 @@ flowchart LR
 |---|---|
 | 2.1 | App chủ xe (PWA, đường dẫn `/app`): kích hoạt bằng link / QR garage gửi (chưa có OTP SMS), xe của tôi, nhắc hạn đăng kiểm / bảo hiểm, cập nhật km, lịch sử sửa chữa, chi tiết đơn & tiến độ |
 | 2.2 | Đặt lịch online (khách chọn xe, chi nhánh, ngày giờ 7:30–17:00; vào lịch garage ở trạng thái Chờ xác nhận, kênh App), theo dõi tiến độ (app tự cập nhật ~15 giây; WebSocket để sau khi cần), duyệt báo giá trên điện thoại (khách tick từng hạng mục; dòng bị từ chối tự bỏ khỏi đơn) |
-| 2.3 | Thông tin thanh toán của garage, đánh giá, nhắc bảo dưỡng, Zalo ZNS, hoá đơn điện tử, **đăng ký / quên mật khẩu bằng OTP** (SMS hoặc Zalo) |
+| 2.3 | Thông tin thanh toán của garage (VietQR phần còn nợ), đánh giá sau khi nhận xe + garage trả lời, nhắc bảo dưỡng trên app, lịch sử thanh toán, **Zalo ZNS** (OTP, xác nhận lịch, báo giá, xe sửa xong, nhắc chăm sóc), **tự đăng ký / quên mật khẩu bằng OTP qua Zalo**. Hoá đơn: garage xử lý nội bộ, không kết nối nhà cung cấp hoá đơn điện tử |
 
 🎯 **Mốc demo 2:** khách thật đặt lịch và duyệt báo giá qua app.
 

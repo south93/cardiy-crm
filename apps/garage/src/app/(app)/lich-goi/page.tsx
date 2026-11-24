@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
-import { CalendarPlus, Phone, PhoneCall, Plus, RefreshCw, Search } from 'lucide-react';
+import { CalendarPlus, MessageCircle, Phone, PhoneCall, Plus, RefreshCw, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { NewBooking } from '@/components/booking-form';
@@ -107,6 +107,7 @@ function CallList() {
   const [adding, setAdding] = useState(false);
   const [newTask, setNewTask] = useState<{ customerId: string; name: string; title: string; dueDate: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(
     async (refresh = false) => {
@@ -161,6 +162,7 @@ function CallList() {
         )}
       </div>
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert tone="mint">{notice}</Alert>}
 
       <Card className="overflow-hidden">
         {!data ? (
@@ -203,6 +205,24 @@ function CallList() {
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => setBooking(t)} title="Đặt lịch hẹn cho khách">
                         <CalendarPlus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        title="Gửi tin nhắc qua Zalo"
+                        aria-label="Gửi Zalo"
+                        data-testid="send-zalo"
+                        onClick={async () => {
+                          setError(null);
+                          try {
+                            const r = await api<{ status: string; error?: string }>(`/care/tasks/${t.id}/zalo`, { body: {} });
+                            setNotice(r.status === 'SENT' ? `Đã gửi tin Zalo cho ${t.customer.name}` : null);
+                            if (r.status !== 'SENT') setError(r.error ?? 'Không gửi được tin Zalo');
+                          } catch (e) {
+                            setError(e instanceof ApiError ? e.message : 'Không gửi được tin Zalo');
+                          }
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4" />
                       </Button>
                       <Button onClick={() => setCalling(t)} data-testid="log-call">
                         <PhoneCall className="h-4 w-4" />
