@@ -214,4 +214,23 @@ describe('Vòng 2.3: Zalo ZNS, OTP, đánh giá, thông tin thanh toán', () => 
     const dash = await request(http).get('/api/dashboard').set(bearer(owner)).expect(200);
     expect(dash.body.rating.count).toBeGreaterThan(0);
   });
+
+  it('nhập App ID + Secret key ngay trên CRM: secret mã hoá, không trả về; đổi ứng dụng thì phải kết nối lại OA', async () => {
+    await request(http).put('/api/zalo/app').set(bearer(sales)).send({ appId: '1234567890123', appSecret: 'bi-mat-ung-dung-zalo' }).expect(403);
+    await request(http).put('/api/zalo/app').set(bearer(owner)).send({ appId: 'abc', appSecret: 'bi-mat-ung-dung-zalo' }).expect(400);
+    const a = await request(http).put('/api/zalo/app').set(bearer(owner)).send({ appId: '1234567890123', appSecret: 'bi-mat-ung-dung-zalo' }).expect(200);
+    expect(a.body).toMatchObject({ appConfigured: true, appSource: 'crm', appId: '1234567890123', connected: false });
+    expect(JSON.stringify(a.body)).not.toContain('bi-mat-ung-dung-zalo');
+
+    await request(http).post('/api/zalo/connect').set(bearer(owner)).send({ refreshToken: 'refresh-token-app-moi-12345' }).expect(200);
+    // Giữ nguyên ứng dụng, không nhập lại secret → vẫn kết nối
+    const same = await request(http).put('/api/zalo/app').set(bearer(owner)).send({ appId: '1234567890123' }).expect(200);
+    expect(same.body).toMatchObject({ appSource: 'crm', connected: true });
+    // Đổi ứng dụng → token cũ bị xoá
+    const other = await request(http).put('/api/zalo/app').set(bearer(owner)).send({ appId: '9876543210987', appSecret: 'bi-mat-khac-0987654321' }).expect(200);
+    expect(other.body).toMatchObject({ appId: '9876543210987', connected: false });
+
+    const off = await request(http).post('/api/zalo/app/remove').set(bearer(owner)).expect(200);
+    expect(off.body).toMatchObject({ appSource: 'server', appId: null });
+  });
 });

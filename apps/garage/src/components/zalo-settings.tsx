@@ -19,6 +19,8 @@ interface Settings {
 }
 interface Status {
   appConfigured: boolean;
+  appSource: 'crm' | 'server' | null;
+  appId: string | null;
   connected: boolean;
   lastError: string | null;
   tokenUpdatedAt: string | null;
@@ -41,6 +43,8 @@ export function ZaloSettingsTab() {
   const [st, setSt] = useState<Status | null>(null);
   const [s, setS] = useState<Settings | null>(null);
   const [token, setToken] = useState('');
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [testPhone, setTestPhone] = useState('');
   const [testEvent, setTestEvent] = useState<EventCode>('OTP');
@@ -49,6 +53,8 @@ export function ZaloSettingsTab() {
     const x = await api<Status>('/zalo/settings');
     setSt(x);
     setS(x.settings);
+    setAppId(x.appId ?? '');
+    setAppSecret('');
     setLog(await api<Message[]>('/zalo/messages'));
   };
   useEffect(() => {
@@ -72,14 +78,53 @@ export function ZaloSettingsTab() {
   return (
     <div className="space-y-4" data-testid="zalo-settings">
       {msg && <Alert tone={msg.ok ? 'mint' : 'rose'}>{msg.text}</Alert>}
+      <Card className="space-y-3 p-5" data-testid="zalo-app">
+        <CardTitle>Ứng dụng Zalo</CardTitle>
+        <p className="text-sm text-slate-600">
+          Vào <b>developers.zalo.me</b> → ứng dụng liên kết với OA → lấy <b>App ID</b> và <b>Khoá bí mật (Secret key)</b>. Secret key được mã hoá khi lưu và không hiển thị lại.
+        </p>
+        {st.appSource === 'server' && <p className="text-sm text-slate-500">Đang dùng ứng dụng cấu hình trên máy chủ (ZALO_APP_ID). Nhập ở đây để thay thế.</p>}
+        {!st.appConfigured && <Alert tone="peach">Chưa có ứng dụng Zalo: nhập App ID và Secret key để bắt đầu.</Alert>}
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <Field label="App ID">{(id) => <Input id={id} inputMode="numeric" value={appId} onChange={(e) => setAppId(e.target.value.trim())} placeholder="VD: 1234567890123456789" />}</Field>
+          <Field label="Secret key">
+            {(id) => (
+              <Input
+                id={id}
+                type="password"
+                autoComplete="off"
+                value={appSecret}
+                onChange={(e) => setAppSecret(e.target.value)}
+                placeholder={st.appSource === 'crm' ? 'Đã lưu, để trống nếu không đổi' : 'Khoá bí mật của ứng dụng'}
+              />
+            )}
+          </Field>
+          <Button
+            disabled={appId.length < 6 || (st.appSource !== 'crm' && appSecret.trim().length < 10)}
+            onClick={() =>
+              void run(
+                () => api('/zalo/app', { method: 'PUT', body: { appId, appSecret: appSecret.trim() || null } }),
+                st.appId && st.appId !== appId ? 'Đã đổi ứng dụng Zalo: kết nối lại OA bên dưới' : 'Đã lưu ứng dụng Zalo',
+              )
+            }
+            data-testid="zalo-save-app"
+          >
+            Lưu ứng dụng
+          </Button>
+        </div>
+        {st.appSource === 'crm' && (
+          <button
+            type="button"
+            className="text-xs text-rose-600 hover:underline"
+            onClick={() => confirm('Xoá ứng dụng Zalo đã nhập? Tin Zalo sẽ ngừng gửi cho tới khi nhập lại.') && void run(() => api('/zalo/app/remove', { body: {} }), 'Đã xoá ứng dụng Zalo')}
+          >
+            Xoá ứng dụng đã nhập
+          </button>
+        )}
+      </Card>
+
       <Card className="space-y-3 p-5">
         <CardTitle>Kết nối Zalo OA</CardTitle>
-        {!st.appConfigured && (
-          <Alert tone="peach">
-            Máy chủ chưa có <b>ZALO_APP_ID</b> và <b>ZALO_APP_SECRET</b> (lấy ở developers.zalo.me → ứng dụng của OA). Thêm vào file <code>deploy/.env</code> trên VPS rồi chạy lại{' '}
-            <code>deploy/update.sh</code>.
-          </Alert>
-        )}
         <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="zalo-connection">
           {st.connected ? <Badge tone="mint">Đã kết nối</Badge> : <Badge tone="slate">Chưa kết nối</Badge>}
           {st.tokenUpdatedAt && <span className="text-slate-500">Token cập nhật {fmtDateTime(st.tokenUpdatedAt)}</span>}

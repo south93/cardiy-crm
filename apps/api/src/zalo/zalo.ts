@@ -83,11 +83,35 @@ export class ZaloService {
   private get secret() {
     return this.config.get('JWT_SECRET');
   }
-  private get app() {
+  /** Ứng dụng Zalo: nhập trong CRM (ưu tiên) hoặc ZALO_APP_ID / ZALO_APP_SECRET của máy chủ */
+  private async app(tenantId: string): Promise<{ id: string; secret: string; source: 'crm' | 'server' } | null> {
+    const row = await this.prisma.zaloToken.findUnique({ where: { tenantId }, select: { appId: true, appSecretEnc: true } });
+    if (row?.appId && row.appSecretEnc) return { id: row.appId, secret: decrypt(row.appSecretEnc, this.secret), source: 'crm' };
     const id = this.config.get('ZALO_APP_ID');
     const secret = this.config.get('ZALO_APP_SECRET');
-    if (this.config.get('ZALO_TRANSPORT') === 'fake') return { id: id || 'fake-app', secret: secret || 'fake-secret' };
-    return id && secret ? { id, secret } : null;
+    if (id && secret) return { id, secret, source: 'server' };
+    if (this.config.get('ZALO_TRANSPORT') === 'fake') return { id: 'fake-app', secret: 'fake-secret', source: 'server' };
+    return null;
+  }
+
+  /** Lưu App ID + Secret key nhập trong CRM (secret mã hoá, không bao giờ trả về). Đổi ứng dụng thì phải kết nối lại OA. */
+  async saveApp(tenantId: string, appId: string, appSecret?: string | null) {
+    const row = await this.prisma.zaloToken.findUnique({ where: { tenantId } });
+    if (!appSecret && !row?.appSecretEnc) throw new BadRequestException('Nhập Secret key của ứng dụng Zalo');
+    const changed = row?.appId !== appId;
+    const data = {
+      appId,
+      ...(appSecret ? { appSecretEnc: encrypt(appSecret, this.secret) } : {}),
+      // Đổi ứng dụng: token của ứng dụng cũ không dùng được nữa
+      ...(changed ? { refreshTokenEnc: null, accessTokenEnc: null, accessExpiresAt: null, lastError: null } : {}),
+    };
+    await this.prisma.zaloToken.upsert({ where: { tenantId }, create: { tenantId, ...data }, update: data });
+    return this.status(tenantId);
+  }
+
+  async removeApp(tenantId: string) {
+    await this.prisma.zaloToken.updateMany({ where: { tenantId }, data: { appId: null, appSecretEnc: null, refreshTokenEnc: null, accessTokenEnc: null, accessExpiresAt: null } });
+    return this.status(tenantId);
   }
 
   async settings(tenantId: string): Promise<ZaloSettings> {
@@ -96,10 +120,12 @@ export class ZaloService {
   }
 
   async status(tenantId: string) {
-    const [settings, token] = await Promise.all([this.settings(tenantId), this.prisma.zaloToken.findUnique({ where: { tenantId } })]);
+    const [settings, token, app] = await Promise.all([this.settings(tenantId), this.prisma.zaloToken.findUnique({ where: { tenantId } }), this.app(tenantId)]);
     return {
-      appConfigured: !!this.app,
-      connected: !!token,
+      appConfigured: !!app,
+      appSource: app?.source ?? null,
+      appId: app?.source === 'crm' ? app.id : null,
+      connected: !!token?.refreshTokenEnc,
       lastError: token?.lastError ?? null,
       tokenUpdatedAt: token?.updatedAt ?? null,
       settings,
@@ -119,8 +145,8 @@ export class ZaloService {
 
   /** Lưu refresh token lấy từ trang quản trị Zalo; làm mới thử ngay để kiểm tra */
   async connect(tenantId: string, refreshToken: string) {
-    const app = this.app;
-    if (!app) throw new ServiceUnavailableException('Máy chủ chưa cấu hình ZALO_APP_ID / ZALO_APP_SECRET (file deploy/.env)');
+    const app = await this.app(tenantId);
+    if (!app) throw new BadRequestException('Nhập App ID và Secret key của ứng dụng Zalo trước (mục "Ứng dụng Zalo" bên trên)');
     let t: TokenResponse;
     try {
       t = await this.transport.refresh(app.id, app.secret, refreshToken.trim());
@@ -143,16 +169,16 @@ export class ZaloService {
 
   /** Access token còn hạn; hết hạn thì làm mới (khoá Redis: refresh token chỉ dùng được một lần) */
   private async accessToken(tenantId: string): Promise<string> {
-    const app = this.app;
-    if (!app) throw new Error('Máy chủ chưa cấu hình ứng dụng Zalo');
+    const app = await this.app(tenantId);
+    if (!app) throw new Error('Chưa cấu hình ứng dụng Zalo');
     for (let attempt = 0; attempt < 20; attempt++) {
       const tok = await this.prisma.zaloToken.findUnique({ where: { tenantId } });
-      if (!tok) throw new Error('Chưa kết nối Zalo OA');
+      if (!tok?.refreshTokenEnc) throw new Error('Chưa kết nối Zalo OA');
       if (tok.accessTokenEnc && tok.accessExpiresAt && tok.accessExpiresAt.getTime() > Date.now() + 5 * 60_000) return decrypt(tok.accessTokenEnc, this.secret);
       const lock = await this.redis.client.set(`zalo:refresh:${tenantId}`, '1', 'EX', 30, 'NX');
       if (lock) {
         try {
-          const t = await this.transport.refresh(app.id, app.secret, decrypt(tok.refreshTokenEnc, this.secret));
+          const t = await this.transport.refresh(app.id, app.secret, decrypt(tok.refreshTokenEnc!, this.secret));
           await this.saveTokens(tenantId, t);
           return t.access_token;
         } catch (e) {
@@ -317,6 +343,13 @@ const settingsSchema = z.object({
   mode: z.enum(['development', 'production']),
   templates: z.object(Object.fromEntries(Object.keys(EVENTS).map((e) => [e, tplSchema.optional()])) as Record<ZaloEvent, z.ZodOptional<typeof tplSchema>>),
 });
+const appSchema = z.object({
+  appId: z
+    .string()
+    .trim()
+    .regex(/^\d{6,25}$/, 'App ID là dãy số (xem ở developers.zalo.me)'),
+  appSecret: z.string().trim().min(10, 'Secret key không hợp lệ').max(200).optional().nullable(),
+});
 const testSchema = z.object({ event: z.enum(Object.keys(EVENTS) as [ZaloEvent, ...ZaloEvent[]]), phone: z.string().min(9).max(20) });
 
 /** Dữ liệu mẫu để gửi thử */
@@ -352,6 +385,19 @@ export class ZaloController {
   @Put('settings')
   save(@CurrentAuth() auth: RequestAuth, @Body(new ZodPipe(settingsSchema)) dto: ZaloSettings) {
     return this.zalo.saveSettings(auth.tenantId, dto);
+  }
+
+  @RequirePermissions('settings.manage')
+  @Put('app')
+  saveApp(@CurrentAuth() auth: RequestAuth, @Body(new ZodPipe(appSchema)) dto: z.infer<typeof appSchema>) {
+    return this.zalo.saveApp(auth.tenantId, dto.appId, dto.appSecret);
+  }
+
+  @RequirePermissions('settings.manage')
+  @Post('app/remove')
+  @HttpCode(200)
+  removeApp(@CurrentAuth() auth: RequestAuth) {
+    return this.zalo.removeApp(auth.tenantId);
   }
 
   @RequirePermissions('settings.manage')
