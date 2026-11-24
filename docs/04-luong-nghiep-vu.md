@@ -2,6 +2,8 @@
 
 ## F1 · Garage đăng ký làm đối tác
 
+> **Đã làm ở vòng 3.1 (bản rút gọn):** form công khai `/dang-ky-doi-tac` → người nộp nhận link theo dõi (mã hồ sơ + mã bí mật) để tải giấy tờ, sửa hồ sơ khi được yêu cầu bổ sung → Admin sàn duyệt ở A6.10 → hệ thống tạo tenant đối tác (Đang thiết lập), tài khoản Đối tác bằng SĐT đăng ký (mật khẩu tạm, Sàn gửi tay), gói và hoá đơn phí kỳ đầu (hạn 7 ngày) → Kế toán sàn ghi nhận đã thu ở A6.50 → đối tác chuyển Hoạt động. **Chưa làm:** OTP xác thực SĐT/email khi nộp, eKYC CCCD, đối chiếu MST tự động, hợp đồng ký số, tự gửi thông tin đăng nhập (Zalo/SMS). Sơ đồ dưới là luồng đầy đủ dự kiến.
+
 ```mermaid
 sequenceDiagram
   autonumber

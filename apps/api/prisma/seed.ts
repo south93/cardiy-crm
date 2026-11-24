@@ -64,13 +64,15 @@ async function main() {
     await prisma.rolePermission.createMany({ data: r.permissions.map((permissionCode) => ({ roleId: role.id, permissionCode })) });
   }
 
+  // Tenant sàn luôn có (nơi lưu hồ sơ đăng ký đối tác, bộ đếm hoá đơn phí)
+  const platform = await upsertTenant('CARDIY-PLATFORM', 'Sàn CARDIY', TenantType.PLATFORM);
+
   if (process.env.SEED_DEMO === 'false') {
     console.log('Seed xong: chỉ quyền + vai trò hệ thống (SEED_DEMO=false).');
     return;
   }
 
   // 2. Tenant: sàn, garage PLG, garage đối tác demo
-  const platform = await upsertTenant('CARDIY-PLATFORM', 'Sàn CARDIY', TenantType.PLATFORM);
   const plg = await upsertTenant('PLG-DEMO-0001', 'Garage PLG', TenantType.GARAGE);
   // Đối tác: chỉ có cổng đối tác, 1 tài khoản duy nhất
   const partner = await upsertTenant('DOITAC-DEMO-0001', 'Minh Phát Auto (đối tác demo)', TenantType.PARTNER);
@@ -93,6 +95,13 @@ async function main() {
   await upsertMember({ phone: '0900000007', fullName: 'Hoàng Chăm Sóc', tenantId: plg.id, roles: [{ code: 'CS', branchId: null }] });
   await upsertMember({ phone: '0900000008', fullName: 'Ngô Quản Lý CN2', tenantId: plg.id, title: 'Quản lý CN2', roles: [{ code: 'QL', branchId: cn2.id }] });
   await upsertMember({ phone: '0900000010', fullName: 'Minh Phát Auto', tenantId: partner.id, title: 'Đối tác', roles: [{ code: 'DT', branchId: null }] });
+
+  // Gói đối tác mẫu (giá sửa được ở Sàn → Gói đối tác)
+  const plans = [
+    { code: 'CO_BAN', name: 'Cơ bản', monthlyFee: 300_000n, billingMonths: 1, sortOrder: 1, features: ['Gian hàng trên sàn', 'Nhận yêu cầu đặt lịch'] },
+    { code: 'QUY', name: 'Gói quý', monthlyFee: 270_000n, billingMonths: 3, sortOrder: 2, features: ['Như gói Cơ bản', 'Tiết kiệm 10% khi trả theo quý'] },
+  ];
+  for (const p of plans) await prisma.plan.upsert({ where: { code: p.code }, update: {}, create: p });
 
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }

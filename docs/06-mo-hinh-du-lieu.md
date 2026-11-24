@@ -55,15 +55,20 @@ erDiagram
     uuid reviewed_by
     string reject_reason }
   plans { uuid id PK
+    string code UK
     string name
     bigint monthly_fee
-    json limits }
+    int billing_months "1|3|6|12"
+    string_arr features
+    bool active }
   subscriptions { uuid id PK
     uuid tenant_id FK
     uuid plan_id FK
+    bigint monthly_fee "chụp giá lúc duyệt"
+    int billing_months
     date start_at
-    date end_at
-    string contract_url }
+    date paid_through "đã lập hoá đơn tới"
+    datetime ended_at }
   consents { uuid id PK
     uuid user_id FK
     string channel
@@ -80,6 +85,8 @@ erDiagram
     json after
     datetime at }
 ```
+
+**Vòng 3.1 (đã làm):** `partner_applications` (mã HS…, trạng thái CHO_DUYET → CAN_BO_SUNG / TU_CHOI / DA_DUYET, giấy tờ dạng JSON trỏ tới `files` của tenant sàn, băm mã bí mật của link theo dõi, `tenant_id` tạo ra khi duyệt) và `platform_invoices` (mã PHI…, kỳ, số tiền, hạn trả, DA_PHAT_HANH / DA_THANH_TOAN / HUY; ghi nhận thu ngay trên hoá đơn: ngày, hình thức, ghi chú, người ghi — chưa tách `platform_fee_payments`). Quá hạn tính khi đọc (chưa trả và qua hạn), không lưu cột.
 
 ## D2 · Khách hàng, xe, booking, lệnh sửa chữa
 

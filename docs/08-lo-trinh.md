@@ -55,7 +55,7 @@ flowchart LR
 ### P3 · Sàn trung gian & đối tác garage (5 vòng)
 | Vòng | Nội dung |
 |---|---|
-| 3.1 | Đăng ký đối tác, duyệt hồ sơ, gói đối tác, hoá đơn phí (Admin sàn); tạo tài khoản Cổng đối tác |
+| 3.1 ✅ | Đăng ký đối tác công khai (`/dang-ky-doi-tac`, link theo dõi + tải giấy tờ, không cần tài khoản), Sàn duyệt / yêu cầu bổ sung / từ chối, duyệt tạo tenant đối tác + tài khoản (mật khẩu tạm) + hoá đơn phí kỳ đầu; gói đối tác sửa giá được; hoá đơn phí theo kỳ, ghi nhận đã thu, quá hạn; khoá / mở / chấm dứt đối tác; đối tác xem phí & QR chuyển khoản. eKYC, ký số hợp đồng, OTP khi đăng ký: để sau |
 | 3.2 | Danh mục chuẩn; **Cổng đối tác**: hồ sơ gian hàng, sản phẩm (tồn nhập tay), dịch vụ; tin đăng của PLG đồng bộ tồn từ CRM |
 | 3.3 | Web sàn công khai: tìm garage, trang sản phẩm nhiều garage cùng bán, trang garage |
 | 3.4 | Yêu cầu đặt hàng + lịch lắp gửi tới đối tác (Cổng đối tác) hoặc PLG (CRM), voucher |
