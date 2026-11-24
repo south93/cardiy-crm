@@ -17,6 +17,8 @@ const branchSchema = z.object({
     .optional()
     .refine((v) => !v || normalizeVnPhone(v) !== null, 'Số điện thoại không hợp lệ'),
   bays: z.coerce.number().int().min(0).max(200).default(0),
+  /** Vùng giá: BP (giá chính) hoặc BD */
+  priceZone: z.enum(['BP', 'BD']).optional(),
 });
 
 @Controller('branches')
@@ -33,7 +35,7 @@ export class BranchesController {
     return this.prisma.branch.findMany({
       where: { tenantId: a.tenantId, deletedAt: null, ...(a.branchIds === 'ALL' ? {} : { id: { in: a.branchIds } }) },
       orderBy: { code: 'asc' },
-      select: { id: true, code: true, name: true, address: true, phone: true, bays: true },
+      select: { id: true, code: true, name: true, address: true, phone: true, bays: true, priceZone: true },
     });
   }
 

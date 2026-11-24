@@ -15,6 +15,8 @@ export interface ProductFormValue {
   brand: string;
   unit: string;
   salePrice: string;
+  salePriceBd: string;
+  vatPrice: string;
   costPrice: string;
   vehicleMakes: string[];
   minStock: string;
@@ -24,7 +26,7 @@ export interface ProductFormValue {
   active: boolean;
 }
 
-export const emptyProduct = (categoryId = ''): ProductFormValue => ({ code: '', name: '', kind: 'PHU_TUNG', categoryId, brand: '', unit: '', salePrice: '', costPrice: '', vehicleMakes: [], minStock: '', mfgMonth: '', mfgYear: '', note: '', active: true });
+export const emptyProduct = (categoryId = ''): ProductFormValue => ({ code: '', name: '', kind: 'PHU_TUNG', categoryId, brand: '', unit: '', salePrice: '', salePriceBd: '', vatPrice: '', costPrice: '', vehicleMakes: [], minStock: '', mfgMonth: '', mfgYear: '', note: '', active: true });
 
 /** Chọn hãng xe dùng được: bấm chip hãng hay gặp, hoặc gõ thêm. Không chọn = dùng cho mọi xe. */
 function MakesField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
@@ -80,6 +82,8 @@ export function productPayload(v: ProductFormValue) {
     brand: v.brand.trim() || null,
     unit: v.unit.trim() || null,
     salePrice: parseMoney(v.salePrice),
+    salePriceBd: v.salePriceBd.trim() ? parseMoney(v.salePriceBd) : null,
+    vatPrice: v.vatPrice.trim() ? parseMoney(v.vatPrice) : null,
     costPrice: parseMoney(v.costPrice),
     vehicleMakes: v.kind === 'DICH_VU' && !v.vehicleMakes.length ? [] : v.vehicleMakes,
     minStock: v.kind === 'PHU_TUNG' && v.minStock.trim() ? Number(v.minStock.replace(',', '.')) : null,
@@ -144,7 +148,9 @@ export function ProductForm({ initial, categories, submitLabel, showCost, onSubm
       </Field>
       <Field label="Thương hiệu">{(id) => <Input id={id} value={v.brand} onChange={(e) => set('brand', e.target.value)} placeholder="VD: Michelin, GS, Castrol" />}</Field>
       <Field label="Đơn vị tính">{(id) => <Input id={id} value={v.unit} onChange={(e) => set('unit', e.target.value)} placeholder={v.kind === 'DICH_VU' ? 'lần' : 'cái, bộ, lít…'} />}</Field>
-      <Field label="Giá bán">{(id) => <Input id={id} inputMode="numeric" value={v.salePrice} onChange={(e) => set('salePrice', moneyInput(parseMoney(e.target.value)))} />}</Field>
+      <Field label="Giá bán (Bình Phước)">{(id) => <Input id={id} inputMode="numeric" value={v.salePrice} onChange={(e) => set('salePrice', moneyInput(parseMoney(e.target.value)))} />}</Field>
+      <Field label="Giá Bình Dương" hint="Trống = dùng giá bán chính">{(id) => <Input id={id} inputMode="numeric" value={v.salePriceBd} onChange={(e) => set('salePriceBd', e.target.value.trim() ? moneyInput(parseMoney(e.target.value)) : '')} />}</Field>
+      <Field label="Giá VAT" hint="Giá khi xuất hoá đơn VAT">{(id) => <Input id={id} inputMode="numeric" value={v.vatPrice} onChange={(e) => set('vatPrice', e.target.value.trim() ? moneyInput(parseMoney(e.target.value)) : '')} />}</Field>
       {showCost && <Field label="Giá vốn" hint="Tự cập nhật theo lần nhập hàng gần nhất">{(id) => <Input id={id} inputMode="numeric" value={v.costPrice} onChange={(e) => set('costPrice', moneyInput(parseMoney(e.target.value)))} />}</Field>}
       {v.kind === 'PHU_TUNG' && (
         <Field label="Tồn tối thiểu" hint="Cảnh báo khi tồn ở chi nhánh xuống tới mức này">

@@ -38,7 +38,8 @@ export class DashboardService {
     const [series, collected, open, overdue, debt, bookings, careDue, lowStock, newCustomers, top] = await Promise.all([
       // Doanh thu theo ngày (đơn đã giao, theo ngày giao)
       this.prisma.$queryRaw<{ d: Date; revenue: bigint; orders: bigint }[]>`
-        SELECT (delivered_at AT TIME ZONE ${TZ})::date AS d, SUM(total) AS revenue, COUNT(*) AS orders
+        -- delivered_at lưu giờ UTC không kèm múi giờ: đổi UTC → giờ VN rồi mới lấy ngày (thiếu bước 'UTC' sẽ lùi 14 tiếng)
+        SELECT (delivered_at AT TIME ZONE 'UTC' AT TIME ZONE ${TZ})::date AS d, SUM(total) AS revenue, COUNT(*) AS orders
         FROM repair_orders
         WHERE tenant_id = ${t}::uuid AND status = 'DA_GIAO' AND delivered_at >= ${month < from30 ? month : from30} AND branch_id = ANY(${branches}::uuid[])
         GROUP BY 1 ORDER BY 1`,

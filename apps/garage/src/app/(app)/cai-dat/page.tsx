@@ -234,7 +234,7 @@ function BranchesTab() {
   const [open, setOpen] = useState(false);
   /** null = thêm mới; có id = đang sửa chi nhánh đó */
   const [editing, setEditing] = useState<string | null>(null);
-  const empty = { code: '', name: '', address: '', phone: '', bays: '2' };
+  const empty = { code: '', name: '', address: '', phone: '', bays: '2', priceZone: 'BP' };
   const [form, setForm] = useState(empty);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => setRows(await api<BranchRow[]>('/branches')), []);
@@ -248,7 +248,7 @@ function BranchesTab() {
   };
   const startEdit = (b: BranchRow) => {
     setEditing(b.id);
-    setForm({ code: b.code, name: b.name, address: b.address ?? '', phone: b.phone ?? '', bays: String(b.bays) });
+    setForm({ code: b.code, name: b.name, address: b.address ?? '', phone: b.phone ?? '', bays: String(b.bays), priceZone: b.priceZone ?? 'BP' });
     setError(null);
     setOpen(true);
   };
@@ -288,7 +288,9 @@ function BranchesTab() {
               </span>
               <div className="min-w-0 flex-1 text-sm">
                 <div className="font-semibold">{b.name}</div>
-                <div className="text-slate-500">Mã {b.code} · {b.bays} khoang sửa</div>
+                <div className="text-slate-500">
+                  Mã {b.code} · {b.bays} khoang sửa · {b.priceZone === 'BD' ? 'giá Bình Dương' : 'giá Bình Phước'}
+                </div>
                 {b.address && <div className="mt-1 text-slate-600">{b.address}</div>}
                 {b.phone && <div className="text-slate-600">{b.phone}</div>}
               </div>
@@ -323,6 +325,14 @@ function BranchesTab() {
           <Field label="Tên chi nhánh" className="sm:col-span-2">{(id) => <Input id={id} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />}</Field>
           <Field label="Địa chỉ" className="sm:col-span-2">{(id) => <Input id={id} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />}</Field>
           <Field label="Điện thoại">{(id) => <Input id={id} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />}</Field>
+          <Field label="Bảng giá áp dụng" hint="Đơn hàng ở chi nhánh này tự lấy giá theo bảng giá đã chọn">
+            {(id) => (
+              <Select id={id} value={form.priceZone} onChange={(e) => setForm({ ...form, priceZone: e.target.value })}>
+                <option value="BP">Giá Bình Phước (BP)</option>
+                <option value="BD">Giá Bình Dương (BD)</option>
+              </Select>
+            )}
+          </Field>
         </form>
       </Dialog>
     </div>

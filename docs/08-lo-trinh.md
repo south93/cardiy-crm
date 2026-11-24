@@ -37,6 +37,7 @@ flowchart LR
 | 1.2 | Lệnh sửa chữa: tiếp nhận, Kanban, chi tiết lệnh, giao việc, máy trạng thái S1 |
 | 1.3 | Báo giá, in phiếu, thu tiền tại garage (tiền mặt, VietQR của garage), bảo hành |
 | 1.4 | Kho: danh mục, tồn chi nhánh, nhập/xuất/chuyển kho, kiểm kê, nhà cung cấp |
+| 1.4c | Nhập danh mục sản phẩm + tồn đầu kỳ từ file Excel kho AppSheet (sheet SẢN PHẨM, BANG_GIA_3CN, LO DATE); **bảng giá theo chi nhánh**: giá Bình Phước (BP, giá chính), giá Bình Dương (BD), giá VAT — chi nhánh chọn bảng giá trong Cài đặt (CN3 Mỹ Phước dùng BD) |
 | 1.5 | Lịch hẹn, Lịch gọi, Thu chi & công nợ, Dashboard, App kỹ thuật viên |
 | 1.5+ | **Phiếu kiểm tra xe điện tử** (theo mẫu PLG): KTV tick Tốt / Chú ý / Thay thế trên điện thoại, đánh dấu vết xước trên sơ đồ xe, chụp ảnh 4 góc + cà vẹt, độ sâu gai / áp suất lốp; hạng mục "Thay thế" tự thành hạng mục phát sinh để khách duyệt. Gợi ý bảo dưỡng theo cấp & giờ công định mức (R / I / A). |
 
