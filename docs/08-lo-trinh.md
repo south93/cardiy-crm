@@ -56,7 +56,7 @@ flowchart LR
 | Vòng | Nội dung |
 |---|---|
 | 3.1 ✅ | Đăng ký đối tác công khai (`/dang-ky-doi-tac`, link theo dõi + tải giấy tờ, không cần tài khoản), Sàn duyệt / yêu cầu bổ sung / từ chối, duyệt tạo tenant đối tác + tài khoản (mật khẩu tạm) + hoá đơn phí kỳ đầu; gói đối tác sửa giá được; hoá đơn phí theo kỳ, ghi nhận đã thu, quá hạn; khoá / mở / chấm dứt đối tác; đối tác xem phí & QR chuyển khoản. eKYC, ký số hợp đồng, OTP khi đăng ký: để sau |
-| 3.2 | Danh mục chuẩn; **Cổng đối tác**: hồ sơ gian hàng, sản phẩm (tồn nhập tay), dịch vụ; tin đăng của PLG đồng bộ tồn từ CRM |
+| 3.2 ✅ | **Danh mục chuẩn** của sàn (nhóm 2 cấp, SKU sản phẩm có thông số, dịch vụ chuẩn, garage đề xuất thêm mục); **hồ sơ gian hàng** (logo, ảnh bìa, đường dẫn, vị trí bản đồ, giờ mở cửa, chính sách bảo hành / đổi trả / huỷ); **tin đăng** sản phẩm & dịch vụ chọn từ danh mục chuẩn — đối tác nhập tồn tay và chờ sàn duyệt, PLG liên kết hàng trong kho (tồn = tổng tồn các chi nhánh bán, tự báo hết hàng) và lên bán ngay; **Sàn kiểm duyệt tin** (duyệt / từ chối / gỡ). Đổi sản phẩm, mô tả, ảnh thì duyệt lại; đổi giá, tồn thì không |
 | 3.3 | Web sàn công khai: tìm garage, trang sản phẩm nhiều garage cùng bán, trang garage |
 | 3.4 | Yêu cầu đặt hàng + lịch lắp gửi tới đối tác (Cổng đối tác) hoặc PLG (CRM), voucher |
 | 3.5 | Đánh giá, phản ánh & xử lý vi phạm, thống kê gian hàng (lượt xem, yêu cầu) |

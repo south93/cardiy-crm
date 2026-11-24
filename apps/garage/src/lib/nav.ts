@@ -34,6 +34,7 @@ import {
   Flag,
   Receipt,
   type LucideIcon,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -106,7 +107,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Kênh người bán',
-    items: [{ href: '/gian-hang', label: 'Gian hàng trên sàn', icon: Store, screen: 'A3.50', round: '3.2', tone: 'sky', permission: 'shop.manage' }],
+    items: [{ href: '/gian-hang', label: 'Gian hàng trên sàn', icon: Store, screen: 'A3.50', round: '3.2', tone: 'sky', permission: 'shop.manage', built: true }],
   },
   {
     label: 'Phân tích',
@@ -120,9 +121,9 @@ export const NAV: NavGroup[] = [
   {
     label: 'Gian hàng',
     items: [
-      { href: '/doi-tac/gian-hang', label: 'Hồ sơ gian hàng', icon: Store, screen: 'A7.10', round: '3.2', tone: 'sky', permission: 'partner.shop.manage', workspace: 'PARTNER' },
-      { href: '/doi-tac/san-pham', label: 'Sản phẩm', icon: Package, screen: 'A7.11', round: '3.2', tone: 'lav', permission: 'partner.listing.manage', workspace: 'PARTNER' },
-      { href: '/doi-tac/dich-vu', label: 'Dịch vụ', icon: Wrench, screen: 'A7.12', round: '3.2', tone: 'mint', permission: 'partner.listing.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/gian-hang', label: 'Hồ sơ gian hàng', icon: Store, screen: 'A7.10', round: '3.2', tone: 'sky', permission: 'partner.shop.manage', workspace: 'PARTNER', built: true },
+      { href: '/doi-tac/san-pham', label: 'Sản phẩm', icon: Package, screen: 'A7.11', round: '3.2', tone: 'lav', permission: 'partner.listing.manage', workspace: 'PARTNER', built: true },
+      { href: '/doi-tac/dich-vu', label: 'Dịch vụ', icon: Wrench, screen: 'A7.12', round: '3.2', tone: 'mint', permission: 'partner.listing.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/khuyen-mai', label: 'Khuyến mại', icon: TicketPercent, screen: 'A7.13', round: '3.4', tone: 'peach', permission: 'partner.promotion.manage', workspace: 'PARTNER' },
     ],
   },
@@ -147,7 +148,8 @@ export const NAV: NavGroup[] = [
     label: 'Quản trị sàn',
     items: [
       { href: '/san/doi-tac', label: 'Đối tác garage', icon: Building2, screen: 'A6.10', round: '3.1', tone: 'sky', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
-      { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM' },
+      { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM', built: true },
+      { href: '/san/tin-dang', label: 'Kiểm duyệt tin đăng', icon: ShieldCheck, screen: 'A6.30', round: '3.2', tone: 'peach', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM' },
     ],

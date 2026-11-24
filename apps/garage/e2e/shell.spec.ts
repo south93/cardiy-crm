@@ -24,8 +24,8 @@ test.describe('Khung giao diện quản trị (Chủ garage)', () => {
     await expect(page.getByTestId('order-table')).toBeVisible();
     // Màn hình chưa làm hiện trang chờ kèm vòng dự kiến
     await page.goto('/trang-chu');
-    await grid.getByRole('link', { name: 'Gian hàng trên sàn' }).click();
-    await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng 3.2');
+    await grid.getByRole('link', { name: 'Marketing' }).click();
+    await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng P5');
   });
 
   test('đường dẫn không có trong menu trả về 404', async ({ page }) => {

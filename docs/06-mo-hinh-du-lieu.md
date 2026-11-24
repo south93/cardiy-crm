@@ -275,6 +275,8 @@ erDiagram
 
 > Đã làm (vòng 1.4c): `products.sale_price` = giá Bình Phước (giá chính), `products.sale_price_bd` = giá Bình Dương (trống thì dùng giá chính), `products.vat_price` = giá xuất hoá đơn VAT; `branches.price_zone` (`BP` | `BD`) quyết định giá mặc định khi thêm sản phẩm vào đơn ở chi nhánh đó. Nhập file Excel AppSheet tạo lô nhập `import_batches.kind = PRODUCTS`; tồn đầu kỳ ghi bằng phiếu kiểm kê (PK) mỗi chi nhánh.
 
+> **Đã làm (vòng 3.2), khác sơ đồ dự kiến:** sản phẩm chuẩn và dịch vụ chuẩn chung một bảng `catalog_items` (`kind` = PRODUCT | SERVICE, `code` = SKU / mã dịch vụ, thương hiệu là chữ, thông số `specs` dạng [{label, value}]); nhóm `catalog_categories` 2 cấp theo loại; `catalog_proposals` = đề xuất của garage. `shops` = hồ sơ gian hàng (1 / tenant, `slug` duy nhất, giờ mở cửa JSON). `offers`: chi nhánh bán lưu mảng `branch_ids` (chưa tách `offer_branches`); `product_id` (chỉ PLG) → tồn khả dụng = tổng `stock_levels` của các chi nhánh bán, tính khi đọc; đối tác dùng `manual_stock`. Trạng thái S5 không lưu HET_HANG: hết hàng = đang bán + tồn khả dụng 0. Chưa có giữ tồn cho đơn sàn (vòng 3.4), chưa liên kết `products.catalog_product_id`, chưa có bảng hãng / dòng xe tương thích.
+
 ```mermaid
 erDiagram
   catalog_products ||--o{ products : "liên kết SKU chuẩn"

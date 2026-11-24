@@ -1201,3 +1201,156 @@ model PlatformInvoice {
   @@index([status, dueDate])
   @@map("platform_invoices")
 }
+
+// ======================= Vòng 3.2: Danh mục chuẩn, gian hàng, tin đăng (D3) =======================
+
+enum CatalogKind {
+  PRODUCT
+  SERVICE
+}
+
+/// Nhóm danh mục chuẩn của sàn (dùng chung mọi garage)
+model CatalogCategory {
+  id        String      @id @default(uuid()) @db.Uuid
+  kind      CatalogKind
+  parentId  String?     @map("parent_id") @db.Uuid
+  name      String
+  sortOrder Int         @default(0) @map("sort_order")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  parent   CatalogCategory?  @relation("CatalogTree", fields: [parentId], references: [id])
+  children CatalogCategory[] @relation("CatalogTree")
+  items    CatalogItem[]
+
+  @@index([kind, parentId])
+  @@map("catalog_categories")
+}
+
+/// Sản phẩm chuẩn (SKU) hoặc dịch vụ chuẩn của sàn. Tin đăng của garage phải chọn từ đây
+model CatalogItem {
+  id          String      @id @default(uuid()) @db.Uuid
+  kind        CatalogKind
+  /// SKU / mã dịch vụ chuẩn
+  code        String      @unique
+  name        String
+  categoryId  String?     @map("category_id") @db.Uuid
+  brand       String?
+  unit        String?
+  /// Thông số: [{label, value}] (kích cỡ, chỉ số tải, độ nhớt, dung lượng…)
+  specs       Json        @default("[]")
+  description String?
+  imageFileId String?     @map("image_file_id") @db.Uuid
+  /// Ẩn: không chọn được khi đăng tin mới, tin cũ vẫn giữ
+  active      Boolean     @default(true)
+  searchText  String      @default("") @map("search_text")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  category CatalogCategory? @relation(fields: [categoryId], references: [id])
+  offers   Offer[]
+
+  @@index([kind, categoryId])
+  @@map("catalog_items")
+}
+
+enum CatalogProposalStatus {
+  CHO_XU_LY
+  DA_TAO
+  TU_CHOI
+}
+
+/// Garage đề xuất thêm vào danh mục chuẩn khi không tìm thấy SKU / dịch vụ (A6.24)
+model CatalogProposal {
+  id            String                @id @default(uuid()) @db.Uuid
+  tenantId      String                @map("tenant_id") @db.Uuid
+  kind          CatalogKind
+  name          String
+  brand         String?
+  note          String?
+  status        CatalogProposalStatus @default(CHO_XU_LY)
+  catalogItemId String?               @map("catalog_item_id") @db.Uuid
+  reviewNote    String?               @map("review_note")
+  createdBy     String                @map("created_by") @db.Uuid
+  reviewedBy    String?               @map("reviewed_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  reviewedAt    DateTime?             @map("reviewed_at")
+
+  @@index([status, createdAt])
+  @@map("catalog_proposals")
+}
+
+/// Hồ sơ gian hàng trên sàn (mỗi garage / đối tác một gian hàng)
+model Shop {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @unique @map("tenant_id") @db.Uuid
+  /// Đường dẫn gian hàng: cardiy.vn/garage/<slug>
+  slug           String   @unique
+  name           String
+  intro          String?
+  phone          String?
+  address        String?
+  province       String?
+  lat            Float?
+  lng            Float?
+  /// [{day: 0..6 (CN..T7), open: "07:30", close: "17:30", closed: bool}]
+  openingHours   Json     @default("[]") @map("opening_hours")
+  returnPolicy   String?  @map("return_policy")
+  warrantyPolicy String?  @map("warranty_policy")
+  cancelPolicy   String?  @map("cancel_policy")
+  logoFileId     String?  @map("logo_file_id") @db.Uuid
+  coverFileId    String?  @map("cover_file_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("shops")
+}
+
+/// S5: tin đăng. Hết hàng tính khi đọc (tồn khả dụng = 0), không lưu trạng thái riêng
+enum OfferStatus {
+  NHAP
+  CHO_DUYET
+  DANG_BAN
+  BI_TU_CHOI
+  TAM_AN
+  BI_GO
+}
+
+/// Tin đăng sản phẩm / dịch vụ của garage trên sàn
+model Offer {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  kind            CatalogKind
+  catalogItemId   String      @map("catalog_item_id") @db.Uuid
+  /// PLG: hàng trong kho CRM, tồn khả dụng = tổng tồn các chi nhánh bán. Đối tác: trống, nhập tồn tay
+  productId       String?     @map("product_id") @db.Uuid
+  /// Đối tác nhập tay số lượng còn bán
+  manualStock     Int?        @map("manual_stock")
+  /// Chi nhánh bán / làm dịch vụ (rỗng = mọi chi nhánh)
+  branchIds       String[]    @default([]) @map("branch_ids") @db.Uuid
+  price           BigInt
+  /// Giá niêm yết (gạch ngang) nếu đang giảm
+  listPrice       BigInt?     @map("list_price")
+  /// Dịch vụ: giá là "từ" (tuỳ xe)
+  priceFrom       Boolean     @default(false) @map("price_from")
+  installIncluded Boolean     @default(false) @map("install_included")
+  mfgYear         Int?        @map("mfg_year")
+  /// Dịch vụ: thời gian làm dự kiến (phút)
+  durationMinutes Int?        @map("duration_minutes")
+  note            String?
+  imageFileIds    String[]    @default([]) @map("image_file_ids") @db.Uuid
+  status          OfferStatus @default(NHAP)
+  reviewNote      String?     @map("review_note")
+  reviewedBy      String?     @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?   @map("reviewed_at")
+  submittedAt     DateTime?   @map("submitted_at")
+  createdBy       String?     @map("created_by") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id])
+
+  @@index([tenantId, kind, status])
+  @@index([status, submittedAt])
+  @@index([catalogItemId, status])
+  @@map("offers")
+}

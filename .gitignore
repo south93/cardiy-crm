@@ -26,3 +26,4 @@ Thumbs.db
 storage/
 storage-*/
 dist-seed/
+dump.rdb
