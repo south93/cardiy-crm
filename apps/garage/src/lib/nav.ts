@@ -140,15 +140,15 @@ export const NAV: NavGroup[] = [
     label: 'Báo cáo & phí',
     items: [
       { href: '/doi-tac/thong-ke', label: 'Thống kê', icon: ChartLine, screen: 'A7.30', round: '3.5', tone: 'sky', permission: 'partner.report.view', workspace: 'PARTNER' },
-      { href: '/doi-tac/phi', label: 'Phí & hoá đơn', icon: Receipt, screen: 'A7.31', round: '3.1', tone: 'mint', permission: 'partner.billing.view', workspace: 'PARTNER' },
+      { href: '/doi-tac/phi', label: 'Phí & hoá đơn', icon: Receipt, screen: 'A7.31', round: '3.1', tone: 'mint', permission: 'partner.billing.view', workspace: 'PARTNER', built: true },
     ],
   },
   {
     label: 'Quản trị sàn',
     items: [
-      { href: '/san/doi-tac', label: 'Đối tác garage', icon: Building2, screen: 'A6.10', round: '3.1', tone: 'sky', permission: 'platform.partner.review', workspace: 'PLATFORM' },
+      { href: '/san/doi-tac', label: 'Đối tác garage', icon: Building2, screen: 'A6.10', round: '3.1', tone: 'sky', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM' },
-      { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM' },
+      { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM' },
     ],
   },
