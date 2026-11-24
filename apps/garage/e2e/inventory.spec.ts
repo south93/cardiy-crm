@@ -87,7 +87,8 @@ test.describe('Danh mục & kho', () => {
 
     await page.goto('/danh-muc');
     await page.getByLabel('Tìm sản phẩm').fill(t);
-    await page.getByTestId('product-row').first().click();
+    // Chờ danh sách lọc xong rồi bấm đúng sản phẩm (không bấm "dòng đầu tiên" của danh sách cũ)
+    await page.getByTestId('product-row').filter({ hasText: name }).click();
     await expect(page.getByTestId('movement-table')).toContainText('Xuất bán');
     await expect(page.getByTestId('stock-by-branch')).toContainText('4 cái');
   });

@@ -25,6 +25,9 @@ const productSchema = z.object({
   brand: text(80),
   unit: text(20),
   salePrice: money,
+  // Trống = không có giá riêng (không ép thành 0)
+  salePriceBd: z.preprocess((v) => (v === '' || v === null ? null : v), money.nullable()).optional(),
+  vatPrice: z.preprocess((v) => (v === '' || v === null ? null : v), money.nullable()).optional(),
   costPrice: money.optional(),
   vehicleMakes: z.array(z.string().trim().min(1).max(40)).max(40).optional(),
   minStock: z.coerce.number().min(0).max(1_000_000).optional().nullable(),

@@ -23,6 +23,8 @@ interface Product {
   brand: string | null;
   unit: string | null;
   salePrice: number;
+  salePriceBd: number | null;
+  vatPrice: number | null;
   costPrice: number | null;
   vehicleMakes: string[];
   minStock: number | null;
@@ -59,6 +61,8 @@ function ProductDetail() {
     brand: p.brand ?? '',
     unit: p.unit ?? '',
     salePrice: moneyInput(p.salePrice),
+    salePriceBd: p.salePriceBd ? moneyInput(p.salePriceBd) : '',
+    vatPrice: p.vatPrice ? moneyInput(p.vatPrice) : '',
     costPrice: moneyInput(p.costPrice ?? 0),
     vehicleMakes: p.vehicleMakes,
     minStock: p.minStock === null ? '' : String(p.minStock),
@@ -96,10 +100,16 @@ function ProductDetail() {
           {p.note && <p className="mt-2 text-sm text-slate-600">{p.note}</p>}
         </div>
         <div className="text-right">
-          <div className="text-xs text-slate-500">Giá bán</div>
+          <div className="text-xs text-slate-500">Giá bán (Bình Phước)</div>
           <div className="text-xl font-semibold tabular-nums" data-testid="product-price">
             {fmtMoney(p.salePrice)}
           </div>
+          {p.salePriceBd !== null && p.salePriceBd !== p.salePrice && (
+            <div className="text-xs text-slate-500" data-testid="product-price-bd">
+              Giá Bình Dương {fmtMoney(p.salePriceBd)}
+            </div>
+          )}
+          {p.vatPrice !== null && <div className="text-xs text-slate-500">Giá VAT {fmtMoney(p.vatPrice)}</div>}
           {p.costPrice !== null && <div className="text-xs text-slate-500">Giá vốn {fmtMoney(p.costPrice)}</div>}
         </div>
         {can('inventory.manage') && (

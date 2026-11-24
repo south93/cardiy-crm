@@ -97,7 +97,7 @@ export function ProductPicker({
                 </span>
               </span>
               <span className="text-right">
-                <span className="block tabular-nums">{fmtMoney(p.salePrice)}</span>
+                <span className="block tabular-nums">{fmtMoney(p.price ?? p.salePrice)}</span>
                 {p.stock !== null && <span className={`block text-xs ${p.stock <= 0 ? 'text-rose-600' : 'text-slate-500'}`}>Tồn {fmtQty(p.stock)}</span>}
               </span>
             </button>

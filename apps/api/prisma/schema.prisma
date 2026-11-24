@@ -75,6 +75,8 @@ model Branch {
   lat       Float?
   lng       Float?
   bays      Int       @default(0)
+  /// Vùng giá: BP = giá Bình Phước (giá bán chính), BD = giá Bình Dương
+  priceZone String    @default("BP") @map("price_zone")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -401,6 +403,8 @@ model OdometerReading {
 enum ImportKind {
   CUSTOMERS
   VEHICLES
+  /// Danh mục sản phẩm + tồn đầu kỳ từ file Excel AppSheet (vòng 1.4c)
+  PRODUCTS
 }
 
 enum ImportStatus {
@@ -600,6 +604,10 @@ model Product {
   brand        String?
   unit         String?
   salePrice    BigInt        @default(0) @map("sale_price")
+  /// Giá vùng Bình Dương (chi nhánh vùng giá BD dùng giá này; trống thì dùng giá bán chính)
+  salePriceBd  BigInt?       @map("sale_price_bd")
+  /// Giá khi xuất hoá đơn VAT (tham khảo)
+  vatPrice     BigInt?       @map("vat_price")
   /// Giá vốn: cập nhật theo lần nhập gần nhất
   costPrice    BigInt        @default(0) @map("cost_price")
   /// Hãng xe dùng được (rỗng = mọi hãng)

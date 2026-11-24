@@ -246,6 +246,8 @@ erDiagram
 
 ## D3 · Kho, danh mục chuẩn, gian hàng trên sàn
 
+> Đã làm (vòng 1.4c): `products.sale_price` = giá Bình Phước (giá chính), `products.sale_price_bd` = giá Bình Dương (trống thì dùng giá chính), `products.vat_price` = giá xuất hoá đơn VAT; `branches.price_zone` (`BP` | `BD`) quyết định giá mặc định khi thêm sản phẩm vào đơn ở chi nhánh đó. Nhập file Excel AppSheet tạo lô nhập `import_batches.kind = PRODUCTS`; tồn đầu kỳ ghi bằng phiếu kiểm kê (PK) mỗi chi nhánh.
+
 ```mermaid
 erDiagram
   catalog_products ||--o{ products : "liên kết SKU chuẩn"

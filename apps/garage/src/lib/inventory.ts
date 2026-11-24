@@ -17,6 +17,10 @@ export interface ProductRow {
   unit: string | null;
   category: { id: string; name: string } | null;
   salePrice: number;
+  salePriceBd?: number | null;
+  vatPrice?: number | null;
+  /** Giá áp dụng ở chi nhánh đang chọn (theo bảng giá của chi nhánh) */
+  price?: number;
   costPrice: number | null;
   vehicleMakes: string[];
   active: boolean;

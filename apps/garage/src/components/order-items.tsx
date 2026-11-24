@@ -50,7 +50,7 @@ export function OrderItemsEditor({
             onPick={(p) => {
               // Bỏ dòng trống mặc định nếu chưa gõ gì
               const kept = rows.filter((r) => r.name.trim() || r.unitPrice);
-              onChange([...kept, { ...newItem(p.kind, lastSection), productId: p.id, code: p.code, name: p.name, unit: p.unit ?? '', unitPrice: moneyInput(p.salePrice) }]);
+              onChange([...kept, { ...newItem(p.kind, lastSection), productId: p.id, code: p.code, name: p.name, unit: p.unit ?? '', unitPrice: moneyInput(p.price ?? p.salePrice) }]);
             }}
           />
         </div>

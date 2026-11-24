@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, Dialog, Input, Select, Spinner } from '@cardiy/ui';
-import { FolderPlus, Plus, Search } from 'lucide-react';
+import { FileUp, FolderPlus, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -110,6 +110,12 @@ function Catalog() {
             ))}
           </Select>
           <div className="flex-1" />
+          {can('inventory.manage') && (
+            <Link href="/danh-muc/nhap" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-testid="open-product-import">
+              <FileUp className="h-4 w-4" />
+              Nhập từ Excel
+            </Link>
+          )}
           {can('inventory.manage') && (
             <Button onClick={() => setOpen(true)} data-testid="add-product">
               <Plus className="h-4 w-4" />

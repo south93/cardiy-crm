@@ -15,6 +15,8 @@ export interface ProductInput {
   brand?: string | null;
   unit?: string | null;
   salePrice: number;
+  salePriceBd?: number | null;
+  vatPrice?: number | null;
   costPrice?: number;
   vehicleMakes?: string[];
   minStock?: number | null;
@@ -167,6 +169,7 @@ export class InventoryService {
       }),
     ]);
     const cost = this.seesCost(a);
+    const zone = q.branchId ? (await this.prisma.branch.findFirst({ where: { id: q.branchId, tenantId: a.tenantId }, select: { priceZone: true } }))?.priceZone : null;
     return {
       total,
       page: q.page,
@@ -183,6 +186,10 @@ export class InventoryService {
           unit: p.unit,
           category: p.category ? { id: p.category.id, name: p.category.parent ? `${p.category.parent.name} › ${p.category.name}` : p.category.name } : null,
           salePrice: Number(p.salePrice),
+          salePriceBd: p.salePriceBd === null ? null : Number(p.salePriceBd),
+          vatPrice: p.vatPrice === null ? null : Number(p.vatPrice),
+          /** Giá bán áp dụng ở chi nhánh đang chọn (vùng BD dùng giá BD nếu có) */
+          price: Number(zone === 'BD' && p.salePriceBd !== null ? p.salePriceBd : p.salePrice),
           costPrice: cost ? Number(p.costPrice) : null,
           vehicleMakes: p.vehicleMakes,
           active: p.active,
@@ -220,6 +227,8 @@ export class InventoryService {
       brand: p.brand,
       unit: p.unit,
       salePrice: Number(p.salePrice),
+      salePriceBd: p.salePriceBd === null ? null : Number(p.salePriceBd),
+      vatPrice: p.vatPrice === null ? null : Number(p.vatPrice),
       costPrice: cost ? Number(p.costPrice) : null,
       vehicleMakes: p.vehicleMakes,
       minStock: p.minStock === null ? null : num(p.minStock),
@@ -267,6 +276,8 @@ export class InventoryService {
           brand: dto.brand?.trim() || null,
           unit: dto.unit?.trim() || null,
           salePrice: BigInt(dto.salePrice),
+          salePriceBd: dto.salePriceBd == null ? null : BigInt(dto.salePriceBd),
+          vatPrice: dto.vatPrice == null ? null : BigInt(dto.vatPrice),
           costPrice: BigInt(dto.costPrice ?? 0),
           vehicleMakes,
           minStock: dto.minStock == null ? null : new Prisma.Decimal(dto.minStock),
@@ -309,6 +320,8 @@ export class InventoryService {
         ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
         ...(dto.unit !== undefined ? { unit: dto.unit?.trim() || null } : {}),
         ...(dto.salePrice !== undefined ? { salePrice: BigInt(dto.salePrice) } : {}),
+        ...(dto.salePriceBd !== undefined ? { salePriceBd: dto.salePriceBd === null ? null : BigInt(dto.salePriceBd) } : {}),
+        ...(dto.vatPrice !== undefined ? { vatPrice: dto.vatPrice === null ? null : BigInt(dto.vatPrice) } : {}),
         ...(dto.costPrice !== undefined ? { costPrice: BigInt(dto.costPrice) } : {}),
         ...(dto.minStock !== undefined ? { minStock: dto.minStock === null ? null : new Prisma.Decimal(dto.minStock) } : {}),
         ...(dto.mfgMonth !== undefined ? { mfgMonth: dto.mfgMonth } : {}),
