@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Spinner } from '@cardiy/ui';
-import { CalendarClock, ChevronRight, Gauge, Wrench } from 'lucide-react';
+import { CalendarClock, CalendarPlus, ChevronRight, Gauge, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { fmtDate } from '@/lib/crm';
@@ -22,22 +22,31 @@ interface OwnerVehicle {
   garage: string;
   visits: number;
   lastVisit: { date: string; km: number | null } | null;
-  openOrder: { id: string; code: string; status: string; statusLabel: string; promisedAt: string | null } | null;
+  openOrder: { id: string; code: string; status: string; statusLabel: string; promisedAt: string | null; pendingQuote?: boolean } | null;
 }
 
 export default function OwnerHome() {
   const { me } = useOwner();
   const [vs, setVs] = useState<OwnerVehicle[] | null>(null);
   useEffect(() => {
-    ownerApi<OwnerVehicle[]>('/vehicles').then(setVs);
+    const load = () => ownerApi<OwnerVehicle[]>('/vehicles').then(setVs);
+    void load();
+    // Theo dõi tiến độ: tự cập nhật trạng thái xe đang ở garage
+    const t = setInterval(() => document.visibilityState === 'visible' && void load(), 15_000);
+    return () => clearInterval(t);
   }, []);
   return (
     <div className="space-y-4">
-      <header>
-        <p className="text-sm text-slate-500">Xin chào</p>
-        <h1 className="text-2xl font-semibold" data-testid="owner-name">
-          {me?.name}
-        </h1>
+      <header className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-slate-500">Xin chào</p>
+          <h1 className="text-2xl font-semibold" data-testid="owner-name">
+            {me?.name}
+          </h1>
+        </div>
+        <Link href="/app/dat-lich" className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm" data-testid="book-cta">
+          <CalendarPlus className="h-4 w-4" /> Đặt lịch
+        </Link>
       </header>
       {!vs ? (
         <Spinner className="h-6 w-6 text-brand-600" />
@@ -49,11 +58,21 @@ export default function OwnerHome() {
             <li key={v.id}>
               <Card className="overflow-hidden p-0">
                 {v.openOrder && (
-                  <Link href={`/app/don/${v.openOrder.id}`} className="flex items-center gap-2 bg-brand-600 px-4 py-2.5 text-sm text-white" data-testid="open-order">
+                  <Link
+                    href={`/app/don/${v.openOrder.id}`}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm text-white ${v.openOrder.pendingQuote ? 'bg-amber-500' : 'bg-brand-600'}`}
+                    data-testid="open-order"
+                  >
                     <Wrench className="h-4 w-4" />
                     <span className="flex-1">
-                      Xe đang ở garage · <b>{v.openOrder.statusLabel}</b>
-                      {v.openOrder.promisedAt && <span className="opacity-80"> · hẹn {fmtDateTime(v.openOrder.promisedAt)}</span>}
+                      {v.openOrder.pendingQuote ? (
+                        <b>Garage gửi báo giá, bấm để xem và duyệt</b>
+                      ) : (
+                        <>
+                          Xe đang ở garage · <b>{v.openOrder.statusLabel}</b>
+                          {v.openOrder.promisedAt && <span className="opacity-80"> · hẹn {fmtDateTime(v.openOrder.promisedAt)}</span>}
+                        </>
+                      )}
                     </span>
                     <ChevronRight className="h-4 w-4" />
                   </Link>

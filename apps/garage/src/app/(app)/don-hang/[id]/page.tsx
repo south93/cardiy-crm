@@ -4,6 +4,7 @@ import type { PermissionCode } from '@cardiy/shared';
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner } from '@cardiy/ui';
 import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
+import { OrderQuoteCard } from '@/components/order-quote-card';
 import { useParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { OrderItemsEditor } from '@/components/order-items';
@@ -75,6 +76,7 @@ function OrderDetail() {
   const [techs, setTechs] = useState<{ id: string; name: string; roles: string[] }[]>([]);
 
   const load = useCallback(async () => setO(await api<Order>(`/orders/${id}`)), [id]);
+  const reload = useCallback(() => void load(), [load]);
   useEffect(() => void load(), [load]);
   const branchId = o?.branch.id;
   const canManage = can('ro.manage');
@@ -333,6 +335,8 @@ function OrderDetail() {
               </div>
             )}
           </Card>
+
+          <OrderQuoteCard orderId={o.id} editable={o.editable} itemCount={o.items.length} version={`${o.total}:${o.items.length}`} onAnswered={reload} />
 
           <Card className="p-4 lg:p-5">
             <CardTitle>Thông tin tiếp nhận</CardTitle>
