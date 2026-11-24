@@ -4,6 +4,8 @@ import { loginUI, PHONES, randomPhone, randomPlate } from './helpers';
 test.describe('Vòng 2.3: đánh giá, chuyển khoản, cài đặt Zalo', () => {
   test.skip(({ isMobile }) => isMobile, 'nhân viên trên máy tính; khách dùng ngữ cảnh điện thoại riêng');
 
+  test.beforeEach(({ page }) => page.on('dialog', (d) => void d.accept()));
+
   test('khách thấy VietQR phần còn nợ, đánh giá 4 sao sau khi nhận xe; garage trả lời; trang Zalo hiện hướng dẫn kết nối', async ({ page, browser, request }) => {
     const api = process.env.API_URL ?? 'http://localhost:4000';
     const auth = async (phone: string) => ({ Authorization: `Bearer ${(await (await request.post(`${api}/api/auth/login`, { data: { phone, password: 'Cardiy2026' } })).json()).accessToken}` });
@@ -61,7 +63,15 @@ test.describe('Vòng 2.3: đánh giá, chuyển khoản, cài đặt Zalo', () =
     await loginUI(page, PHONES.owner);
     await page.goto('/cai-dat');
     await page.getByRole('tab', { name: 'Zalo' }).click();
-    await expect(page.getByTestId('zalo-settings')).toContainText('ZALO_APP_ID');
+    await expect(page.getByTestId('zalo-app')).toContainText('Chưa có ứng dụng Zalo');
+    await page.getByLabel('App ID').fill('1234567890123');
+    await page.getByLabel('Secret key').fill('khoa-bi-mat-thu-nghiem');
+    await page.getByTestId('zalo-save-app').click();
+    await expect(page.getByTestId('zalo-settings')).toContainText('Đã lưu ứng dụng Zalo');
+    await expect(page.getByLabel('Secret key')).toHaveValue('');
+    await expect(page.getByLabel('Secret key')).toHaveAttribute('placeholder', /Đã lưu/);
+    await page.getByRole('button', { name: 'Xoá ứng dụng đã nhập' }).click();
+    await expect(page.getByTestId('zalo-settings')).toContainText('Đã xoá ứng dụng Zalo');
     await expect(page.getByTestId('zalo-event-OTP')).toBeVisible();
     await expect(page.getByTestId('zalo-connection')).toContainText(/kết nối/);
   });

@@ -1037,7 +1037,10 @@ model OrderQuote {
 /// Token Zalo OA của garage (mã hoá AES-GCM). Refresh token dùng một lần: mỗi lần làm mới lưu lại token mới
 model ZaloToken {
   tenantId        String    @id @map("tenant_id") @db.Uuid
-  refreshTokenEnc String    @map("refresh_token_enc")
+  /// Ứng dụng Zalo nhập trong CRM (Cài đặt → Zalo); trống thì dùng ZALO_APP_ID / ZALO_APP_SECRET của máy chủ
+  appId           String?   @map("app_id")
+  appSecretEnc    String?   @map("app_secret_enc")
+  refreshTokenEnc String?   @map("refresh_token_enc")
   accessTokenEnc  String?   @map("access_token_enc")
   accessExpiresAt DateTime? @map("access_expires_at")
   lastError       String?   @map("last_error")

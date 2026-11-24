@@ -110,13 +110,9 @@ cd /opt/cardiy && bash deploy/update.sh
 Dùng cho: mã OTP đăng ký / quên mật khẩu app chủ xe, báo lịch hẹn đã xác nhận, báo giá chờ duyệt, xe sửa xong, nhắc bảo dưỡng / đăng kiểm.
 
 1. **OA đã xác thực** và **bật dịch vụ ZNS**, nạp tiền vào tài khoản ZNS (mỗi tin có phí).
-2. Vào <https://developers.zalo.me> → tạo / mở **ứng dụng** liên kết với OA → lấy **App ID** và **Khoá bí mật (Secret key)**. Điền vào `deploy/.env`:
-   ```
-   ZALO_APP_ID=...
-   ZALO_APP_SECRET=...
-   ```
-   rồi chạy `bash deploy/update.sh`.
-3. Lấy **Refresh token** của OA (developers.zalo.me → *Công cụ → API Explorer*, loại **OA Access Token**, chọn OA, cấp quyền gửi tin). Đăng nhập CRM bằng tài khoản Chủ garage → **Cài đặt → Zalo** → dán Refresh token → **Kết nối**. Hệ thống tự làm mới token (token mới được lưu mã hoá); nếu báo lỗi token, lấy refresh token mới và kết nối lại.
+2. Vào <https://developers.zalo.me> → tạo / mở **ứng dụng** liên kết với OA → lấy **App ID** và **Khoá bí mật (Secret key)**. Đăng nhập CRM bằng tài khoản Chủ garage → **Cài đặt → Zalo → Ứng dụng Zalo** → nhập App ID + Secret key → **Lưu ứng dụng** (secret được mã hoá, không hiển thị lại).
+   *Cách khác:* điền `ZALO_APP_ID`, `ZALO_APP_SECRET` vào `deploy/.env` rồi chạy `bash deploy/update.sh` (giá trị nhập trên CRM được ưu tiên).
+3. Lấy **Refresh token** của OA (developers.zalo.me → *Công cụ → API Explorer*, loại **OA Access Token**, chọn OA, cấp quyền gửi tin). Ở **Cài đặt → Zalo → Kết nối Zalo OA** → dán Refresh token → **Kết nối**. Hệ thống tự làm mới token (token mới được lưu mã hoá); nếu báo lỗi token, lấy refresh token mới và kết nối lại.
 4. Tạo **mẫu ZNS** trong trang quản trị ZNS và chờ Zalo duyệt. Với mỗi mẫu đã duyệt: ở **Cài đặt → Zalo**, bật sự kiện, nhập **mã mẫu (template ID)** và ghép **tên tham số** của mẫu với dữ liệu CRM (tên khách, biển số, mã đơn, giờ hẹn, mã OTP…).
 5. Để chế độ **Thử nghiệm** (chỉ gửi tới SĐT quản trị OA, không mất phí) → bấm **Gửi thử** từng mẫu. Ổn thì chuyển **Chính thức** và bật **Bật gửi tin Zalo**.
 
