@@ -1,4 +1,4 @@
-import { PERMISSIONS, SYSTEM_ROLES } from '@cardiy/shared';
+import { PERMISSIONS, searchKey, SYSTEM_ROLES } from '@cardiy/shared';
 import { PrismaClient, TenantStatus, TenantType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -102,6 +102,30 @@ async function main() {
     { code: 'QUY', name: 'Gói quý', monthlyFee: 270_000n, billingMonths: 3, sortOrder: 2, features: ['Như gói Cơ bản', 'Tiết kiệm 10% khi trả theo quý'] },
   ];
   for (const p of plans) await prisma.plan.upsert({ where: { code: p.code }, update: {}, create: p });
+
+  // Danh mục chuẩn mẫu của sàn (Sàn → Danh mục chuẩn sửa / thêm được)
+  const cat = async (kind: 'PRODUCT' | 'SERVICE', name: string, sortOrder: number) =>
+    (await prisma.catalogCategory.findFirst({ where: { kind, name, parentId: null } })) ?? (await prisma.catalogCategory.create({ data: { kind, name, sortOrder } }));
+  const lop = await cat('PRODUCT', 'Lốp xe', 1);
+  const dau = await cat('PRODUCT', 'Dầu nhớt', 2);
+  const acquy = await cat('PRODUCT', 'Ắc quy', 3);
+  const bd = await cat('SERVICE', 'Bảo dưỡng', 1);
+  const ds = await cat('SERVICE', 'Đồng sơn', 2);
+  const sc = await cat('SERVICE', 'Sửa chữa', 3);
+  const items: { kind: 'PRODUCT' | 'SERVICE'; code: string; name: string; categoryId: string; brand?: string; unit?: string; specs?: { label: string; value: string }[] }[] = [
+    { kind: 'PRODUCT', code: 'LOP-MICH-2055516-PS4', name: 'Lốp Michelin Primacy 4 205/55R16', categoryId: lop.id, brand: 'Michelin', unit: 'Lốp', specs: [{ label: 'Kích cỡ', value: '205/55R16' }, { label: 'Chỉ số tải / tốc độ', value: '91V' }] },
+    { kind: 'PRODUCT', code: 'LOP-BRID-2156016-T005', name: 'Lốp Bridgestone Turanza T005 215/60R16', categoryId: lop.id, brand: 'Bridgestone', unit: 'Lốp', specs: [{ label: 'Kích cỡ', value: '215/60R16' }] },
+    { kind: 'PRODUCT', code: 'DAU-CAST-EDGE-5W30-4L', name: 'Dầu Castrol EDGE 5W-30 (4 lít)', categoryId: dau.id, brand: 'Castrol', unit: 'Can', specs: [{ label: 'Độ nhớt', value: '5W-30' }, { label: 'Dung tích', value: '4 L' }] },
+    { kind: 'PRODUCT', code: 'ACQ-GS-NS60', name: 'Ắc quy GS NS60 (45Ah)', categoryId: acquy.id, brand: 'GS', unit: 'Bình', specs: [{ label: 'Dung lượng', value: '45Ah' }] },
+    { kind: 'SERVICE', code: 'DV-BD-CAP1', name: 'Bảo dưỡng cấp 1 (5.000 km)', categoryId: bd.id },
+    { kind: 'SERVICE', code: 'DV-BD-CAP2', name: 'Bảo dưỡng cấp 2 (10.000 km)', categoryId: bd.id },
+    { kind: 'SERVICE', code: 'DV-DS-1MAT', name: 'Sơn 1 mặt (cản / cửa / capo)', categoryId: ds.id },
+    { kind: 'SERVICE', code: 'DV-SC-GAM', name: 'Kiểm tra & sửa gầm', categoryId: sc.id },
+  ];
+  for (const it of items) {
+    const searchText = searchKey(it.code, it.name, it.brand, ...(it.specs ?? []).map((x) => x.value));
+    await prisma.catalogItem.upsert({ where: { code: it.code }, update: {}, create: { ...it, specs: it.specs ?? [], searchText } });
+  }
 
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }

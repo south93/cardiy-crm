@@ -50,6 +50,7 @@ test.describe('Vòng 3.1: đăng ký đối tác', () => {
     // 4. Đối tác đăng nhập lần đầu, đổi mật khẩu, xem phí
     await page.getByTestId('user-menu').click();
     await page.getByTestId('logout').click();
+    await expect(page).toHaveURL(/\/dang-nhap/);
     await loginUI(page, phone, temp);
     await expect(page).toHaveURL(/\/doi-mat-khau$/);
     const cp = page.getByTestId('change-password-form');
