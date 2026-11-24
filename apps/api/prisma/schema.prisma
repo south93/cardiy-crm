@@ -501,6 +501,7 @@ model RepairOrder {
   history    OrderStatusHistory[]
   booking    Booking?
   inspection Inspection?
+  quotes     OrderQuote[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status, receivedAt])
@@ -759,6 +760,8 @@ enum BookingChannel {
   TRUC_TIEP
   WEBSITE
   KHAC
+  /// Khách tự đặt trên app chủ xe (vòng 2.2)
+  APP
 }
 
 model Booking {
@@ -987,4 +990,41 @@ model OwnerSession {
 
   @@index([userId])
   @@map("owner_sessions")
+}
+
+// ---------------- Vòng 2.2 · Khách duyệt báo giá trên app ----------------
+
+enum QuoteStatus {
+  CHO_DUYET
+  DA_DUYET
+  DUYET_MOT_PHAN
+  TU_CHOI
+  /// Hết hiệu lực: nhân viên sửa hạng mục / gửi báo giá mới / đơn không còn sửa được
+  HET_HIEU_LUC
+}
+
+/// Báo giá gửi khách duyệt: chụp lại hạng mục lúc gửi; khách đồng ý / từ chối từng dòng trên app
+model OrderQuote {
+  id           String      @id @default(uuid()) @db.Uuid
+  tenantId     String      @map("tenant_id") @db.Uuid
+  orderId      String      @map("order_id") @db.Uuid
+  status       QuoteStatus @default(CHO_DUYET)
+  /// [{itemId, kind, name, unit, quantity, unitPrice, discount, amount, vatRate}]
+  items        Json
+  total        BigInt
+  message      String?
+  sentBy       String?     @map("sent_by") @db.Uuid
+  sentAt       DateTime    @default(now()) @map("sent_at")
+  /// itemId khách đồng ý
+  approvedIds  String[]    @default([]) @map("approved_ids") @db.Uuid
+  customerNote String?     @map("customer_note")
+  respondedAt  DateTime?   @map("responded_at")
+  /// Đã bỏ các dòng khách từ chối khỏi đơn chưa (không bỏ được khi tổng mới nhỏ hơn số đã thu)
+  applied      Boolean     @default(false)
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, sentAt])
+  @@index([tenantId, status])
+  @@map("order_quotes")
 }

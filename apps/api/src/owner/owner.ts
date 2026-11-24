@@ -1,9 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, Injectable, Module, NotFoundException, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { formatPlate, inspectionSummary, type InspectionData } from '@cardiy/shared';
 import { z } from 'zod';
 import { Public } from '../common/auth.decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { STATUS_LABEL, paymentState } from '../orders/order-rules';
+import { applyQuoteResponse, quoteView, type QuoteLine } from '../orders/quotes';
+import { AuditService } from '../audit/audit.service';
+import { OwnerBookingController, OwnerBookingService } from './owner-booking';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerAppController, OwnerAuthController, OwnerAuthService, OwnerGuard, maskPhone, type OwnerRequest } from './owner-auth';
 
@@ -17,7 +20,10 @@ const garageName = (t: { name: string; printSettings: unknown }) => (t.printSett
  */
 @Injectable()
 export class OwnerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   private async links(userId: string) {
     return this.prisma.customerLink.findMany({ where: { userId, customer: { deletedAt: null } }, include: { customer: { select: { id: true, name: true, tenantId: true } } } });
@@ -52,6 +58,7 @@ export class OwnerService {
       orderBy: { receivedAt: 'desc' },
       select: { id: true, code: true, status: true, vehicleId: true, receivedAt: true, deliveredAt: true, promisedAt: true, odometerKm: true },
     });
+    const pending = new Set((await this.prisma.orderQuote.findMany({ where: { orderId: { in: orders.map((o) => o.id) }, status: 'CHO_DUYET' }, select: { orderId: true } })).map((q) => q.orderId));
     return own.map(({ vehicle: v }) => {
       const mine = orders.filter((o) => o.vehicleId === v.id);
       const open = mine.find((o) => ['TIEP_NHAN', 'DANG_SUA', 'HOAN_THANH'].includes(o.status));
@@ -69,7 +76,7 @@ export class OwnerService {
         garage: garageName(tenants.find((t) => t.id === v.tenantId)!),
         visits: mine.filter((o) => o.status === 'DA_GIAO').length,
         lastVisit: last ? { date: last.deliveredAt, km: last.odometerKm } : null,
-        openOrder: open ? { id: open.id, code: open.code, status: open.status, statusLabel: STATUS_LABEL[open.status], promisedAt: open.promisedAt } : null,
+        openOrder: open ? { id: open.id, code: open.code, status: open.status, statusLabel: STATUS_LABEL[open.status], promisedAt: open.promisedAt, pendingQuote: pending.has(open.id) } : null,
       };
     });
   }
@@ -143,9 +150,11 @@ export class OwnerService {
         payments: { where: { voidedAt: null }, orderBy: { paidAt: 'asc' } },
         history: { orderBy: { createdAt: 'asc' }, select: { toStatus: true, createdAt: true } },
         inspection: { select: { data: true, completedAt: true } },
+        quotes: { orderBy: { sentAt: 'desc' }, take: 1 },
       },
     });
     if (!o) throw new NotFoundException('Không tìm thấy đơn');
+    const q = o.quotes[0];
     const d = (o.inspection?.data ?? null) as InspectionData | null;
     const total = n(o.total);
     const paid = n(o.paid);
@@ -181,11 +190,42 @@ export class OwnerService {
       paymentState: paymentState(total, paid),
       payments: o.payments.map((p) => ({ amount: n(p.amount), method: p.method, paidAt: p.paidAt })),
       history: o.history.map((h) => ({ status: h.toStatus, label: STATUS_LABEL[h.toStatus], at: h.createdAt })),
+      /** Báo giá mới nhất (đang chờ duyệt hoặc đã trả lời); hết hiệu lực thì không hiện */
+      quote: q && q.status !== 'HET_HIEU_LUC' ? quoteView(q) : null,
       inspection:
         o.inspection?.completedAt && d ? { completedAt: o.inspection.completedAt, ...inspectionSummary(d), recommendation: d.recommendation ?? null, suggestions: d.suggestions ?? null } : null,
     };
   }
+  /** Khách duyệt báo giá: đồng ý một phần / tất cả / từ chối tất cả. Dòng bị từ chối được bỏ khỏi đơn. */
+  async respondQuote(userId: string, orderId: string, quoteId: string, approvedIds: string[], note?: string | null) {
+    const ids = await this.customerIds(userId);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM repair_orders WHERE id = ${orderId}::uuid FOR UPDATE`;
+      const o = await tx.repairOrder.findFirst({ where: { id: orderId, customerId: { in: ids } }, include: { items: { select: { id: true } } } });
+      if (!o) throw new NotFoundException('Không tìm thấy đơn');
+      const q = await tx.orderQuote.findFirst({ where: { id: quoteId, orderId } });
+      if (!q) throw new NotFoundException('Không tìm thấy báo giá');
+      if (q.status !== 'CHO_DUYET') throw new ConflictException(q.status === 'HET_HIEU_LUC' ? 'Garage vừa cập nhật báo giá, vui lòng xem lại bản mới' : 'Báo giá này đã được trả lời');
+      const lines = (q.items as unknown as QuoteLine[]).map((l) => l.itemId);
+      // An toàn: hạng mục trong đơn phải đúng như lúc gửi (nếu lệch, coi như báo giá đã cũ)
+      const current = new Set(o.items.map((i) => i.id));
+      if (lines.length !== current.size || lines.some((id) => !current.has(id))) {
+        await tx.orderQuote.update({ where: { id: quoteId }, data: { status: 'HET_HIEU_LUC' } });
+        throw new ConflictException('Garage vừa cập nhật báo giá, vui lòng xem lại bản mới');
+      }
+      if (approvedIds.some((id) => !lines.includes(id))) throw new BadRequestException('Hạng mục không thuộc báo giá này');
+      const approved = [...new Set(approvedIds)];
+      const declined = lines.filter((id) => !approved.includes(id));
+      const status = !approved.length ? 'TU_CHOI' : declined.length ? 'DUYET_MOT_PHAN' : 'DA_DUYET';
+      const applied = await applyQuoteResponse(tx, orderId, declined);
+      const updated = await tx.orderQuote.update({ where: { id: quoteId }, data: { status, approvedIds: approved, customerNote: note?.trim() || null, respondedAt: new Date(), applied } });
+      await this.audit.log({ tenantId: o.tenantId, actorId: userId, action: 'order.quote_answered', entity: 'order', entityId: orderId, after: { quoteId, status, approved: approved.length, declined: declined.length, applied } }, tx);
+      return quoteView(updated);
+    });
+  }
 }
+
+const respondSchema = z.object({ approvedIds: z.array(z.string().uuid()).max(200), note: z.string().trim().max(500).optional().nullable() });
 
 const odoSchema = z.object({ km: z.coerce.number().int('Số km là số nguyên').min(0).max(5_000_000) });
 
@@ -219,7 +259,13 @@ export class OwnerController {
   order(@Req() req: OwnerRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.svc.order(req.owner!.userId, id);
   }
+
+  @Post('orders/:id/quotes/:quoteId/respond')
+  @HttpCode(200)
+  respond(@Req() req: OwnerRequest, @Param('id', ParseUUIDPipe) id: string, @Param('quoteId', ParseUUIDPipe) quoteId: string, @Body(new ZodPipe(respondSchema)) dto: z.infer<typeof respondSchema>) {
+    return this.svc.respondQuote(req.owner!.userId, id, quoteId, dto.approvedIds, dto.note);
+  }
 }
 
-@Module({ controllers: [OwnerAuthController, OwnerController, CustomerAppController], providers: [OwnerAuthService, OwnerService, OwnerGuard] })
+@Module({ controllers: [OwnerAuthController, OwnerController, OwnerBookingController, CustomerAppController], providers: [OwnerAuthService, OwnerService, OwnerBookingService, OwnerGuard] })
 export class OwnerModule {}

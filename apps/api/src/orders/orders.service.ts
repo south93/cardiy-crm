@@ -7,6 +7,7 @@ import { reserveNumbers } from '../crm/counters';
 import { applyMovement } from '../inventory/stock';
 import { PrismaService } from '../prisma/prisma.service';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
+import { expirePendingQuotes } from './quotes';
 
 export const orderCode = (n: number) => `DH${String(n).padStart(6, '0')}`;
 
@@ -157,6 +158,7 @@ export class OrdersService {
           vehicle: { select: { id: true, plateNo: true, make: true, model: true } },
           branch: { select: { id: true, code: true, name: true } },
           inspection: { select: { completedAt: true, data: true } },
+          quotes: { orderBy: { sentAt: 'desc' }, take: 1, select: { status: true, respondedAt: true } },
           _count: { select: { items: true } },
         },
       }),
@@ -181,6 +183,7 @@ export class OrdersService {
         request: r.request,
         technician: r.technicianId ? (names.get(r.technicianId) ?? null) : null,
         itemCount: r._count.items,
+        quote: r.quotes[0] ?? null,
         inspection: r.inspection ? { completedAt: r.inspection.completedAt, ...inspectionSummary(r.inspection.data as InspectionData) } : null,
         total: money ? num(r.total) : null,
         paid: money ? num(r.paid) : null,
@@ -425,6 +428,8 @@ export class OrdersService {
       await this.assertProducts(tx, a.tenantId, items);
       await tx.orderItem.deleteMany({ where: { orderId: id } });
       await tx.orderItem.createMany({ data: items.map((it, i) => ({ ...this.itemRow(it, i), orderId: id })) });
+      // Hạng mục đã đổi: báo giá đang chờ khách duyệt không còn đúng nữa
+      await expirePendingQuotes(tx, id);
       await tx.repairOrder.update({ where: { id }, data: { subtotal: BigInt(subtotal), orderDiscount: BigInt(orderDiscount), vatTotal: BigInt(vat), total: BigInt(total) } });
       await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'order.items', entity: 'order', entityId: id, before: { total: num(o.total) }, after: { total, items: items.length }, ip }, tx);
       return { subtotal, total };
@@ -451,6 +456,7 @@ export class OrdersService {
         data.completedAt = now;
       }
       if (dto.to === 'DANG_SUA' && o.status === 'HOAN_THANH') data.completedAt = null;
+      if (dto.to === 'DA_GIAO' || dto.to === 'HUY') await expirePendingQuotes(tx, id);
       if (dto.to === 'DA_GIAO') {
         const due = num(o.total) - num(o.paid);
         if (due > 0 && !dto.allowDebt) throw new ConflictException(`Khách còn nợ ${due.toLocaleString('vi-VN')} đ. Thu đủ hoặc xác nhận ghi công nợ.`);

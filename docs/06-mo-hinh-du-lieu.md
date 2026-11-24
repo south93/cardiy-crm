@@ -218,6 +218,7 @@ erDiagram
   customers ||--o| customer_links : "liên kết app"
   customers ||--o{ customer_invites : "lời mời"
   users ||--o{ owner_sessions : "phiên app"
+  repair_orders ||--o{ order_quotes : "báo giá gửi khách"
   inspections { uuid id PK
     uuid order_id FK "1 đơn 1 phiếu"
     json data "lốp, an toàn, gầm, khuyến nghị, kiểm tra cuối"
@@ -234,6 +235,12 @@ erDiagram
     datetime expires_at "30 ngày"
     datetime used_at
     datetime revoked_at }
+  order_quotes { uuid id PK
+    uuid order_id FK
+    string status "CHO_DUYET · DA_DUYET · DUYET_MOT_PHAN · TU_CHOI · HET_HIEU_LUC"
+    json items "chụp hạng mục lúc gửi"
+    uuid_array approved_ids "dòng khách đồng ý"
+    bool applied "đã bỏ dòng bị từ chối khỏi đơn" }
   owner_sessions { uuid id PK
     uuid user_id FK
     string token_hash
@@ -242,6 +249,7 @@ erDiagram
 ```
 
 - Chủ xe dùng chung bảng `users` (một người vừa là nhân viên vừa là khách vẫn một tài khoản), nhưng **phiên đăng nhập tách riêng**: token loại `owner`, cookie `cardiy_ort`, bảng `owner_sessions`. Token nhân viên không gọi được API chủ xe và ngược lại.
+- Báo giá (vòng 2.2): garage gửi → chụp lại hạng mục; nhân viên sửa hạng mục / gửi bản mới / giao xe / huỷ đơn thì bản đang chờ **hết hiệu lực**. Khách trả lời → dòng bị từ chối được bỏ khỏi đơn và tính lại tổng (nếu đơn đã thu nhiều hơn tổng mới thì chỉ ghi nhận, `applied = false`, garage xử lý tay). Lịch khách tự đặt có `bookings.channel = APP`.
 - Chủ xe chỉ thấy xe **đang** đứng tên hồ sơ khách đã liên kết, và chỉ đơn của chính hồ sơ đó (không thấy đơn của chủ cũ). Bán xe (chuyển chủ) là hết quyền xem.
 
 ## D3 · Kho, danh mục chuẩn, gian hàng trên sàn

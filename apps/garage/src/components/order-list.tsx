@@ -3,6 +3,7 @@
 import { Badge, Button, Card, Input, Select, Spinner } from '@cardiy/ui';
 import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
+import { QUOTE_STATUS } from '@/components/order-quote-card';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Pager } from '@/components/pager';
@@ -115,6 +116,13 @@ export function OrderListView({ view }: { view: 'open' | 'done' }) {
                         <div className="mt-1">
                           <Badge tone={STATUS[o.status].tone}>{STATUS[o.status].label}</Badge>
                         </div>
+                        {o.quote && o.quote.status !== 'HET_HIEU_LUC' && (
+                          <div className="mt-1" data-testid="row-quote">
+                            <Badge tone={QUOTE_STATUS[o.quote.status].tone} className="text-[10px]">
+                              {QUOTE_STATUS[o.quote.status].label}
+                            </Badge>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         {o.vehicle ? <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-xs">{o.vehicle.plate}</span> : <span className="text-xs text-slate-500">Bán lẻ</span>}

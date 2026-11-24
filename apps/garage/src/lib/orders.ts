@@ -49,6 +49,8 @@ export interface OrderRow {
   promisedAt: string | null;
   completedAt: string | null;
   deliveredAt: string | null;
+  /** Báo giá gửi khách gần nhất */
+  quote?: { status: 'CHO_DUYET' | 'DA_DUYET' | 'DUYET_MOT_PHAN' | 'TU_CHOI' | 'HET_HIEU_LUC'; respondedAt: string | null } | null;
 }
 
 export interface OrderList {

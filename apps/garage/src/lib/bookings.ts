@@ -1,7 +1,7 @@
 import type { Tone } from '@cardiy/ui';
 
 export type BookingStatus = 'CHO_XAC_NHAN' | 'DA_XAC_NHAN' | 'DA_DEN' | 'KHONG_DEN' | 'KHACH_HUY' | 'TU_CHOI';
-export type BookingChannel = 'GOI_DIEN' | 'ZALO' | 'FACEBOOK' | 'TRUC_TIEP' | 'WEBSITE' | 'KHAC';
+export type BookingChannel = 'GOI_DIEN' | 'ZALO' | 'FACEBOOK' | 'TRUC_TIEP' | 'WEBSITE' | 'KHAC' | 'APP';
 
 export const BOOKING_STATUS: Record<BookingStatus, { label: string; tone: Tone }> = {
   CHO_XAC_NHAN: { label: 'Chờ xác nhận', tone: 'peach' },
@@ -19,6 +19,7 @@ export const CHANNELS: { value: BookingChannel; label: string }[] = [
   { value: 'TRUC_TIEP', label: 'Trực tiếp' },
   { value: 'WEBSITE', label: 'Website' },
   { value: 'KHAC', label: 'Khác' },
+  { value: 'APP', label: 'App chủ xe' },
 ];
 
 export interface Booking {

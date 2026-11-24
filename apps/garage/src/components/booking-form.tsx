@@ -130,7 +130,7 @@ export function NewBooking({
         <Field label="Kênh đặt">
           {(id) => (
             <Select id={id} value={channel} onChange={(e) => setChannel(e.target.value as BookingChannel)}>
-              {CHANNELS.map((c) => (
+              {CHANNELS.filter((c) => c.value !== 'APP').map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
