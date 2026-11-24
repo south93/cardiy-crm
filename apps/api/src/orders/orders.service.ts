@@ -8,6 +8,7 @@ import { applyMovement } from '../inventory/stock';
 import { PrismaService } from '../prisma/prisma.service';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
 import { expirePendingQuotes } from './quotes';
+import { ZaloService } from '../zalo/zalo';
 
 export const orderCode = (n: number) => `DH${String(n).padStart(6, '0')}`;
 
@@ -59,6 +60,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly zalo: ZaloService,
   ) {}
 
   /** Người không có quyền về tiền (vd. KTV) không thấy giá. */
@@ -212,6 +214,7 @@ export class OrdersService {
         items: { orderBy: { sortOrder: 'asc' } },
         payments: { orderBy: { paidAt: 'asc' } },
         history: { orderBy: { createdAt: 'asc' } },
+        review: true,
       },
     });
     if (!o) throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -238,6 +241,7 @@ export class OrdersService {
       cancelledAt: o.cancelledAt,
       cancelReason: o.cancelReason,
       editable: EDITABLE_STATUSES.includes(o.status),
+      review: o.review ? { rating: o.review.rating, comment: o.review.comment, reply: o.review.reply, repliedAt: o.review.repliedAt, createdAt: o.review.createdAt } : null,
       items: o.items.map((i) => ({
         id: i.id,
         kind: i.kind,
@@ -438,9 +442,11 @@ export class OrdersService {
   }
 
   async changeStatus(a: Access, id: string, dto: { to: OrderStatus; note?: string | null; reason?: string | null; allowDebt?: boolean }, ip?: string) {
+    let from: OrderStatus | null = null;
     await this.prisma.$transaction(async (tx) => {
       const o = await this.loadForWrite(tx, a, id);
       if (o.status === dto.to) return;
+      from = o.status;
       const err = transitionError(o.status, dto.to, new Set(a.permissions));
       if (err) throw (err.includes('quyền') ? new ForbiddenException(err) : new ConflictException(err));
       const now = new Date();
@@ -472,6 +478,8 @@ export class OrdersService {
       await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: o.status, toStatus: dto.to, note, actorId: a.userId } });
       await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'order.status', entity: 'order', entityId: id, before: { status: o.status }, after: { status: dto.to, note }, ip }, tx);
     });
+    // Xe sửa xong: mời khách nhận xe qua Zalo (nếu garage bật mẫu tin này)
+    if (dto.to === 'HOAN_THANH' && from === 'DANG_SUA') this.zalo.notify(a.tenantId, 'ORDER_DONE', () => this.zalo.orderContext(id));
     return { status: 'ok' };
   }
 

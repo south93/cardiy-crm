@@ -7,6 +7,7 @@ import { reserveNumbers } from '../crm/counters';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE, BOOKING_LABEL, bookingTransitionError, isLate, NEED_REASON, overlaps, type BookingStatus } from './booking-rules';
+import { ZaloService } from '../zalo/zalo';
 
 export interface BookingInput {
   branchId: string;
@@ -26,6 +27,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly orders: OrdersService,
+    private readonly zalo: ZaloService,
   ) {}
 
   private branchWhere(a: Access): Prisma.BookingWhereInput {
@@ -187,6 +189,8 @@ export class BookingsService {
     if (NEED_REASON.includes(dto.to) && !dto.reason?.trim()) throw new BadRequestException('Cần nhập lý do');
     await this.prisma.booking.update({ where: { id }, data: { status: dto.to, reason: dto.reason?.trim() || null } });
     await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'booking.status', entity: 'booking', entityId: id, before: { status: b.status }, after: { status: dto.to, reason: dto.reason ?? null }, ip });
+    // Báo khách qua Zalo khi garage xác nhận lịch (nếu garage bật mẫu tin này)
+    if (dto.to === 'DA_XAC_NHAN') this.zalo.notify(a.tenantId, 'BOOKING_CONFIRMED', () => this.zalo.bookingContext(id));
     return { status: 'ok' };
   }
 

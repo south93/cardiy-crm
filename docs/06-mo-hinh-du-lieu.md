@@ -219,6 +219,9 @@ erDiagram
   customers ||--o{ customer_invites : "lời mời"
   users ||--o{ owner_sessions : "phiên app"
   repair_orders ||--o{ order_quotes : "báo giá gửi khách"
+  repair_orders ||--o| order_reviews : "đánh giá"
+  tenants ||--o| zalo_tokens : "token OA (mã hoá)"
+  tenants ||--o{ zalo_messages : "tin ZNS đã gửi"
   inspections { uuid id PK
     uuid order_id FK "1 đơn 1 phiếu"
     json data "lốp, an toàn, gầm, khuyến nghị, kiểm tra cuối"
@@ -235,6 +238,15 @@ erDiagram
     datetime expires_at "30 ngày"
     datetime used_at
     datetime revoked_at }
+  order_reviews { uuid id PK
+    uuid order_id FK "1 đơn 1 đánh giá"
+    int rating "1–5"
+    string comment
+    string reply "garage trả lời" }
+  zalo_messages { uuid id PK
+    string event "OTP · BOOKING_CONFIRMED · QUOTE_SENT · ORDER_DONE · CARE_REMINDER"
+    string phone
+    string status "SENT · FAILED" }
   order_quotes { uuid id PK
     uuid order_id FK
     string status "CHO_DUYET · DA_DUYET · DUYET_MOT_PHAN · TU_CHOI · HET_HIEU_LUC"

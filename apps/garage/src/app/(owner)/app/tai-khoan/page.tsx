@@ -1,9 +1,56 @@
 'use client';
 
-import { Button, Card, CardTitle } from '@cardiy/ui';
+import { Button, Card, CardTitle, Spinner } from '@cardiy/ui';
 import { LogOut, Store } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useOwner } from '@/lib/owner';
+import { useEffect, useState } from 'react';
+import { fmtMoney } from '@/lib/crm';
+import { fmtDateTime, methodLabel, type PaymentMethod } from '@/lib/orders';
+import { ownerApi, useOwner } from '@/lib/owner';
+
+interface Pay {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  order: { id: string; code: string; branch: string; plate: string | null };
+}
+
+/** Lịch sử thanh toán tại các garage */
+function Payments() {
+  const [rows, setRows] = useState<Pay[] | null>(null);
+  useEffect(() => {
+    ownerApi<Pay[]>('/payments').then(setRows);
+  }, []);
+  return (
+    <Card className="p-4" data-testid="payment-history">
+      <CardTitle className="mb-2 text-base">Lịch sử thanh toán</CardTitle>
+      {!rows ? (
+        <Spinner className="h-5 w-5 text-brand-600" />
+      ) : !rows.length ? (
+        <p className="text-sm text-slate-500">Chưa có khoản thanh toán nào.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 text-sm">
+          {rows.map((p) => (
+            <li key={p.id}>
+              <Link href={`/app/don/${p.order.id}`} className="flex items-center justify-between gap-3 py-2">
+                <span>
+                  <span className="font-medium">{p.order.code}</span>
+                  {p.order.plate && <span className="font-mono text-xs text-slate-500"> · {p.order.plate}</span>}
+                  <span className="block text-xs text-slate-500">
+                    {fmtDateTime(p.paidAt)} · {methodLabel(p.method)} · {p.order.branch}
+                  </span>
+                </span>
+                <span className="font-semibold tabular-nums">{fmtMoney(p.amount)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
 
 export default function OwnerAccountPage() {
   const { me, signOut } = useOwner();
@@ -26,6 +73,7 @@ export default function OwnerAccountPage() {
           ))}
         </ul>
       </Card>
+      <Payments />
       <Button
         variant="outline"
         className="w-full justify-center"

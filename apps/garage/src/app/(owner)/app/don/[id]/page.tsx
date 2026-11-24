@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Card, CardTitle, Input, Spinner } from '@cardiy/ui';
-import { ArrowLeft, Check, ClipboardCheck, MapPin, Phone } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardCheck, MapPin, Phone, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -34,6 +34,120 @@ interface Order {
   history: { status: OrderStatus; label: string; at: string }[];
   inspection: { completedAt: string; checked: number; attention: number; replace: number; recommendation: string | null; suggestions: string | null } | null;
   quote: Quote | null;
+  payInfo: { amount: number; bank: { name: string; accountNo: string; accountName: string } | null; note?: string; qr?: string } | null;
+  review: { rating: number; comment: string | null; reply: string | null } | null;
+  canReview: boolean;
+}
+
+/** Chuyển khoản cho garage: VietQR đúng số tiền còn phải trả, nội dung có mã đơn */
+function PayCard({ p }: { p: NonNullable<Order['payInfo']> }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const copy = async (k: string, v: string) => {
+    await navigator.clipboard?.writeText(v).catch(() => null);
+    setCopied(k);
+  };
+  if (!p.bank) return null;
+  return (
+    <Card className="p-4" data-testid="pay-card">
+      <CardTitle className="mb-1 text-base">Thanh toán chuyển khoản</CardTitle>
+      <p className="text-sm text-slate-600">
+        Còn phải trả <b data-testid="pay-amount">{fmtMoney(p.amount)}</b>. Quét mã bằng app ngân hàng, số tiền và nội dung đã điền sẵn.
+      </p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {p.qr && <img src={p.qr} alt="Mã VietQR chuyển khoản" className="mx-auto my-2 h-52 w-52" />}
+      <dl className="space-y-1 text-sm">
+        {(
+          [
+            ['Ngân hàng', p.bank.name, null],
+            ['Số tài khoản', p.bank.accountNo, 'stk'],
+            ['Chủ tài khoản', p.bank.accountName, null],
+            ['Nội dung', p.note ?? '', 'nd'],
+          ] as const
+        ).map(([k, v, c]) => (
+          <div key={k} className="flex items-center justify-between gap-2">
+            <dt className="text-slate-500">{k}</dt>
+            <dd className="flex items-center gap-2 font-medium">
+              {v}
+              {c && (
+                <button type="button" className="text-xs text-brand-700" onClick={() => void copy(c, v)}>
+                  {copied === c ? 'Đã chép' : 'Chép'}
+                </button>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-xs text-slate-500">Garage xác nhận khi nhận được tiền; số còn phải trả cập nhật trên app.</p>
+    </Card>
+  );
+}
+
+/** Đánh giá sau khi nhận xe */
+function ReviewBox({ orderId, review, canReview, onSaved }: { orderId: string; review: Order['review']; canReview: boolean; onSaved: () => void }) {
+  const [rating, setRating] = useState(review?.rating ?? 0);
+  const [comment, setComment] = useState(review?.comment ?? '');
+  const [editing, setEditing] = useState(!review);
+  const [error, setError] = useState<string | null>(null);
+  if (!canReview && !review) return null;
+  return (
+    <Card className="p-4" data-testid="review-box">
+      <CardTitle className="mb-2 text-base">Đánh giá dịch vụ</CardTitle>
+      {editing && canReview ? (
+        <>
+          <div className="flex gap-1" role="radiogroup" aria-label="Số sao">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <button key={i} type="button" role="radio" aria-checked={rating === i} aria-label={`${i} sao`} onClick={() => setRating(i)}>
+                <Star className={`h-9 w-9 ${i <= rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Chia sẻ thêm về lần sửa xe này (không bắt buộc)"
+            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            aria-label="Nhận xét"
+          />
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+          <Button
+            className="mt-2 w-full justify-center"
+            disabled={!rating}
+            onClick={async () => {
+              setError(null);
+              try {
+                await ownerApi(`/orders/${orderId}/review`, { body: { rating, comment: comment.trim() || null } });
+                setEditing(false);
+                onSaved();
+              } catch (e) {
+                setError(e instanceof ApiError ? e.message : 'Không gửi được');
+              }
+            }}
+            data-testid="submit-review"
+          >
+            Gửi đánh giá
+          </Button>
+        </>
+      ) : (
+        review && (
+          <div className="space-y-2 text-sm" data-testid="my-review">
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className={`h-5 w-5 ${i <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+              ))}
+              {canReview && (
+                <button type="button" className="ml-auto text-xs text-brand-700" onClick={() => setEditing(true)}>
+                  Sửa
+                </button>
+              )}
+            </div>
+            {review.comment && <p>“{review.comment}”</p>}
+            {review.reply && <p className="rounded-xl bg-slate-50 px-3 py-2">Garage trả lời: {review.reply}</p>}
+          </div>
+        )
+      )}
+    </Card>
+  );
 }
 interface Quote {
   id: string;
@@ -202,6 +316,9 @@ export default function OwnerOrderPage() {
           {o.quote.respondedAt && ` lúc ${fmtDateTime(o.quote.respondedAt)}`}. Garage sẽ tiến hành theo lựa chọn của bạn.
         </p>
       )}
+
+      {o.payInfo && <PayCard p={o.payInfo} />}
+      <ReviewBox key={o.review ? `r${o.review.rating}` : 'new'} orderId={o.id} review={o.review} canReview={o.canReview} onSaved={() => void load()} />
 
       {o.inspection && (
         <Card className="p-4" data-testid="order-inspection">

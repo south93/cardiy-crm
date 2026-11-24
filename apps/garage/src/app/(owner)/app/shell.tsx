@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { OwnerProvider, useOwner } from '@/lib/owner';
 
-const PUBLIC = ['/app/dang-nhap', '/app/kich-hoat'];
+const PUBLIC = ['/app/dang-nhap', '/app/kich-hoat', '/app/otp'];
 
 function Guard({ children }: { children: ReactNode }) {
   const { status } = useOwner();

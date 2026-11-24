@@ -2,6 +2,7 @@
 
 import { Alert, Button, Card, Input } from '@cardiy/ui';
 import { CarFront } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api';
@@ -60,7 +61,15 @@ function LoginForm() {
           </Button>
         </form>
       </Card>
-      <p className="px-2 text-center text-xs text-slate-500">Lần đầu dùng? Xin garage gửi link kích hoạt qua Zalo hoặc quét mã QR trên phiếu sửa chữa.</p>
+      <div className="flex justify-between px-2 text-sm">
+        <Link href="/app/otp?muc=dang-ky" className="font-medium text-brand-700" data-testid="go-register">
+          Đăng ký bằng số điện thoại
+        </Link>
+        <Link href="/app/otp?muc=quen-mat-khau" className="text-slate-500">
+          Quên mật khẩu?
+        </Link>
+      </div>
+      <p className="px-2 text-center text-xs text-slate-500">Mã xác nhận gửi qua Zalo. Hoặc xin garage gửi link kích hoạt / quét mã QR tại quầy.</p>
     </div>
   );
 }

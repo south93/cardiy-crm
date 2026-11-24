@@ -1,6 +1,7 @@
 'use client';
 
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
+import { ZaloSettingsTab } from '@/components/zalo-settings';
 import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { RequirePermission } from '@/components/require-permission';
@@ -8,7 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
-type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky';
+type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky' | 'zalo';
 
 // ---------------- Chăm sóc khách ----------------
 const CARE_FIELDS = [
@@ -635,7 +636,7 @@ export default function SettingsPage() {
   const { can } = useAuth();
   const tabs = [
     { value: 'chi-nhanh' as const, label: 'Chi nhánh' },
-    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }, { value: 'cham-soc' as const, label: 'Chăm sóc khách' }] : []),
+    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }, { value: 'cham-soc' as const, label: 'Chăm sóc khách' }, { value: 'zalo' as const, label: 'Zalo' }] : []),
     ...(can('staff.view') ? [{ value: 'vai-tro' as const, label: 'Vai trò & quyền' }] : []),
     ...(can('audit.view') ? [{ value: 'nhat-ky' as const, label: 'Nhật ký thao tác' }] : []),
   ];
@@ -647,6 +648,7 @@ export default function SettingsPage() {
         {tab === 'chi-nhanh' && <BranchesTab />}
         {tab === 'mau-in' && <PrintSettingsTab />}
         {tab === 'cham-soc' && <CareSettingsTab />}
+        {tab === 'zalo' && <ZaloSettingsTab />}
         {tab === 'vai-tro' && <RolesTab />}
         {tab === 'nhat-ky' && <AuditTab />}
       </div>

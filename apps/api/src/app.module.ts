@@ -2,6 +2,7 @@ import { BookingsModule } from './bookings/bookings.controller';
 import { CareModule } from './care/care.controller';
 import { DashboardModule } from './dashboard/dashboard';
 import { OwnerModule } from './owner/owner';
+import { ZaloModule } from './zalo/zalo';
 import { FinanceModule } from './finance/finance.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
@@ -33,6 +34,7 @@ import { RedisModule } from './redis/redis.module';
     FinanceModule,
     DashboardModule,
     OwnerModule,
+    ZaloModule,
     HealthModule,
   ],
 })

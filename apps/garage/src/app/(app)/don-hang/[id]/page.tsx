@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Sp
 import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { OrderQuoteCard } from '@/components/order-quote-card';
+import { OrderReviewCard, type Review } from '@/components/order-review-card';
 import { useParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { OrderItemsEditor } from '@/components/order-items';
@@ -33,6 +34,7 @@ interface Order {
   deliveredAt: string | null;
   cancelReason: string | null;
   editable: boolean;
+  review: Review | null;
   items: { id: string; kind: ItemKind; productId: string | null; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null; vatRate: number; section: string | null }[];
   subtotal: number | null;
   vatTotal: number | null;
@@ -337,6 +339,7 @@ function OrderDetail() {
           </Card>
 
           <OrderQuoteCard orderId={o.id} editable={o.editable} itemCount={o.items.length} version={`${o.total}:${o.items.length}`} onAnswered={reload} />
+          {o.review && <OrderReviewCard orderId={o.id} review={o.review} onSaved={reload} />}
 
           <Card className="p-4 lg:p-5">
             <CardTitle>Thông tin tiếp nhận</CardTitle>
