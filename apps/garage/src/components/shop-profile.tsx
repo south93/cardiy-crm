@@ -163,7 +163,12 @@ export function ShopProfile() {
         ) : (
           <div className="flex items-center gap-3 text-mint-700">
             <CheckCircle2 className="h-5 w-5" />
-            <span className="font-semibold">Gian hàng đủ điều kiện hiện trên sàn · {info.liveOffers} tin đang bán</span>
+            <span className="font-semibold">Gian hàng đang hiện trên sàn · {info.liveOffers} tin đang bán</span>
+            {info.shop.slug && (
+              <a href={`/cho/garage/${info.shop.slug}`} target="_blank" rel="noreferrer" className="ml-auto text-sm font-medium text-brand-700 hover:underline" data-testid="view-public-shop">
+                Xem trên sàn ↗
+              </a>
+            )}
           </div>
         )}
       </Card>

@@ -1,4 +1,4 @@
-import { availableStock, canMoveOffer, checkOpeningHours, publicState, shopMissing, slugify, statusAfterEdit, statusOnSubmit } from './offer-rules';
+import { availableStock, canMoveOffer, checkOpeningHours, distanceKm, openNow, publicState, reviewerName, shopMissing, slugify, statusAfterEdit, statusOnSubmit, tenantListable } from './offer-rules';
 
 describe('Tin đăng trên sàn', () => {
   it('gửi duyệt: PLG bán ngay, đối tác chờ duyệt; chỉ gửi được từ Nháp', () => {
@@ -42,5 +42,26 @@ describe('Tin đăng trên sàn', () => {
     expect(shopMissing(shop, 1, 'HOAT_DONG')).toEqual([]);
     expect(shopMissing(shop, 0, 'DANG_THIET_LAP')).toHaveLength(2);
     expect(shopMissing(null, 0, 'HOAT_DONG').length).toBeGreaterThan(2);
+  });
+});
+
+describe('Web sàn: giờ mở cửa, khoảng cách, hiển thị', () => {
+  const hours = [{ day: 2, open: '07:30', close: '17:30', closed: false }];
+  it('mở cửa theo giờ Việt Nam', () => {
+    // Thứ 3, 01:00 UTC = 08:00 giờ VN
+    expect(openNow(hours, new Date('2026-11-24T01:00:00Z'))).toBe(true);
+    // 10:30 UTC = 17:30 VN: đã đóng
+    expect(openNow(hours, new Date('2026-11-24T10:30:00Z'))).toBe(false);
+    // Thứ 2 không có giờ
+    expect(openNow(hours, new Date('2026-11-23T03:00:00Z'))).toBe(false);
+  });
+  it('khoảng cách, tên người đánh giá, gian hàng được hiện', () => {
+    expect(distanceKm({ lat: 10.7769, lng: 106.7009 }, { lat: 10.9804, lng: 106.6519 })).toBeCloseTo(23.2, 0);
+    expect(reviewerName('Nguyễn Văn Cường')).toBe('Cường');
+    expect(reviewerName('')).toBe('Khách');
+    expect(tenantListable({ type: 'PARTNER', status: 'DANG_THIET_LAP', deletedAt: null })).toBe(false);
+    expect(tenantListable({ type: 'PARTNER', status: 'HOAT_DONG', deletedAt: null })).toBe(true);
+    expect(tenantListable({ type: 'GARAGE', status: 'NHAP', deletedAt: null })).toBe(true);
+    expect(tenantListable({ type: 'GARAGE', status: 'TAM_KHOA', deletedAt: null })).toBe(false);
   });
 });

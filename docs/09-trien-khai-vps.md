@@ -134,3 +134,10 @@ Mọi tin gửi / lỗi xem ở **Cài đặt → Zalo → Tin đã gửi gần 
 - Cập nhật bảo mật hệ điều hành: `apt update && apt upgrade -y`
 - Đăng nhập SSH bằng khoá thay cho mật khẩu, rồi tắt đăng nhập bằng mật khẩu (`PasswordAuthentication no` trong `/etc/ssh/sshd_config`). **Chỉ tắt sau khi đã thử đăng nhập bằng khoá thành công**, nếu không sẽ tự khoá mình ngoài VPS.
 - Bản chính thức: trong `deploy/.env` đặt `AUTH_ENFORCE_2FA=true`, **không** chạy lệnh tạo tài khoản demo, và đổi `SEED_DEMO=false`.
+
+## Web sàn công khai (vòng 3.3)
+
+- Địa chỉ: `https://<DOMAIN>/cho` (chung tên miền, không cần sửa Caddyfile). Trang quản trị, app chủ xe không bị lập chỉ mục (`robots.txt` chỉ mở `/cho` và `/dang-ky-doi-tac`); `sitemap.xml` liệt kê gian hàng và sản phẩm đang bán.
+- Web dựng trang sàn phía máy chủ, gọi API qua mạng nội bộ docker (`API_INTERNAL_URL=http://api:4000`, đã có trong `docker-compose.prod.yml`).
+- Gian hàng hiện trên sàn khi: đối tác đang hoạt động (đã nộp phí kỳ đầu) hoặc garage PLG, đã lưu hồ sơ gian hàng, có ít nhất 1 tin đang bán.
+- Muốn đưa lên Google: vào Google Search Console, thêm tên miền, gửi `https://<DOMAIN>/sitemap.xml`.

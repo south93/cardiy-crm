@@ -93,3 +93,32 @@ export function shopMissing(
   if (!liveOffers) miss.push('Có ít nhất 1 sản phẩm hoặc dịch vụ đang bán');
   return miss;
 }
+
+/** Đang mở cửa theo giờ Việt Nam (UTC+7) */
+export function openNow(hours: OpeningDay[], now = new Date()): boolean {
+  const vn = new Date(now.getTime() + 7 * 3_600_000);
+  const d = hours.find((h) => h.day === vn.getUTCDay());
+  if (!d || d.closed) return false;
+  const hm = `${String(vn.getUTCHours()).padStart(2, '0')}:${String(vn.getUTCMinutes()).padStart(2, '0')}`;
+  return hm >= d.open && hm < d.close;
+}
+
+/** Khoảng cách đường chim bay (km), làm tròn 0,1 */
+export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const rad = (x: number) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 10) / 10;
+}
+
+/** Tên khách trên đánh giá công khai: chỉ giữ tên gọi, VD "Nguyễn Văn Cường" → "Cường" */
+export const reviewerName = (full: string | null | undefined) => (full?.trim().split(/\s+/).pop() ?? '') || 'Khách';
+
+/** Gian hàng hiện trên sàn: garage chủ sàn (không bị khoá) hoặc đối tác đang hoạt động */
+export function tenantListable(t: { type: string; status: string; deletedAt: Date | null }): boolean {
+  if (t.deletedAt) return false;
+  if (t.type === 'GARAGE') return !['TAM_KHOA', 'CHAM_DUT', 'TU_CHOI'].includes(t.status);
+  return t.type === 'PARTNER' && t.status === 'HOAT_DONG';
+}

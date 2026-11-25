@@ -15,7 +15,7 @@ function Guard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const isPublic = PUBLIC.some((p) => path.startsWith(p));
   useEffect(() => {
-    if (status === 'anon' && !isPublic) router.replace(`/app/dang-nhap?next=${encodeURIComponent(path)}`);
+    if (status === 'anon' && !isPublic) router.replace(`/app/dang-nhap?next=${encodeURIComponent(path + window.location.search)}`);
   }, [status, isPublic, path, router]);
   if (isPublic) return <>{children}</>;
   if (status !== 'authed')
