@@ -68,6 +68,9 @@ services:
         # Web và API chung một tên miền (Caddy chia theo đường dẫn /api)
         NEXT_PUBLIC_API_URL: https://${DOMAIN}
     restart: unless-stopped
+    environment:
+      # Web sàn (/cho) dựng trang phía máy chủ: gọi API qua mạng nội bộ docker
+      API_INTERNAL_URL: http://api:4000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

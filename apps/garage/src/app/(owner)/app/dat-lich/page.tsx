@@ -40,6 +40,9 @@ export default function BookPage() {
   const [done, setDone] = useState<{ code: string; at: Date } | null>(null);
 
   useEffect(() => {
+    // Từ web sàn (/cho): ?dv=<dịch vụ / sản phẩm khách chọn> điền sẵn ô dịch vụ
+    const dv = new URLSearchParams(window.location.search).get('dv');
+    if (dv) setService(dv.slice(0, 120));
     ownerApi<Options>('/bookings/options').then((o) => {
       setOpt(o);
       const g = o.garages[0];
