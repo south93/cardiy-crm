@@ -49,9 +49,9 @@ test.describe('Vòng 3.3: web sàn công khai /cho', () => {
     // Giá tốt nhất lên đầu
     await expect(sellers.first()).toContainText('1.234.000');
     await expect(sellers.first()).toContainText('Giá gồm lắp đặt');
-    // PLG có nút Đặt lịch qua app chủ xe, đối tác thì không
-    await expect(sellers.nth(1).getByTestId('book-button')).toHaveAttribute('href', /\/app\/dat-lich\?dv=/);
-    await expect(sellers.first().getByTestId('book-button')).toHaveCount(0);
+    // Mọi garage còn hàng đều nhận yêu cầu đặt hàng qua sàn (vòng 3.4)
+    await expect(sellers.first().getByTestId('request-button')).toHaveAttribute('href', /\/cho\/dat\?tin=/);
+    await expect(sellers.nth(1).getByTestId('request-button')).toHaveAttribute('href', /\/cho\/dat\?tin=/);
 
     await sellers.first().getByRole('link', { name: 'Minh Phát Auto' }).click();
     await expect(page.getByTestId('shop-name')).toHaveText('Minh Phát Auto');
@@ -59,7 +59,7 @@ test.describe('Vòng 3.3: web sàn công khai /cho', () => {
     await expect(page.getByTestId('shop-offer').filter({ hasText: tag })).toBeVisible();
   });
 
-  test('tìm garage theo tỉnh; đặt lịch PLG dẫn sang app chủ xe, giữ dịch vụ đã chọn sau khi đăng nhập', async ({ page }) => {
+  test('tìm garage theo tỉnh; trang garage PLG có Đặt lịch qua app chủ xe', async ({ page }) => {
     await page.goto('/cho/tim-garage');
     await page.getByLabel('Tỉnh / thành').selectOption('Bình Phước');
     await page.getByRole('button', { name: 'Lọc' }).click();
@@ -69,8 +69,10 @@ test.describe('Vòng 3.3: web sàn công khai /cho', () => {
     await expect(page.getByTestId('shop-card').filter({ hasText: 'Minh Phát Auto' })).toHaveCount(0);
 
     await page.goto(`/cho/san-pham/${code.toLowerCase()}`);
-    await page.getByTestId('seller-row').filter({ hasText: 'Garage PLG' }).getByTestId('book-button').click();
-    await expect(page).toHaveURL(/\/app\/dang-nhap\?next=.*dv%3D/);
+    // Đặt lịch qua app chủ xe ở trang garage PLG
+    await page.getByTestId('seller-row').filter({ hasText: 'Garage PLG' }).getByRole('link', { name: 'Garage PLG' }).click();
+    await page.getByTestId('book-button').click();
+    await expect(page).toHaveURL(/\/app\/dang-nhap\?next=.*dat-lich/);
   });
 
   test('robots.txt chỉ mở /cho; sitemap có trang sản phẩm', async ({ request }) => {

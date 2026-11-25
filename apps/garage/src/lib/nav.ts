@@ -107,7 +107,11 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Kênh người bán',
-    items: [{ href: '/gian-hang', label: 'Gian hàng trên sàn', icon: Store, screen: 'A3.50', round: '3.2', tone: 'sky', permission: 'shop.manage', built: true }],
+    items: [
+      { href: '/gian-hang', label: 'Gian hàng trên sàn', icon: Store, screen: 'A3.50', round: '3.2', tone: 'sky', permission: 'shop.manage', built: true },
+      { href: '/yeu-cau-san', label: 'Yêu cầu từ sàn', icon: Inbox, screen: 'A3.51', round: '3.4', tone: 'peach', permission: 'order_request.manage', built: true },
+      { href: '/khuyen-mai', label: 'Voucher', icon: TicketPercent, screen: 'A3.52', round: '3.4', tone: 'rose', permission: 'promotion.manage', built: true },
+    ],
   },
   {
     label: 'Phân tích',
@@ -124,13 +128,13 @@ export const NAV: NavGroup[] = [
       { href: '/doi-tac/gian-hang', label: 'Hồ sơ gian hàng', icon: Store, screen: 'A7.10', round: '3.2', tone: 'sky', permission: 'partner.shop.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/san-pham', label: 'Sản phẩm', icon: Package, screen: 'A7.11', round: '3.2', tone: 'lav', permission: 'partner.listing.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/dich-vu', label: 'Dịch vụ', icon: Wrench, screen: 'A7.12', round: '3.2', tone: 'mint', permission: 'partner.listing.manage', workspace: 'PARTNER', built: true },
-      { href: '/doi-tac/khuyen-mai', label: 'Khuyến mại', icon: TicketPercent, screen: 'A7.13', round: '3.4', tone: 'peach', permission: 'partner.promotion.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/khuyen-mai', label: 'Khuyến mại', icon: TicketPercent, screen: 'A7.13', round: '3.4', tone: 'peach', permission: 'partner.promotion.manage', workspace: 'PARTNER', built: true },
     ],
   },
   {
     label: 'Yêu cầu từ khách',
     items: [
-      { href: '/doi-tac/yeu-cau', label: 'Đặt hàng & đặt lịch', icon: Inbox, screen: 'A7.20', round: '3.4', tone: 'sky', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/yeu-cau', label: 'Đặt hàng & đặt lịch', icon: Inbox, screen: 'A7.20', round: '3.4', tone: 'sky', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: 'P4', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER' },
       { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: 'P4', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER' },
       { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: 'P4', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },

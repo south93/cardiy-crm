@@ -363,6 +363,8 @@ erDiagram
 
 ## D4 · Yêu cầu đặt hàng, thanh toán tại garage, voucher, phí đối tác
 
+> **Đã làm (vòng 3.4), khác sơ đồ dự kiến:** `order_requests` (mã YC… theo garage nhận, khách không cần tài khoản: tên, SĐT, biển số; giờ hẹn; tạm tính / giảm / giá chốt; băm mã bí mật của link theo dõi; `expires_at` 24 giờ) + `order_request_items` (chụp tên, giá, số lượng từ tin đăng). **Giữ tồn** không lưu bảng riêng: đang giữ = tổng số lượng các dòng sản phẩm của yêu cầu chờ xác nhận / đã xác nhận. `vouchers` của garage (PERCENT / AMOUNT, trần, đơn tối thiểu, áp dụng ALL / PRODUCT / SERVICE, thời hạn, số lượt); lượt đã dùng = số yêu cầu đang giữ chỗ hoặc hoàn tất có voucher (chưa có `voucher_redemptions`). Chưa có `payments` cho đơn sàn: tiền thu tại garage.
+
 > Sàn **không** có ví, sổ cái thu hộ, đối soát hay chi trả. `payments` là tiền **garage thu** (thuộc tenant). `platform_invoices` là phí gói **sàn thu của garage**.
 
 ```mermaid
