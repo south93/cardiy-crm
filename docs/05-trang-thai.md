@@ -69,7 +69,7 @@ stateDiagram-v2
 
 > **Đã làm (vòng 3.4), bản rút gọn:** `CHO_XAC_NHAN → DA_XAC_NHAN → HOAN_THANH`, cùng `TU_CHOI`, `HET_HAN` (24 giờ, tính khi đọc), `KHACH_HUY`, `KHONG_DEN`. Chưa tách `DANG_LAP_DAT` / `DANG_GIAO`: garage xác nhận rồi bấm Hoàn tất khi khách đã đến lắp / nhận và đã trả tiền. PLG chưa tự tạo lệnh sửa chữa từ yêu cầu (nhân viên lập đơn trong CRM như thường).
 
-> Không có trạng thái thanh toán, hoàn tiền hay đối soát vì tiền không đi qua sàn. Phản ánh của khách là một đối tượng riêng (`reports`), không làm thay đổi trạng thái yêu cầu.
+> Không có trạng thái thanh toán, hoàn tiền hay đối soát vì tiền không đi qua sàn. Phản ánh của khách là một đối tượng riêng (`market_reports`: `MOI → CHO_GIAI_TRINH → DA_GIAI_TRINH → DA_XU_LY | TU_CHOI`), không làm thay đổi trạng thái yêu cầu.
 
 ## S4 · Đối tác garage (tenant)
 

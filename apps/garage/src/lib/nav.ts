@@ -109,8 +109,10 @@ export const NAV: NavGroup[] = [
     label: 'Kênh người bán',
     items: [
       { href: '/gian-hang', label: 'Gian hàng trên sàn', icon: Store, screen: 'A3.50', round: '3.2', tone: 'sky', permission: 'shop.manage', built: true },
-      { href: '/yeu-cau-san', label: 'Yêu cầu từ sàn', icon: Inbox, screen: 'A3.51', round: '3.4', tone: 'peach', permission: 'order_request.manage', built: true },
-      { href: '/khuyen-mai', label: 'Voucher', icon: TicketPercent, screen: 'A3.52', round: '3.4', tone: 'rose', permission: 'promotion.manage', built: true },
+      { href: '/yeu-cau-san', label: 'Yêu cầu từ sàn', icon: Inbox, screen: 'A3.53', round: '3.4', tone: 'peach', permission: 'order_request.manage', built: true },
+      { href: '/khuyen-mai', label: 'Voucher', icon: TicketPercent, screen: 'A3.54', round: '3.4', tone: 'rose', permission: 'promotion.manage', built: true },
+      { href: '/danh-gia-san', label: 'Đánh giá & phản ánh', icon: Star, screen: 'A3.55', round: '3.5', tone: 'peach', permission: 'order_request.manage', built: true },
+      { href: '/thong-ke-san', label: 'Thống kê gian hàng', icon: ChartLine, screen: 'A3.57', round: '3.5', tone: 'lav', permission: 'shop.manage', built: true },
     ],
   },
   {
@@ -138,13 +140,13 @@ export const NAV: NavGroup[] = [
       { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: 'P4', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER' },
       { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: 'P4', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER' },
       { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: 'P4', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },
-      { href: '/doi-tac/danh-gia', label: 'Đánh giá', icon: Star, screen: 'A7.24', round: '3.5', tone: 'peach', permission: 'partner.review.reply', workspace: 'PARTNER' },
+      { href: '/doi-tac/danh-gia', label: 'Đánh giá', icon: Star, screen: 'A7.24', round: '3.5', tone: 'peach', permission: 'partner.review.reply', workspace: 'PARTNER', built: true },
     ],
   },
   {
     label: 'Báo cáo & phí',
     items: [
-      { href: '/doi-tac/thong-ke', label: 'Thống kê', icon: ChartLine, screen: 'A7.30', round: '3.5', tone: 'sky', permission: 'partner.report.view', workspace: 'PARTNER' },
+      { href: '/doi-tac/thong-ke', label: 'Thống kê', icon: ChartLine, screen: 'A7.30', round: '3.5', tone: 'sky', permission: 'partner.report.view', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/phi', label: 'Phí & hoá đơn', icon: Receipt, screen: 'A7.31', round: '3.1', tone: 'mint', permission: 'partner.billing.view', workspace: 'PARTNER', built: true },
     ],
   },
@@ -155,7 +157,7 @@ export const NAV: NavGroup[] = [
       { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/tin-dang', label: 'Kiểm duyệt tin đăng', icon: ShieldCheck, screen: 'A6.30', round: '3.2', tone: 'peach', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
-      { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM' },
+      { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
     ],
   },
   {

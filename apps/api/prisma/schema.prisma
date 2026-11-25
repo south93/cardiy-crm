@@ -1436,6 +1436,8 @@ model OrderRequest {
 
   voucher Voucher?           @relation(fields: [voucherId], references: [id])
   items   OrderRequestItem[]
+  review  MarketReview?
+  reports MarketReport[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status, createdAt])
@@ -1461,3 +1463,135 @@ model OrderRequestItem {
   @@index([requestId])
   @@map("order_request_items")
 }
+
+// ======================= Vòng 3.5: Đánh giá, phản ánh & vi phạm, thống kê gian hàng (M27, D4) =======================
+
+enum MarketReviewStatus {
+  HIEN
+  AN
+}
+
+/// Khách đánh giá sau khi yêu cầu đặt hàng / đặt lịch qua sàn hoàn tất (1 yêu cầu tối đa 1 đánh giá)
+model MarketReview {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
+  requestId      String             @unique @map("request_id") @db.Uuid
+  customerName   String             @map("customer_name")
+  rating         Int
+  comment        String?
+  reply          String?
+  repliedBy      String?            @map("replied_by") @db.Uuid
+  repliedAt      DateTime?          @map("replied_at")
+  status         MarketReviewStatus @default(HIEN)
+  /// Garage báo cáo đánh giá sai sự thật / xúc phạm lên sàn (A6.33)
+  reportedReason String?            @map("reported_reason")
+  reportedBy     String?            @map("reported_by") @db.Uuid
+  reportedAt     DateTime?          @map("reported_at")
+  moderatedBy    String?            @map("moderated_by") @db.Uuid
+  moderatedAt    DateTime?          @map("moderated_at")
+  moderationNote String?            @map("moderation_note")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  request OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([reportedAt])
+  @@map("market_reviews")
+}
+
+enum MarketReportReason {
+  SAI_GIA
+  HANG_KHONG_DUNG
+  THAI_DO_PHUC_VU
+  KHONG_LIEN_LAC_DUOC
+  BAO_HANH_DOI_TRA
+  THONG_TIN_SAI
+  KHAC
+}
+
+enum MarketReportStatus {
+  MOI
+  CHO_GIAI_TRINH
+  DA_GIAI_TRINH
+  DA_XU_LY
+  TU_CHOI
+}
+
+/// Phản ánh của khách gửi tới sàn (từ link theo dõi yêu cầu hoặc từ trang gian hàng). Không làm đổi trạng thái yêu cầu (S3)
+model MarketReport {
+  id                String             @id @default(uuid()) @db.Uuid
+  /// PA000001… (đếm theo tenant sàn)
+  code              String             @unique
+  tenantId          String             @map("tenant_id") @db.Uuid
+  requestId         String?            @map("request_id") @db.Uuid
+  offerId           String?            @map("offer_id") @db.Uuid
+  reporterName      String             @map("reporter_name")
+  reporterPhone     String             @map("reporter_phone")
+  reason            MarketReportReason
+  description       String
+  status            MarketReportStatus @default(MOI)
+  /// Nội dung sàn yêu cầu garage giải trình
+  adminNote         String?            @map("admin_note")
+  /// Giải trình của garage / đối tác
+  sellerExplanation String?            @map("seller_explanation")
+  explainedBy       String?            @map("explained_by") @db.Uuid
+  explainedAt       DateTime?          @map("explained_at")
+  /// Kết luận xử lý của sàn (khách & garage thấy)
+  resolution        String?
+  handledBy         String?            @map("handled_by") @db.Uuid
+  resolvedAt        DateTime?          @map("resolved_at")
+  ip                String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  request    OrderRequest?   @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  violations ShopViolation[]
+
+  @@index([status, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([requestId])
+  @@index([reporterPhone, status])
+  @@map("market_reports")
+}
+
+enum ViolationAction {
+  NHAC_NHO
+  GO_TIN
+  TAM_KHOA
+  CHAM_DUT
+}
+
+/// Quyết định xử lý vi phạm gian hàng / đối tác của sàn (A6.42)
+model ShopViolation {
+  id        String          @id @default(uuid()) @db.Uuid
+  /// VP000001… (đếm theo tenant sàn)
+  code      String          @unique
+  tenantId  String          @map("tenant_id") @db.Uuid
+  reportId  String?         @map("report_id") @db.Uuid
+  offerId   String?         @map("offer_id") @db.Uuid
+  action    ViolationAction
+  reason    String
+  createdBy String          @map("created_by") @db.Uuid
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  report MarketReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+  @@map("shop_violations")
+}
+
+/// Lượt xem gian hàng (targetKey = "SHOP") và từng tin đăng (targetKey = offerId) cộng dồn theo ngày giờ VN (A7.30, A3.57)
+model ShopDailyView {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  viewDate  DateTime @map("view_date") @db.Date
+  targetKey String   @map("target_key")
+  offerId   String?  @map("offer_id") @db.Uuid
+  views     Int      @default(0)
+
+  @@id([tenantId, viewDate, targetKey])
+  @@index([tenantId, viewDate])
+  @@map("shop_daily_views")
+}
+
