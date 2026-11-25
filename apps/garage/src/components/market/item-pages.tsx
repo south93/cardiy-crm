@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { ContactButtons, ItemCardView, OpenBadge, Stars } from '@/components/market/cards';
 import { NearMe } from '@/components/market/near-me';
-import { marketApi, money, one, qs, type Category, type ItemCard, type ItemDetail, type Kind, type SP } from '@/lib/market';
+import { marketApi, money, one, qs, requestHref, type Category, type ItemCard, type ItemDetail, type Kind, type SP } from '@/lib/market';
 
 const base = (kind: Kind) => (kind === 'SERVICE' ? '/cho/dich-vu' : '/cho/san-pham');
 
@@ -145,7 +145,27 @@ export async function ItemDetailView({ kind, code, searchParams }: { kind: Kind;
                 </div>
               </div>
               <div className="mt-3">
-                <ContactButtons shop={o.shop} what={o.state === 'HET_HANG' ? undefined : i.name} compact />
+                <div className="flex flex-wrap items-center gap-2">
+                  {o.state !== 'HET_HANG' && (
+                    <Link
+                      href={requestHref(o.id)}
+                      className="inline-flex items-center rounded-full bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                      data-testid="request-button"
+                    >
+                      {kind === 'SERVICE' ? 'Đặt lịch' : 'Đặt hàng'}
+                    </Link>
+                  )}
+                  <ContactButtons shop={{ ...o.shop, bookingUrl: null }} compact />
+                </div>
+                {o.shop.vouchers.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {o.shop.vouchers.map((v) => (
+                      <span key={v.code} className="rounded-full bg-peach-100 px-2 py-0.5 text-xs text-peach-700" title={v.summary}>
+                        🎟 {v.code}: {v.summary}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}

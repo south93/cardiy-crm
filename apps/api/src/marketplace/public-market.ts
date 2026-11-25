@@ -4,6 +4,7 @@ import { Public } from '../common/auth.decorators';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { textFilter } from './catalog';
+import { expireStale, heldQty, voucherSummary } from './requests';
 import { availableStock, distanceKm, openNow, publicState, reviewerName, tenantListable, type OfferStatus, type OpeningDay } from './offer-rules';
 
 const n = (b: bigint | number | null | undefined) => (b === null || b === undefined ? null : Number(b));
@@ -37,6 +38,7 @@ interface ShopCard {
   distanceKm: number | null;
   /** Đặt lịch qua app chủ xe (garage của chủ sàn) */
   bookingUrl: string | null;
+  vouchers: { code: string; title: string; summary: string; endsAt: Date }[];
 }
 
 /**
@@ -61,12 +63,15 @@ export class PublicMarketService {
         tenants: new Map<string, { type: string }>(),
         counts: new Map<string, { PRODUCT: number; SERVICE: number }>(),
         ratings: new Map<string, { avg: number; count: number }>(),
+        vouchers: [] as { tenantId: string; code: string; title: string; summary: string; endsAt: Date }[],
       };
     const ids = shops.map((s) => s.tenantId);
-    const [tenants, live, ratings] = await Promise.all([
+    const now = new Date();
+    const [tenants, live, ratings, vouchers] = await Promise.all([
       this.prisma.tenant.findMany({ where: { id: { in: ids } }, select: { id: true, type: true, status: true, deletedAt: true } }),
       this.prisma.offer.groupBy({ by: ['tenantId', 'kind'], where: { tenantId: { in: ids }, status: 'DANG_BAN' }, _count: true }),
       this.prisma.orderReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids } }, _avg: { rating: true }, _count: true }),
+      this.prisma.voucher.findMany({ where: { tenantId: { in: ids }, active: true, startsAt: { lte: now }, endsAt: { gte: now } }, orderBy: { endsAt: 'asc' } }),
     ]);
     const counts = new Map<string, { PRODUCT: number; SERVICE: number }>();
     for (const r of live) {
@@ -80,6 +85,7 @@ export class PublicMarketService {
       tenants: okTenants,
       counts,
       ratings: new Map(ratings.map((r) => [r.tenantId, { avg: Math.round((r._avg.rating ?? 0) * 10) / 10, count: r._count }])),
+      vouchers: vouchers.map((v) => ({ tenantId: v.tenantId, code: v.code, title: v.title, summary: voucherSummary(v), endsAt: v.endsAt })),
     };
   }
 
@@ -102,6 +108,7 @@ export class PublicMarketService {
       services: c?.SERVICE ?? 0,
       distanceKm: geo.lat != null && s.lat != null && s.lng != null ? distanceKm({ lat: geo.lat, lng: geo.lng! }, { lat: s.lat, lng: s.lng }) : null,
       bookingUrl: v.tenants.get(s.tenantId)?.type === 'GARAGE' ? '/app/dat-lich' : null,
+      vouchers: v.vouchers.filter((x) => x.tenantId === s.tenantId).map(({ tenantId: _t, ...x }) => x),
     };
   }
 
@@ -199,13 +206,22 @@ export class PublicMarketService {
       take: 500,
     });
     const productIds = [...new Set(rows.map((r) => r.productId).filter((x): x is string => !!x))];
-    const levels = productIds.length ? await this.prisma.stockLevel.findMany({ where: { productId: { in: productIds } } }) : [];
+    await expireStale(this.prisma);
+    const [levels, held] = await Promise.all([
+      productIds.length ? this.prisma.stockLevel.findMany({ where: { productId: { in: productIds } } }) : Promise.resolve([]),
+      heldQty(
+        this.prisma,
+        rows.map((r) => r.id),
+      ),
+    ]);
     return Promise.all(
       rows.map(async (o) => {
-        const stock = availableStock(
+        const raw = availableStock(
           o,
           levels.filter((l) => l.productId === o.productId).map((l) => ({ branchId: l.branchId, quantity: Number(l.quantity) })),
         );
+        // Trừ phần đang giữ cho yêu cầu đặt hàng chưa xong
+        const stock = raw === null ? null : Math.max(0, raw - (held.get(o.id) ?? 0));
         return {
           id: o.id,
           tenantId: o.tenantId,
@@ -220,6 +236,7 @@ export class PublicMarketService {
           note: o.note,
           imageUrl: o.imageFileIds[0] ? await this.url(o.imageFileIds[0]) : null,
           state: publicState(o.status as OfferStatus, stock),
+          available: stock,
         };
       }),
     );

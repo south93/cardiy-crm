@@ -1354,3 +1354,110 @@ model Offer {
   @@index([catalogItemId, status])
   @@map("offers")
 }
+
+// ======================= Vòng 3.4: Yêu cầu đặt hàng từ sàn, voucher (D4) =======================
+
+/// S3 (rút gọn): garage xác nhận rồi đánh dấu hoàn tất khi khách đến lắp / nhận và đã thu tiền
+enum OrderRequestStatus {
+  CHO_XAC_NHAN
+  DA_XAC_NHAN
+  HOAN_THANH
+  TU_CHOI
+  HET_HAN
+  KHACH_HUY
+  KHONG_DEN
+}
+
+enum VoucherKind {
+  PERCENT
+  AMOUNT
+}
+
+/// Voucher của garage (garage tự phát hành, tự chịu; sàn chỉ hiển thị)
+model Voucher {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  code        String
+  title       String
+  kind        VoucherKind
+  /// PERCENT: 1–100 (%); AMOUNT: số tiền giảm
+  value       Int
+  minOrder    BigInt      @default(0) @map("min_order")
+  /// Giảm tối đa (chỉ với PERCENT)
+  maxDiscount BigInt?     @map("max_discount")
+  /// ALL | PRODUCT | SERVICE
+  appliesTo   String      @default("ALL") @map("applies_to")
+  startsAt    DateTime    @map("starts_at")
+  endsAt      DateTime    @map("ends_at")
+  /// Tổng lượt dùng tối đa (trống = không giới hạn)
+  usageLimit  Int?        @map("usage_limit")
+  active      Boolean     @default(true)
+  createdBy   String?     @map("created_by") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  requests OrderRequest[]
+
+  @@unique([tenantId, code])
+  @@map("vouchers")
+}
+
+/// Yêu cầu đặt hàng / đặt lịch của khách trên sàn gửi tới một garage. Tiền không đi qua sàn
+model OrderRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  /// YC000001 (đếm theo garage nhận)
+  code           String
+  tenantId       String             @map("tenant_id") @db.Uuid
+  status         OrderRequestStatus @default(CHO_XAC_NHAN)
+  customerName   String             @map("customer_name")
+  phone          String
+  plateNo        String?            @map("plate_no")
+  note           String?
+  /// Giờ hẹn lắp / làm dịch vụ / nhận hàng
+  scheduledAt    DateTime           @map("scheduled_at")
+  voucherId      String?            @map("voucher_id") @db.Uuid
+  voucherCode    String?            @map("voucher_code")
+  subtotal       BigInt
+  discount       BigInt             @default(0)
+  /// Tạm tính = subtotal − discount; garage chốt giá cuối khi xác nhận
+  estimatedTotal BigInt             @map("estimated_total")
+  finalTotal     BigInt?            @map("final_total")
+  /// Ghi chú / lý do của garage (khách thấy)
+  sellerNote     String?            @map("seller_note")
+  accessHash     String             @map("access_hash")
+  /// Hết hạn chờ xác nhận (24 giờ): tự nhả tồn
+  expiresAt      DateTime           @map("expires_at")
+  confirmedAt    DateTime?          @map("confirmed_at")
+  closedAt       DateTime?          @map("closed_at")
+  handledBy      String?            @map("handled_by") @db.Uuid
+  ip             String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  voucher Voucher?           @relation(fields: [voucherId], references: [id])
+  items   OrderRequestItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, createdAt])
+  @@index([phone, status])
+  @@index([status, expiresAt])
+  @@map("order_requests")
+}
+
+model OrderRequestItem {
+  id              String      @id @default(uuid()) @db.Uuid
+  requestId       String      @map("request_id") @db.Uuid
+  offerId         String      @map("offer_id") @db.Uuid
+  kind            CatalogKind
+  name            String
+  quantity        Int
+  unitPrice       BigInt      @map("unit_price")
+  installIncluded Boolean     @default(false) @map("install_included")
+  mfgYear         Int?        @map("mfg_year")
+
+  request OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([requestId])
+  @@map("order_request_items")
+}

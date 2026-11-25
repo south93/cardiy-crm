@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { MapPin, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { ContactButtons, OpenBadge, Stars } from '@/components/market/cards';
-import { bookingHref, itemHref, marketApi, money, type OfferRow, type ShopDetail } from '@/lib/market';
+import { itemHref, marketApi, money, requestHref, type OfferRow, type ShopDetail } from '@/lib/market';
 
 export const dynamic = 'force-dynamic';
 type P = { params: Promise<{ slug: string }> };
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: P): Promise<Metadata> {
   return { title: s.name, description: s.intro ?? `${s.name}${s.address ? ` · ${s.address}` : ''}: bảng giá sản phẩm, dịch vụ, giờ mở cửa, đánh giá.` };
 }
 
-function OfferList({ rows, shop }: { rows: OfferRow[]; shop: ShopDetail }) {
+function OfferList({ rows }: { rows: OfferRow[] }) {
   return (
     <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/70 bg-white">
       {rows.map((o) => (
@@ -45,10 +45,10 @@ function OfferList({ rows, shop }: { rows: OfferRow[]; shop: ShopDetail }) {
               {money(o.price)}
             </div>
             {o.listPrice && <div className="text-xs text-slate-400 line-through">{money(o.listPrice)}</div>}
-            {shop.bookingUrl && o.state !== 'HET_HANG' && (
-              <a href={bookingHref(shop.bookingUrl, o.item.name)} className="text-xs font-medium text-brand-700 hover:underline">
-                Đặt lịch
-              </a>
+            {o.state !== 'HET_HANG' && (
+              <Link href={requestHref(o.id)} className="text-xs font-medium text-brand-700 hover:underline" data-testid="shop-request">
+                {o.kind === 'SERVICE' ? 'Đặt lịch' : 'Đặt hàng'}
+              </Link>
             )}
           </div>
         </div>
@@ -86,6 +86,20 @@ export default async function ShopPage({ params }: P) {
           </div>
           {s.intro && <p className="whitespace-pre-line text-sm text-slate-700">{s.intro}</p>}
           <ContactButtons shop={s} />
+          {s.vouchers.length > 0 && (
+            <div className="flex flex-wrap gap-2" data-testid="shop-vouchers">
+              {s.vouchers.map((v) => (
+                <div key={v.code} className="rounded-xl border border-dashed border-peach-500 bg-peach-100/50 px-3 py-2 text-sm">
+                  <div className="font-semibold text-peach-700">
+                    {v.code} · {v.title}
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    {v.summary} · đến {new Date(v.endsAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -94,13 +108,13 @@ export default async function ShopPage({ params }: P) {
           {s.serviceOffers.length > 0 && (
             <section>
               <h2 className="mb-2 text-lg font-semibold">Bảng giá dịch vụ</h2>
-              <OfferList rows={s.serviceOffers} shop={s} />
+              <OfferList rows={s.serviceOffers} />
             </section>
           )}
           {s.productOffers.length > 0 && (
             <section>
               <h2 className="mb-2 text-lg font-semibold">Sản phẩm đang bán</h2>
-              <OfferList rows={s.productOffers} shop={s} />
+              <OfferList rows={s.productOffers} />
             </section>
           )}
           <section>

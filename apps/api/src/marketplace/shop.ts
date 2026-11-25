@@ -10,6 +10,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertPlatform, assertSeller, CatalogService, textFilter } from './catalog';
+import { expireStale, heldQty } from './requests';
 import { availableStock, canMoveOffer, checkOpeningHours, EDITABLE, publicState, shopMissing, slugify, statusAfterEdit, statusOnSubmit, type OfferStatus, type OpeningDay } from './offer-rules';
 
 const n = (b: bigint | number | null | undefined) => (b === null || b === undefined ? null : Number(b));
@@ -172,16 +173,24 @@ export class ShopService {
 
   private async views(rows: OfferRow[]) {
     const productIds = [...new Set(rows.map((r) => r.productId).filter((x): x is string => !!x))];
-    const [levels, products] = await Promise.all([
+    await expireStale(this.prisma);
+    const [levels, products, held] = await Promise.all([
       this.prisma.stockLevel.findMany({ where: { productId: { in: productIds } } }),
       this.prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, code: true, name: true, salePrice: true } }),
+      heldQty(
+        this.prisma,
+        rows.map((r) => r.id),
+      ),
     ]);
     return Promise.all(
       rows.map(async (o) => {
-        const stock = availableStock(
+        const raw = availableStock(
           o,
           levels.filter((l) => l.productId === o.productId).map((l) => ({ branchId: l.branchId, quantity: Number(l.quantity) })),
         );
+        const h = held.get(o.id) ?? 0;
+        // Còn bán trên sàn = tồn − đang giữ cho yêu cầu đặt hàng chưa xong
+        const stock = raw === null ? null : Math.max(0, raw - h);
         const p = products.find((x) => x.id === o.productId);
         return {
           id: o.id,
@@ -191,6 +200,7 @@ export class ShopService {
           product: p ? { id: p.id, code: p.code, name: p.name, salePrice: n(p.salePrice) } : null,
           manualStock: o.manualStock,
           stock,
+          held: h,
           publicState: publicState(o.status as OfferStatus, stock),
           branchIds: o.branchIds,
           price: n(o.price)!,

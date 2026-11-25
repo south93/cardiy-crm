@@ -36,6 +36,7 @@ export interface ShopCard {
   services: number;
   distanceKm: number | null;
   bookingUrl: string | null;
+  vouchers: { code: string; title: string; summary: string; endsAt: string }[];
 }
 export interface ItemCard {
   code: string;
@@ -62,6 +63,7 @@ export interface OfferRow {
   note: string | null;
   imageUrl: string | null;
   state: 'CON_HANG' | 'HET_HANG' | 'AN';
+  available: number | null;
 }
 export interface ShopDetail extends ShopCard {
   coverUrl: string | null;
@@ -104,3 +106,6 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 }
 export type SP = Promise<Record<string, string | string[] | undefined>>;
 export const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** Gửi yêu cầu đặt hàng / đặt lịch qua sàn */
+export const requestHref = (offerId: string) => `/cho/dat?tin=${offerId}`;
