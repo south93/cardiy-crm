@@ -319,7 +319,7 @@ export class RequestsService {
     return { id: r.id, code: r.code, token };
   }
 
-  private async byToken(id: string, token: string | undefined) {
+  async verifyByToken(id: string, token: string | undefined) {
     await expireStale(this.prisma);
     const r = await this.prisma.orderRequest.findUnique({ where: { id }, include: { items: true } });
     const ok = r && token && timingSafeEqual(Buffer.from(sha256(token)), Buffer.from(r.accessHash));
@@ -328,14 +328,45 @@ export class RequestsService {
   }
 
   async track(id: string, token?: string) {
-    const r = await this.byToken(id, token);
-    const shop = await this.prisma.shop.findUnique({ where: { tenantId: r.tenantId } });
+    const r = await this.verifyByToken(id, token);
+    const [shop, review, reports] = await Promise.all([
+      this.prisma.shop.findUnique({ where: { tenantId: r.tenantId } }),
+      this.prisma.marketReview.findUnique({ where: { requestId: r.id } }),
+      this.prisma.marketReport.findMany({ where: { requestId: r.id }, orderBy: { createdAt: 'desc' } }),
+    ]);
     const { phone: _p, ...v } = view(r);
     return {
       ...v,
       phone: r.phone.replace(/^(\d{3})\d+(\d{3})$/, '$1****$2'),
       shop: shop ? { name: shop.name, slug: shop.slug, phone: shop.phone, address: shop.address, lat: shop.lat, lng: shop.lng } : null,
+      review: review
+        ? {
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            reply: review.reply,
+            repliedAt: review.repliedAt,
+            status: review.status,
+            createdAt: review.createdAt,
+          }
+        : null,
+      reports: reports.map((rp) => ({
+        id: rp.id,
+        code: rp.code,
+        reason: rp.reason,
+        description: rp.description,
+        status: rp.status,
+        adminNote: rp.adminNote,
+        sellerExplanation: rp.sellerExplanation,
+        resolution: rp.resolution,
+        createdAt: rp.createdAt,
+        resolvedAt: rp.resolvedAt,
+      })),
     };
+  }
+
+  private byToken(id: string, token: string | undefined) {
+    return this.verifyByToken(id, token);
   }
 
   async customerCancel(id: string, token: string | undefined, ip?: string) {

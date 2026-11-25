@@ -40,6 +40,31 @@ export const REQ_STATUS: Record<string, { label: string; tone: 'sky' | 'mint' | 
   KHONG_DEN: { label: 'Không đến', tone: 'peach' },
 };
 
+export const REPORT_REASONS: Record<string, string> = {
+  SAI_GIA: 'Báo giá / thu tiền khác thoả thuận',
+  HANG_KHONG_DUNG: 'Sản phẩm / dịch vụ không đúng mô tả',
+  THAI_DO_PHUC_VU: 'Thái độ phục vụ chưa tốt',
+  KHONG_LIEN_LAC_DUOC: 'Không liên lạc được với garage',
+  BAO_HANH_DOI_TRA: 'Từ chối bảo hành / đổi trả đã cam kết',
+  THONG_TIN_SAI: 'Thông tin gian hàng / địa chỉ sai lệch',
+  KHAC: 'Vấn đề khác',
+};
+
+export const REPORT_STATUS: Record<string, { label: string; tone: 'sky' | 'mint' | 'rose' | 'slate' | 'peach' | 'lav' }> = {
+  MOI: { label: 'Sàn đã tiếp nhận', tone: 'sky' },
+  CHO_GIAI_TRINH: { label: 'Chờ garage giải trình', tone: 'peach' },
+  DA_GIAI_TRINH: { label: 'Garage đã giải trình', tone: 'lav' },
+  DA_XU_LY: { label: 'Sàn đã xử lý', tone: 'mint' },
+  TU_CHOI: { label: 'Không có cơ sở', tone: 'slate' },
+};
+
+export const VIOLATION_ACTION: Record<string, { label: string; tone: 'peach' | 'rose' | 'slate' }> = {
+  NHAC_NHO: { label: 'Nhắc nhở / cảnh cáo', tone: 'peach' },
+  GO_TIN: { label: 'Gỡ tin đăng vi phạm', tone: 'rose' },
+  TAM_KHOA: { label: 'Tạm khoá gian hàng', tone: 'rose' },
+  CHAM_DUT: { label: 'Chấm dứt hợp tác', tone: 'rose' },
+};
+
 /** Các ngày tới (giờ VN) và khung giờ 30 phút trong giờ mở cửa */
 export function nextDays(n = 14) {
   const out: { ymd: string; dow: number; label: string }[] = [];

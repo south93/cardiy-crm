@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { MapPin, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { ContactButtons, OpenBadge, Stars } from '@/components/market/cards';
+import { ShopReportButton } from '@/components/market/shop-report-button';
+import { ViewTracker } from '@/components/market/view-tracker';
 import { itemHref, marketApi, money, requestHref, type OfferRow, type ShopDetail } from '@/lib/market';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +27,7 @@ function OfferList({ rows }: { rows: OfferRow[] }) {
             <span className="h-14 w-14 shrink-0 rounded-xl bg-slate-100" />
           )}
           <div className="min-w-0 flex-1">
-            <Link href={itemHref(o.kind, o.item.code)} className="font-medium hover:text-brand-700">
+            <Link href={o.kind ? itemHref(o.kind, o.item.code) : '#'} className="font-medium hover:text-brand-700">
               {o.item.name}
             </Link>
             <div className="text-xs text-slate-500">
@@ -63,6 +65,7 @@ export default async function ShopPage({ params }: P) {
   const week = [1, 2, 3, 4, 5, 6, 0].map((d) => s.openingHours.find((h) => h.day === d) ?? { day: d, open: '', close: '', closed: true });
   return (
     <div className="space-y-6">
+      <ViewTracker tenantId={s.tenantId} />
       <section className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white">
         {s.coverUrl ? <img src={s.coverUrl} alt="" className="h-40 w-full object-cover md:h-56" /> : <div className="h-24 bg-gradient-to-r from-brand-600 to-brand-700" />}
         <div className="space-y-3 p-5">
@@ -123,11 +126,12 @@ export default async function ShopPage({ params }: P) {
               <div className="space-y-3" data-testid="shop-reviews">
                 {s.reviews.map((r, i) => (
                   <div key={i} className="rounded-2xl border border-slate-200/70 bg-white p-4 text-sm">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{r.name}</span>
                       <Stars value={r.rating} />
                       <span className="text-xs text-slate-400">{new Date(r.createdAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</span>
                     </div>
+                    {r.items && r.items.length > 0 && <div className="mt-0.5 text-xs text-slate-500">Đã sử dụng: {r.items.join(', ')}</div>}
                     {r.comment && <p className="mt-1 text-slate-700">{r.comment}</p>}
                     {r.reply && <p className="mt-2 rounded-xl bg-slate-50 p-2 text-slate-600">Garage trả lời: {r.reply}</p>}
                   </div>
@@ -187,6 +191,9 @@ export default async function ShopPage({ params }: P) {
                 ))}
             </section>
           )}
+          <div className="px-1">
+            <ShopReportButton slug={s.slug} shopName={s.name} />
+          </div>
         </aside>
       </div>
     </div>

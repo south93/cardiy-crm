@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { ContactButtons, ItemCardView, OpenBadge, Stars } from '@/components/market/cards';
 import { NearMe } from '@/components/market/near-me';
+import { ViewTracker } from '@/components/market/view-tracker';
 import { marketApi, money, one, qs, requestHref, type Category, type ItemCard, type ItemDetail, type Kind, type SP } from '@/lib/market';
 
 const base = (kind: Kind) => (kind === 'SERVICE' ? '/cho/dich-vu' : '/cho/san-pham');
@@ -65,6 +66,7 @@ export async function ItemDetailView({ kind, code, searchParams }: { kind: Kind;
   const i = await marketApi<ItemDetail>(`/items/${encodeURIComponent(code)}${qs(p)}`);
   return (
     <div className="space-y-6">
+      <ViewTracker offerIds={i.sellers.map((s) => s.id)} />
       <nav className="text-sm text-slate-500">
         <Link href={base(kind)} className="hover:text-brand-700">
           {kind === 'SERVICE' ? 'Dịch vụ' : 'Sản phẩm'}

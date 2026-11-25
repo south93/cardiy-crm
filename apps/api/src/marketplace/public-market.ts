@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { textFilter } from './catalog';
 import { expireStale, heldQty, voucherSummary } from './requests';
 import { availableStock, distanceKm, openNow, publicState, reviewerName, tenantListable, type OfferStatus, type OpeningDay } from './offer-rules';
+import { combineRating } from './review-report-rules';
 
 const n = (b: bigint | number | null | undefined) => (b === null || b === undefined ? null : Number(b));
 type Kind = 'PRODUCT' | 'SERVICE';
@@ -67,10 +68,11 @@ export class PublicMarketService {
       };
     const ids = shops.map((s) => s.tenantId);
     const now = new Date();
-    const [tenants, live, ratings, vouchers] = await Promise.all([
+    const [tenants, live, orderRatings, marketRatings, vouchers] = await Promise.all([
       this.prisma.tenant.findMany({ where: { id: { in: ids } }, select: { id: true, type: true, status: true, deletedAt: true } }),
       this.prisma.offer.groupBy({ by: ['tenantId', 'kind'], where: { tenantId: { in: ids }, status: 'DANG_BAN' }, _count: true }),
-      this.prisma.orderReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids } }, _avg: { rating: true }, _count: true }),
+      this.prisma.orderReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids } }, _sum: { rating: true }, _count: true }),
+      this.prisma.marketReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids }, status: 'HIEN' }, _sum: { rating: true }, _count: true }),
       this.prisma.voucher.findMany({ where: { tenantId: { in: ids }, active: true, startsAt: { lte: now }, endsAt: { gte: now } }, orderBy: { endsAt: 'asc' } }),
     ]);
     const counts = new Map<string, { PRODUCT: number; SERVICE: number }>();
@@ -79,12 +81,22 @@ export class PublicMarketService {
       c[r.kind] = r._count;
       counts.set(r.tenantId, c);
     }
+    const ratings = new Map<string, { avg: number; count: number }>();
+    for (const tid of ids) {
+      const o = orderRatings.find((r) => r.tenantId === tid);
+      const m = marketRatings.find((r) => r.tenantId === tid);
+      const combined = combineRating([
+        { sum: o?._sum.rating ?? 0, count: o?._count ?? 0 },
+        { sum: m?._sum.rating ?? 0, count: m?._count ?? 0 },
+      ]);
+      if (combined) ratings.set(tid, combined);
+    }
     const okTenants = new Map(tenants.filter(tenantListable).map((t) => [t.id, { type: t.type }]));
     return {
       shops: shops.filter((s) => okTenants.has(s.tenantId) && (counts.get(s.tenantId)?.PRODUCT ?? 0) + (counts.get(s.tenantId)?.SERVICE ?? 0) > 0),
       tenants: okTenants,
       counts,
-      ratings: new Map(ratings.map((r) => [r.tenantId, { avg: Math.round((r._avg.rating ?? 0) * 10) / 10, count: r._count }])),
+      ratings,
       vouchers: vouchers.map((v) => ({ tenantId: v.tenantId, code: v.code, title: v.title, summary: voucherSummary(v), endsAt: v.endsAt })),
     };
   }
@@ -177,14 +189,45 @@ export class PublicMarketService {
     const v = await this.visibleShops({ slug });
     const s = v.shops[0];
     if (!s) throw new NotFoundException('Không tìm thấy gian hàng');
-    const [card, offers, reviews, branches] = await Promise.all([
+    const [card, offers, orderReviews, marketReviews, branches] = await Promise.all([
       this.card(s, v, geo),
       this.offerRows({ tenantId: s.tenantId }),
-      this.prisma.orderReview.findMany({ where: { tenantId: s.tenantId }, orderBy: { createdAt: 'desc' }, take: 10, include: { order: { select: { customer: { select: { name: true } } } } } }),
+      this.prisma.orderReview.findMany({
+        where: { tenantId: s.tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { order: { select: { customer: { select: { name: true } } } } },
+      }),
+      this.prisma.marketReview.findMany({
+        where: { tenantId: s.tenantId, status: 'HIEN' },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { request: { select: { items: { select: { name: true } } } } },
+      }),
       v.tenants.get(s.tenantId)?.type === 'GARAGE'
         ? this.prisma.branch.findMany({ where: { tenantId: s.tenantId, deletedAt: null }, orderBy: { code: 'asc' }, select: { id: true, name: true, address: true, phone: true } })
         : Promise.resolve([]),
     ]);
+    const reviews = [
+      ...marketReviews.map((r) => ({
+        rating: r.rating,
+        comment: r.comment,
+        reply: r.reply,
+        createdAt: r.createdAt,
+        name: reviewerName(r.customerName),
+        items: r.request.items.map((i) => i.name),
+      })),
+      ...orderReviews.map((r) => ({
+        rating: r.rating,
+        comment: r.comment,
+        reply: r.reply,
+        createdAt: r.createdAt,
+        name: reviewerName(r.order.customer?.name),
+        items: [] as string[],
+      })),
+    ]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 20);
     return {
       ...card,
       coverUrl: await this.url(s.coverFileId),
@@ -193,7 +236,7 @@ export class PublicMarketService {
       branches: branches.map((b) => ({ name: b.name, address: b.address, phone: b.phone })),
       productOffers: offers.filter((o) => o.kind === 'PRODUCT'),
       serviceOffers: offers.filter((o) => o.kind === 'SERVICE'),
-      reviews: reviews.map((r) => ({ rating: r.rating, comment: r.comment, reply: r.reply, createdAt: r.createdAt, name: reviewerName(r.order.customer?.name) })),
+      reviews,
     };
   }
 

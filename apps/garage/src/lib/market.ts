@@ -21,6 +21,7 @@ export interface Category {
   items: number;
 }
 export interface ShopCard {
+  tenantId: string;
   slug: string;
   name: string;
   intro: string | null;
@@ -72,7 +73,7 @@ export interface ShopDetail extends ShopCard {
   branches: { name: string; address: string | null; phone: string | null }[];
   productOffers: OfferRow[];
   serviceOffers: OfferRow[];
-  reviews: { rating: number; comment: string | null; reply: string | null; createdAt: string; name: string }[];
+  reviews: { rating: number; comment: string | null; reply: string | null; createdAt: string; name: string; items?: string[] }[];
 }
 export interface ItemDetail {
   code: string;
