@@ -32,6 +32,7 @@ import {
   BookOpen,
   Building2,
   Flag,
+  MessageSquare,
   Receipt,
   type LucideIcon,
   ShieldCheck,
@@ -122,12 +123,13 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A3.60', round: '4.2', tone: 'mint', permission: 'rental.view', built: true },
       { href: '/xe-cu', label: 'Xe cũ & kiểm định', icon: ClipboardCheck, screen: 'A3.61', round: '4.3', tone: 'lav', permission: 'used_car.appraise', built: true },
+      { href: '/cong-dong', label: 'Cộng đồng chủ xe', icon: MessageSquare, screen: 'A3.64', round: '4.4', tone: 'sky', permission: 'community.manage', built: true },
     ],
   },
   {
     label: 'Phân tích',
     items: [
-      { href: '/bao-cao', label: 'Báo cáo', icon: ChartColumn, screen: 'A3.80', round: '1.5', tone: 'lav', permission: 'report.view' },
+      { href: '/bao-cao', label: 'Báo cáo', icon: ChartColumn, screen: 'A3.80', round: '4.4', tone: 'lav', permission: 'report.view', built: true },
       { href: '/marketing', label: 'Marketing', icon: Megaphone, screen: 'A3.62', round: 'P5', tone: 'peach', permission: 'marketing.manage' },
       { href: '/tro-ly-ai', label: 'Trợ lý AI', icon: Sparkles, screen: 'A3.63', round: 'P5', tone: 'lav', permission: 'dashboard.view' },
     ],
@@ -162,11 +164,13 @@ export const NAV: NavGroup[] = [
   {
     label: 'Quản trị sàn',
     items: [
+      { href: '/san/bao-cao', label: 'Dashboard & Báo cáo sàn', icon: ChartColumn, screen: 'A6.01', round: '4.4', tone: 'brand', permission: 'platform.report.view', workspace: 'PLATFORM', built: true },
       { href: '/san/doi-tac', label: 'Đối tác garage', icon: Building2, screen: 'A6.10', round: '3.1', tone: 'sky', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/tin-dang', label: 'Kiểm duyệt tin đăng', icon: ShieldCheck, screen: 'A6.30', round: '3.2', tone: 'peach', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/thue-xe', label: 'Kiểm duyệt xe thuê', icon: CarFront, screen: 'A6.30b', round: '4.2', tone: 'mint', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/xe-cu', label: 'Kiểm duyệt xe cũ', icon: Car, screen: 'A6.31', round: '4.3', tone: 'lav', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
+      { href: '/san/cong-dong', label: 'Cộng đồng & Nội dung', icon: MessageSquare, screen: 'A6.32', round: '4.4', tone: 'peach', permission: 'platform.report.view', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
       { href: '/san/cuu-ho', label: 'Giám sát cứu hộ', icon: LifeBuoy, screen: 'A6.61', round: '4.1', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },

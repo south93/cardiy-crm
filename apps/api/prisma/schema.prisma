@@ -2071,4 +2071,124 @@ model UsedCarMessage {
   @@map("used_car_messages")
 }
 
+// ======================= Vòng 4.4: Cộng đồng chủ xe & Nội dung sàn (M34, D5) =======================
 
+enum CommunityPostType {
+  BLOG
+  AUDIO
+  PLAYLIST
+  QA
+}
+
+enum CommunityPostStatus {
+  NHAP
+  CHO_DUYET
+  DA_DANG
+  BI_TU_CHOI
+  TAM_AN
+  BI_GO
+}
+
+enum CommunityAuthorKind {
+  PLATFORM
+  GARAGE
+  OWNER
+}
+
+enum BannerPosition {
+  HOME
+  COMMUNITY
+}
+
+/// Bài viết cộng đồng & nội dung biên tập: Blog, Sách nói, Playlist hành trình, Hỏi đáp chủ xe (A1.10, A2.11, A6.32, A6.62)
+model CommunityPost {
+  id                String              @id @default(uuid()) @db.Uuid
+  /// BV000001… duy nhất toàn sàn
+  code              String              @unique
+  type              CommunityPostType
+  authorKind        CommunityAuthorKind @map("author_kind")
+  authorUserId      String?             @map("author_user_id") @db.Uuid
+  authorTenantId    String?             @map("author_tenant_id") @db.Uuid
+  authorName        String              @map("author_name")
+  title             String
+  summary           String?
+  content           String
+  /// KINH_NGHIEM | BAO_DUONG | HANH_TRINH | LUAT_GIAO_THONG | DANH_GIA_XE | HOI_DAP_KY_THUAT
+  topic             String              @default("KINH_NGHIEM")
+  coverFileId       String?             @map("cover_file_id") @db.Uuid
+  mediaUrl          String?             @map("media_url")
+  durationMinutes   Int?                @map("duration_minutes")
+  /// [{title, host, duration, url}] cho Sách nói nhiều chương hoặc Playlist lái xe
+  playlistItems     Json                @default("[]") @map("playlist_items")
+  pinned            Boolean             @default(false)
+  isSolved          Boolean             @default(false) @map("is_solved")
+  acceptedCommentId String?             @map("accepted_comment_id") @db.Uuid
+  viewsCount        Int                 @default(0) @map("views_count")
+  likesCount        Int                 @default(0) @map("likes_count")
+  commentsCount     Int                 @default(0) @map("comments_count")
+  status            CommunityPostStatus @default(CHO_DUYET)
+  reviewNote        String?             @map("review_note")
+  reviewedBy        String?             @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime?           @map("reviewed_at")
+  publishedAt       DateTime?           @map("published_at")
+  searchText        String              @default("") @map("search_text")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  comments CommunityComment[]
+  likes    CommunityPostLike[]
+
+  @@index([status, pinned, publishedAt])
+  @@index([status, type, publishedAt])
+  @@index([authorUserId, createdAt])
+  @@index([authorTenantId, createdAt])
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id             String              @id @default(uuid()) @db.Uuid
+  postId         String              @map("post_id") @db.Uuid
+  authorKind     CommunityAuthorKind @map("author_kind")
+  authorUserId   String?             @map("author_user_id") @db.Uuid
+  authorTenantId String?             @map("author_tenant_id") @db.Uuid
+  authorName     String              @map("author_name")
+  content        String
+  hidden         Boolean             @default(false)
+  hiddenReason   String?             @map("hidden_reason")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, hidden, createdAt])
+  @@map("community_comments")
+}
+
+model CommunityPostLike {
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@map("community_post_likes")
+}
+
+/// Banner truyền thông trên Trang chủ sàn và Cộng đồng (A6.62)
+model PlatformBanner {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String
+  subtitle    String?
+  linkUrl     String?        @map("link_url")
+  ctaLabel    String?        @map("cta_label")
+  imageFileId String?        @map("image_file_id") @db.Uuid
+  position    BannerPosition @default(COMMUNITY)
+  sortOrder   Int            @default(1) @map("sort_order")
+  active      Boolean        @default(true)
+  createdBy   String?        @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([position, active, sortOrder])
+  @@map("platform_banners")
+}

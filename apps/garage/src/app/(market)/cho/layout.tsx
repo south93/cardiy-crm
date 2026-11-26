@@ -16,6 +16,7 @@ const NAV = [
   { href: '/cho/xe-cu', label: 'Xe cũ' },
   { href: '/cho/thue-xe', label: 'Thuê xe' },
   { href: '/cho/cuu-ho', label: 'Cứu hộ SOS' },
+  { href: '/cho/cong-dong', label: 'Cộng đồng' },
   { href: '/dang-ky-doi-tac', label: 'Dành cho garage' },
 ];
 

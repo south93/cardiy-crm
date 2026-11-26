@@ -30,7 +30,7 @@ function Guard({ children }: { children: ReactNode }) {
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur" data-testid="owner-tabs">
         <div className="mx-auto grid max-w-md grid-cols-5">
           {[
-            { href: '/app', label: 'Xe của tôi', icon: CarFront, on: path === '/app' || path.startsWith('/app/xe/') || path.startsWith('/app/don') || path.startsWith('/app/cuu-ho') },
+            { href: '/app', label: 'Xe của tôi', icon: CarFront, on: path === '/app' || path.startsWith('/app/xe/') || path.startsWith('/app/don') || path.startsWith('/app/cuu-ho') || path.startsWith('/app/cong-dong') },
             { href: '/app/lich-hen', label: 'Lịch hẹn', icon: CalendarDays, on: path.startsWith('/app/lich-hen') || path.startsWith('/app/dat-lich') },
             { href: '/app/thue-xe', label: 'Thuê xe', icon: KeyRound, on: path.startsWith('/app/thue-xe') },
             { href: '/app/xe-cu', label: 'Xe cũ', icon: Tag, on: path.startsWith('/app/xe-cu') },

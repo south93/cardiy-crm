@@ -366,6 +366,125 @@ async function main() {
     create: { tenantId: partner.id, key: 'appraisal', value: 1 },
   });
 
+  // Cộng đồng chủ xe & Banner mẫu (Vòng 4.4)
+  const demoPosts: {
+    code: string;
+    type: 'BLOG' | 'AUDIO' | 'PLAYLIST' | 'QA';
+    authorKind: 'PLATFORM' | 'GARAGE' | 'OWNER';
+    authorName: string;
+    authorTenantId?: string;
+    title: string;
+    summary: string;
+    content: string;
+    topic: string;
+    pinned?: boolean;
+    durationMinutes?: number;
+    playlistItems?: { title: string; host: string; duration: string }[];
+  }[] = [
+    {
+      code: 'BV000001',
+      type: 'BLOG',
+      authorKind: 'PLATFORM',
+      authorName: 'Ban biên tập CARDIY',
+      title: 'Cẩm nang bảo dưỡng ô tô mốc 20.000 km – 40.000 km tiết kiệm và đúng chuẩn',
+      summary: 'Những hạng mục cần thay thế thật sự và những hạng mục chỉ cần vệ sinh kiểm tra để không tốn chi phí oan.',
+      content:
+        'Ở mốc 20.000 km, chủ xe ưu tiên thay dầu động cơ + lọc dầu, vệ sinh lọc gió động cơ và lọc gió điều hoà, đảo lốp 4 bánh và kiểm tra má phanh.\n\nỞ mốc 40.000 km (bảo dưỡng cấp lớn), cần bổ sung thay dầu phanh, nước làm mát (tuỳ khuyến cáo hãng), lọc nhiên liệu và kiểm tra bugi, dầu hộp số.',
+      topic: 'BAO_DUONG',
+      pinned: true,
+    },
+    {
+      code: 'BV000002',
+      type: 'AUDIO',
+      authorKind: 'PLATFORM',
+      authorName: 'Tủ sách nói CARDIY',
+      title: 'Sách nói: Kỹ năng lái xe an toàn đường đèo & cao tốc ban đêm',
+      summary: 'Nghe trên hành trình dài: cách dùng số tay/lẫy chuyển số khi đổ đèo, giữ khoảng cách 3 giây và xử lý sương mù.',
+      content:
+        'Tóm tắt 3 nguyên tắc sống còn khi đổ đèo dài: lên đèo số nào xuống đèo số đó (phanh bằng động cơ), tuyệt đối không rà phanh liên tục gây sôi dầu phanh, và nhường đường cho xe lên dốc tại khúc cua hẹp.',
+      topic: 'KINH_NGHIEM',
+      durationMinutes: 18,
+      playlistItems: [
+        { title: 'Chương 1: Chuẩn bị lốp, phanh và đèn trước chuyến đi xa', host: 'Chuyên gia kỹ thuật PLG', duration: '06:15' },
+        { title: 'Chương 2: Kỹ thuật phanh động cơ khi đổ đèo Bảo Lộc – Đà Lạt', host: 'Chuyên gia kỹ thuật PLG', duration: '07:10' },
+        { title: 'Chương 3: Giữ tỉnh táo và khoảng cách an toàn trên cao tốc đêm', host: 'Chuyên gia kỹ thuật PLG', duration: '04:35' },
+      ],
+    },
+    {
+      code: 'BV000003',
+      type: 'PLAYLIST',
+      authorKind: 'PLATFORM',
+      authorName: 'Cộng đồng Chủ xe Việt',
+      title: 'Playlist Acoustic & Chill cung đường biển Phan Thiết – Vĩnh Hy',
+      summary: 'Tuyển tập giai điệu nhẹ nhàng thư giãn cho cả gia đình trên những cung đường ven biển cuối tuần.',
+      content: 'Danh sách các bản nhạc Acoustic không lời và Pop nhẹ giúp tài xế thư giãn, tập trung tay lái mà không gây buồn ngủ.',
+      topic: 'HANH_TRINH',
+      durationMinutes: 42,
+      playlistItems: [
+        { title: 'Nắng sớm cung đường biển Mũi Né', host: 'Acoustic Guitar', duration: '04:20' },
+        { title: 'Chiều gió lộng Bàu Trắng', host: 'Instrumental Chill', duration: '05:05' },
+        { title: 'Đêm bình yên vịnh Vĩnh Hy', host: 'Piano & Strings', duration: '04:48' },
+      ],
+    },
+    {
+      code: 'BV000004',
+      type: 'QA',
+      authorKind: 'GARAGE',
+      authorTenantId: plg.id,
+      authorName: 'Garage PLG',
+      title: 'Hỏi đáp: Điều hoà ô tô lúc đầu mát sâu nhưng đi 30 phút chỉ ra gió thường là bệnh gì?',
+      summary: 'Tổng hợp nguyên nhân hay gặp nhất: đóng băng giàn lạnh do hỏng cảm biến nhiệt hoặc rơ-le lốc lạnh chập chờn.',
+      content:
+        'Nếu xe mới nổ máy điều hoà vẫn lạnh buốt nhưng chạy khoảng 20–30 phút gió yếu hẳn và hết lạnh, khả năng rất cao cảm biến nhiệt độ giàn lạnh (thermistor) bị sai trị số khiến giàn lạnh đóng đá bít kín khe gió, hoặc van đuôi lốc / ly hợp từ lốc lạnh bị ngắt khi nóng.',
+      topic: 'HOI_DAP_KY_THUAT',
+    },
+  ];
+
+  for (const dp of demoPosts) {
+    await prisma.communityPost.upsert({
+      where: { code: dp.code },
+      update: {},
+      create: {
+        code: dp.code,
+        type: dp.type,
+        authorKind: dp.authorKind,
+        authorTenantId: dp.authorTenantId ?? null,
+        authorName: dp.authorName,
+        title: dp.title,
+        summary: dp.summary,
+        content: dp.content,
+        topic: dp.topic,
+        pinned: dp.pinned ?? false,
+        durationMinutes: dp.durationMinutes ?? null,
+        playlistItems: dp.playlistItems ?? [],
+        status: 'DA_DANG',
+        publishedAt: pubNow,
+        searchText: searchKey(dp.code, dp.title, dp.summary, dp.topic, dp.authorName),
+      },
+    });
+  }
+
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: platform.id, key: 'community_post' } },
+    update: {},
+    create: { tenantId: platform.id, key: 'community_post', value: 4 },
+  });
+
+  const bannerCount = await prisma.platformBanner.count();
+  if (bannerCount === 0) {
+    await prisma.platformBanner.create({
+      data: {
+        title: 'Cộng đồng Chủ xe CARDIY · Chia sẻ kinh nghiệm chăm xe thực chiến',
+        subtitle: 'Đặt câu hỏi kỹ thuật để được các kỹ sư garage giải đáp trực tiếp, nghe Sách nói và Playlist hành trình.',
+        linkUrl: '/app/cong-dong',
+        ctaLabel: 'Đặt câu hỏi & chia sẻ ngay',
+        position: 'COMMUNITY',
+        sortOrder: 1,
+        active: true,
+      },
+    });
+  }
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 
