@@ -26,6 +26,9 @@ export default async function MarketHome() {
           <Link href="/cho/dich-vu" className="rounded-full bg-white/15 px-3 py-1.5 hover:bg-white/25">
             So giá dịch vụ
           </Link>
+          <Link href="/cho/thue-xe" className="rounded-full bg-white/15 px-3 py-1.5 hover:bg-white/25" data-testid="market-rental-cta">
+            Thuê xe tự lái
+          </Link>
           <Link href="/cho/cuu-ho" className="rounded-full bg-rose-500 px-3.5 py-1.5 font-semibold text-white hover:bg-rose-600" data-testid="market-sos-cta">
             Cứu hộ SOS 24/7
           </Link>

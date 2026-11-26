@@ -40,7 +40,13 @@ export async function createApp(overrides: Partial<Env> = {}): Promise<INestAppl
   await app.init();
   const redis = app.get(RedisService);
   await redis.ping();
-  const keys = [...(await redis.client.keys('login:fail:*')), ...(await redis.client.keys('2fa:fail:*')), ...(await redis.client.keys('acl:*'))];
+  const keys = [
+    ...(await redis.client.keys('login:fail:*')),
+    ...(await redis.client.keys('2fa:fail:*')),
+    ...(await redis.client.keys('acl:*')),
+    ...(await redis.client.keys('rental:ip:*')),
+    ...(await redis.client.keys('sos:ip:*')),
+  ];
   if (keys.length) await redis.client.del(...keys);
   return app;
 }

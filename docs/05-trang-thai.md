@@ -162,3 +162,5 @@ stateDiagram-v2
   DA_QUYET_TOAN --> [*]
   HUY --> [*]
 ```
+
+> **Đã làm (vòng 4.2):** đủ toàn bộ trạng thái `DAT_TRUOC → DA_XAC_MINH → DA_KY_COC → DANG_THUE → DA_TRA_XE → DA_QUYET_TOAN`, cùng `HUY` (từ `DAT_TRUOC`) và `QUA_HAN` (tự chuyển từ `DANG_THUE` khi quá `end_at`, tính khi đọc). Các hợp đồng đang giữ xe (`DAT_TRUOC | DA_XAC_MINH | DA_KY_COC | DANG_THUE | QUA_HAN`) chặn đặt trùng khoảng thời gian trên cùng một xe. Khi quyết toán (`DA_QUYET_TOAN`), garage PLG tự ghi phiếu thu sổ quỹ `PT…` (khoản mục `THU_THUE_XE`); đối tác ghi nhận quyết toán trực tiếp trên hợp đồng ở Cổng đối tác.

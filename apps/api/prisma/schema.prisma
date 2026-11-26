@@ -1730,3 +1730,143 @@ model SosReview {
   @@index([tenantId, createdAt])
   @@map("sos_reviews")
 }
+
+// ======================= Vòng 4.2: Thuê xe (M31, F9, S8, D5) =======================
+
+enum RentalOwnerType {
+  GARAGE
+  CONSIGN
+}
+
+/// Kiểm duyệt và hiển thị đội xe cho thuê trên sàn
+enum RentalListingStatus {
+  NHAP
+  CHO_DUYET
+  DANG_CHO_THUE
+  BI_TU_CHOI
+  TAM_AN
+  BI_GO
+}
+
+/// Máy trạng thái S8: Hợp đồng thuê xe (docs/05-trang-thai.md)
+enum RentalContractStatus {
+  DAT_TRUOC
+  DA_XAC_MINH
+  DA_KY_COC
+  DANG_THUE
+  QUA_HAN
+  DA_TRA_XE
+  DA_QUYET_TOAN
+  HUY
+}
+
+/// Xe cho thuê của garage (của chính garage hoặc xe ký gửi do garage quản lý)
+model RentalVehicle {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  branchId      String?             @map("branch_id") @db.Uuid
+  vehicleId     String?             @map("vehicle_id") @db.Uuid
+  /// TX000001… theo garage
+  code          String
+  title         String
+  plateNo       String              @map("plate_no")
+  make          String
+  model         String
+  year          Int
+  seats         Int                 @default(5)
+  /// TU_DONG | SO_SAN
+  transmission  String              @default("TU_DONG")
+  /// XANG | DAU | DIEN | HYBRID
+  fuel          String              @default("XANG")
+  ownerType     RentalOwnerType     @default(GARAGE) @map("owner_type")
+  dailyPrice    BigInt              @map("daily_price")
+  deposit       BigInt
+  kmLimitPerDay Int                 @default(300) @map("km_limit_per_day")
+  overKmFee     BigInt              @default(5000) @map("over_km_fee")
+  province      String?
+  pickupAddress String?             @map("pickup_address")
+  terms         String?
+  description   String?
+  imageFileIds  String[]            @default([]) @map("image_file_ids") @db.Uuid
+  status        RentalListingStatus @default(NHAP)
+  reviewNote    String?             @map("review_note")
+  reviewedBy    String?             @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?           @map("reviewed_at")
+  submittedAt   DateTime?           @map("submitted_at")
+  searchText    String              @default("") @map("search_text")
+  createdBy     String?             @map("created_by") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  contracts RentalContract[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([status, province])
+  @@index([status, submittedAt])
+  @@map("rental_vehicles")
+}
+
+/// Hợp đồng đặt thuê xe: sàn chỉ kết nối, khách đặt cọc và thanh toán trực tiếp cho garage
+model RentalContract {
+  id               String               @id @default(uuid()) @db.Uuid
+  /// HDT000001… theo garage cho thuê
+  code             String
+  tenantId         String               @map("tenant_id") @db.Uuid
+  branchId         String?              @map("branch_id") @db.Uuid
+  rentalVehicleId  String               @map("rental_vehicle_id") @db.Uuid
+  renterUserId     String?              @map("renter_user_id") @db.Uuid
+  customerId       String?              @map("customer_id") @db.Uuid
+  customerName     String               @map("customer_name")
+  phone            String
+  idCardNo         String?              @map("id_card_no")
+  driverLicenseNo  String?              @map("driver_license_no")
+  kycNote          String?              @map("kyc_note")
+  startAt          DateTime             @map("start_at")
+  endAt            DateTime             @map("end_at")
+  rentalDays       Int                  @map("rental_days")
+  dailyPrice       BigInt               @map("daily_price")
+  depositRequired  BigInt               @map("deposit_required")
+  depositPaid      BigInt               @default(0) @map("deposit_paid")
+  baseTotal        BigInt               @map("base_total")
+  extraFee         BigInt               @default(0) @map("extra_fee")
+  discount         BigInt               @default(0)
+  finalTotal       BigInt?              @map("final_total")
+  depositRefund    BigInt?              @map("deposit_refund")
+  paymentMethod    PaymentMethod?       @map("payment_method")
+  /// Phiếu thu sổ quỹ tại garage PLG khi quyết toán hợp đồng (F9)
+  cashEntryId      String?              @unique @map("cash_entry_id") @db.Uuid
+  handoverKm       Int?                 @map("handover_km")
+  handoverFuel     Int?                 @map("handover_fuel")
+  handoverNote     String?              @map("handover_note")
+  handoverImageIds String[]             @default([]) @map("handover_image_ids") @db.Uuid
+  handedOverAt     DateTime?            @map("handed_over_at")
+  returnKm         Int?                 @map("return_km")
+  returnFuel       Int?                 @map("return_fuel")
+  returnNote       String?              @map("return_note")
+  returnImageIds   String[]             @default([]) @map("return_image_ids") @db.Uuid
+  returnedAt       DateTime?            @map("returned_at")
+  customerNote     String?              @map("customer_note")
+  sellerNote       String?              @map("seller_note")
+  cancelReason     String?              @map("cancel_reason")
+  status           RentalContractStatus @default(DAT_TRUOC)
+  accessHash       String               @map("access_hash")
+  verifiedAt       DateTime?            @map("verified_at")
+  depositSignedAt  DateTime?            @map("deposit_signed_at")
+  settledAt        DateTime?            @map("settled_at")
+  cancelledAt      DateTime?            @map("cancelled_at")
+  handledBy        String?              @map("handled_by") @db.Uuid
+  ip               String?
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  rentalVehicle RentalVehicle @relation(fields: [rentalVehicleId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([rentalVehicleId, status, startAt, endAt])
+  @@index([tenantId, status, createdAt])
+  @@index([renterUserId, createdAt])
+  @@index([phone, status])
+  @@map("rental_contracts")
+}
+
