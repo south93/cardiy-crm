@@ -75,6 +75,8 @@ export const PERMISSIONS = [
   P('promotion.manage', 'Kênh người bán', 'Quản lý voucher'),
   P('sos.manage', 'Cứu hộ', 'Nhận ca, điều đội cứu hộ'),
   P('sos.handle', 'Cứu hộ', 'Thực hiện ca cứu hộ'),
+  P('rental.view', 'Thuê xe', 'Xem đội xe & hợp đồng thuê xe'),
+  P('rental.manage', 'Thuê xe', 'Quản lý xe cho thuê & hợp đồng thuê xe'),
   P('marketing.manage', 'Marketing', 'Phân khúc, chiến dịch'),
   P('report.view', 'Báo cáo', 'Xem báo cáo'),
   P('branch.manage', 'Cài đặt', 'Quản lý chi nhánh'),
@@ -116,16 +118,16 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
   { code: 'CG', name: 'Chủ garage', scope: 'TENANT', require2fa: true, permissions: TENANT_ALL },
   {
     code: 'QL', name: 'Quản lý chi nhánh', scope: 'TENANT', require2fa: true,
-    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'ro.approve', 'ro.task.update', 'quote.manage', 'payment.collect', 'inventory.view', 'inventory.adjust.approve', 'purchase.approve', 'finance.view', 'staff.view', 'staff.manage', 'shop.manage', 'order_request.manage', 'promotion.manage', 'sos.manage', 'sos.handle', 'marketing.manage', 'report.view', 'audit.view', 'file.upload'],
+    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'ro.approve', 'ro.task.update', 'quote.manage', 'payment.collect', 'inventory.view', 'inventory.adjust.approve', 'purchase.approve', 'finance.view', 'staff.view', 'staff.manage', 'shop.manage', 'order_request.manage', 'promotion.manage', 'sos.manage', 'sos.handle', 'rental.view', 'rental.manage', 'marketing.manage', 'report.view', 'audit.view', 'file.upload'],
   },
   {
     code: 'BH', name: 'Bán hàng / Cố vấn dịch vụ', scope: 'TENANT', require2fa: false,
-    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'quote.manage', 'payment.collect', 'inventory.view', 'shop.manage', 'order_request.manage', 'file.upload'],
+    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'quote.manage', 'payment.collect', 'inventory.view', 'shop.manage', 'order_request.manage', 'rental.view', 'rental.manage', 'file.upload'],
   },
   { code: 'KTV', name: 'Kỹ thuật viên', scope: 'TENANT', require2fa: false, permissions: ['ro.view', 'ro.task.update', 'vehicle.view', 'file.upload'] },
   { code: 'TK', name: 'Thủ kho', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'inventory.view', 'inventory.manage', 'purchase.manage', 'order_request.manage', 'ro.view', 'file.upload'] },
-  { code: 'KT', name: 'Kế toán garage', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'finance.view', 'finance.manage', 'invoice.manage', 'ro.view', 'payment.collect', 'customer.view', 'inventory.view', 'report.view', 'file.upload'] },
-  { code: 'CS', name: 'Chăm sóc khách hàng', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'booking.view', 'booking.manage', 'ro.view', 'order_request.manage', 'sos.manage', 'marketing.manage', 'file.upload'] },
+  { code: 'KT', name: 'Kế toán garage', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'finance.view', 'finance.manage', 'invoice.manage', 'ro.view', 'payment.collect', 'customer.view', 'inventory.view', 'rental.view', 'report.view', 'file.upload'] },
+  { code: 'CS', name: 'Chăm sóc khách hàng', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'booking.view', 'booking.manage', 'ro.view', 'order_request.manage', 'sos.manage', 'rental.view', 'rental.manage', 'marketing.manage', 'file.upload'] },
   { code: 'CH', name: 'Đội cứu hộ', scope: 'TENANT', require2fa: false, permissions: ['sos.handle', 'vehicle.view', 'file.upload'] },
 ];
 

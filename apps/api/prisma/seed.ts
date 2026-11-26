@@ -142,6 +142,72 @@ async function main() {
     create: { tenantId: partner.id, enabled: true, onDuty: true, hotline: '0900000010', radiusKm: 25, basePrice: 250_000n, note: 'Cứu hộ nội thành & vành đai 24/7' },
   });
 
+  // Đội xe cho thuê mẫu (Vòng 4.2)
+  await prisma.rentalVehicle.upsert({
+    where: { tenantId_code: { tenantId: plg.id, code: 'TX000001' } },
+    update: {},
+    create: {
+      tenantId: plg.id,
+      branchId: cn1.id,
+      code: 'TX000001',
+      title: 'Toyota Veloz Cross 2023 · Tự động · 7 chỗ',
+      plateNo: '93A68686',
+      make: 'Toyota',
+      model: 'Veloz Cross',
+      year: 2023,
+      seats: 7,
+      transmission: 'TU_DONG',
+      fuel: 'XANG',
+      ownerType: 'GARAGE',
+      dailyPrice: 900_000n,
+      deposit: 5_000_000n,
+      kmLimitPerDay: 300,
+      overKmFee: 5_000n,
+      province: 'Bình Phước',
+      pickupAddress: 'Đường Phú Riềng Đỏ, Đồng Xoài, Bình Phước',
+      terms: 'CCCD gắn chip + GPLX hạng B1 trở lên còn hạn',
+      status: 'DANG_CHO_THUE',
+      searchText: searchKey('TX000001', 'Toyota Veloz Cross 2023', '93A68686', 'Bình Phước'),
+    },
+  });
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: plg.id, key: 'rental_vehicle' } },
+    update: {},
+    create: { tenantId: plg.id, key: 'rental_vehicle', value: 1 },
+  });
+
+  await prisma.rentalVehicle.upsert({
+    where: { tenantId_code: { tenantId: partner.id, code: 'TX000001' } },
+    update: {},
+    create: {
+      tenantId: partner.id,
+      code: 'TX000001',
+      title: 'Mazda 3 Luxury 2022 · Tự động · 5 chỗ',
+      plateNo: '30H88999',
+      make: 'Mazda',
+      model: 'Mazda 3',
+      year: 2022,
+      seats: 5,
+      transmission: 'TU_DONG',
+      fuel: 'XANG',
+      ownerType: 'GARAGE',
+      dailyPrice: 750_000n,
+      deposit: 10_000_000n,
+      kmLimitPerDay: 300,
+      overKmFee: 5_000n,
+      province: 'Hà Nội',
+      pickupAddress: 'Hà Đông, Hà Nội',
+      terms: 'CCCD gốc đối chiếu + GPLX B1/B2, đặt cọc tiền mặt hoặc chuyển khoản',
+      status: 'DANG_CHO_THUE',
+      searchText: searchKey('TX000001', 'Mazda 3 Luxury 2022', '30H88999', 'Hà Nội'),
+    },
+  });
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: partner.id, key: 'rental_vehicle' } },
+    update: {},
+    create: { tenantId: partner.id, key: 'rental_vehicle', value: 1 },
+  });
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 

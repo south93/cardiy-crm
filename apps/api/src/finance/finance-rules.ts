@@ -3,6 +3,7 @@ export const CATEGORIES = {
   THU: [
     { code: 'QUY_DAU_KY', label: 'Quỹ đầu kỳ chi nhánh (ký quỹ)' },
     { code: 'THU_NO_DAU_KY', label: 'Thu công nợ đầu kỳ (AppSheet)' },
+    { code: 'THU_THUE_XE', label: 'Thu tiền cho thuê xe' },
     { code: 'THU_KHAC', label: 'Thu khác' },
   ],
   CHI: [

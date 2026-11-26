@@ -76,7 +76,9 @@ test.describe('Đăng nhập & phân quyền', () => {
     await sidebar.getByRole('link', { name: 'Cứu hộ', exact: true }).click();
     await expect(page.getByTestId('sos-workspace')).toBeVisible();
     await sidebar.getByRole('link', { name: 'Thuê xe', exact: true }).click();
-    await expect(page.getByTestId('placeholder')).toContainText('A7.22');
+    await expect(page.getByTestId('rental-workspace')).toBeVisible();
+    await sidebar.getByRole('link', { name: 'Kiểm định xe cũ', exact: true }).click();
+    await expect(page.getByTestId('placeholder')).toContainText('A7.23');
     await page.goto('/nhan-vien');
     await expect(page.getByTestId('forbidden')).toBeVisible();
     await page.goto('/don-dang-xu-ly');

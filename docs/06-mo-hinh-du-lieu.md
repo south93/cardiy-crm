@@ -472,6 +472,8 @@ erDiagram
 ## D5 · Mở rộng: cứu hộ, thuê xe, xe cũ, cộng đồng, thông báo, AI
 
 > **Đã làm (vòng 4.1 — Cứu hộ SOS):** `sos_configs` (1–1 theo `tenant_id`: bật dịch vụ cứu hộ, đang trực, hotline 24/7, bán kính phục vụ km, giá tham khảo từ, chi nhánh trực mặc định cho PLG), `sos_requests` (mã `SOS…` đếm theo tenant sàn; hỗ trợ cả khách vãng lai qua băm `access_hash` của link theo dõi lẫn chủ xe đã đăng nhập `user_id`; lưu danh sách garage phù hợp `candidate_tenant_ids`, hạn chờ 3 phút `search_expires_at`, garage/chi nhánh/nhân viên nhận ca, ETA, giá dự kiến & giá chốt, ảnh sự cố & ảnh hiện trường, `order_id` khi kéo xe về PLG), `sos_tracks` (lịch sử vị trí GPS của đội cứu hộ), và `sos_reviews` (1–1 với ca đã `HOAN_THANH`, gộp sao lên gian hàng trên `/cho`).
+>
+> **Đã làm (vòng 4.2 — Thuê xe):** `rental_vehicles` (mã `TX…` theo garage; biển số, hãng/dòng/đời, số chỗ, hộp số, nhiên liệu, `owner_type` `GARAGE | CONSIGN`, giá ngày, tiền cọc, giới hạn km/ngày & phí vượt km, điều kiện thuê, trạng thái kiểm duyệt `NHAP → CHO_DUYET → DANG_CHO_THUE | BI_TU_CHOI | TAM_AN | BI_GO`) và `rental_contracts` (mã `HDT…` theo garage; hỗ trợ cả khách vãng lai qua `access_hash` lẫn chủ xe `renter_user_id`; máy trạng thái `S8`; biên bản bàn giao & trả xe gồm số km, % nhiên liệu, ảnh trước/sau; quyết toán tính phụ phí / hoàn cọc, gắn `cash_entry_id` vào sổ quỹ khi quyết toán ở PLG).
 
 ```mermaid
 erDiagram
