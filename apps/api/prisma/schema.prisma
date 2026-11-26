@@ -2378,3 +2378,71 @@ model OwnerNotification {
   @@map("owner_notifications")
 }
 
+// ======================= Vòng 5.2: Trợ lý AI nội bộ Garage (M36, D5, A3.63) =======================
+
+enum AiSuggestionKind {
+  VEHICLE_SUMMARY
+  QUOTE_SUGGESTION
+  TECH_QA
+}
+
+enum AiSuggestionStatus {
+  DE_XUAT
+  DA_AP_DUNG
+  BO_QUA
+}
+
+/// Kho tri thức kỹ thuật & quy trình chẩn đoán cho Trợ lý AI (D5 · ai_documents)
+model AiDocument {
+  id         String   @id @default(uuid()) @db.Uuid
+  /// null = cẩm nang chuẩn dùng chung; có giá trị = tài liệu riêng của garage PLG
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  code       String
+  title      String
+  /// BAO_DUONG | CHAN_DOAN | DAU_NHOT | LOP_PHANH | DIEN_OBD
+  category   String   @default("BAO_DUONG")
+  make       String?
+  content    String
+  tags       String[] @default([])
+  searchText String   @default("") @map("search_text")
+  active     Boolean  @default(true)
+  createdBy  String?  @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active, category])
+  @@map("ai_documents")
+}
+
+/// Nhật ký đề xuất của Trợ lý AI (AI chỉ đề xuất DE_XUAT; người có quyền duyệt mới chuyển DA_AP_DUNG)
+model AiSuggestion {
+  id               String             @id @default(uuid()) @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  branchId         String?            @map("branch_id") @db.Uuid
+  kind             AiSuggestionKind
+  vehicleId        String?            @map("vehicle_id") @db.Uuid
+  orderId          String?            @map("order_id") @db.Uuid
+  promptSummary    String             @map("prompt_summary")
+  /// Ngữ cảnh đã được lọc ẩn toàn bộ SĐT, email, CCCD, họ tên & địa chỉ trước khi gửi tới AI
+  sanitizedContext String             @map("sanitized_context")
+  piiMaskedCount   Int                @default(0) @map("pii_masked_count")
+  provider         String             @default("heuristic")
+  responseText     String             @map("response_text")
+  /// [{ kind, productId, code, name, unit, quantity, unitPrice, onHandStock, reason }]
+  suggestedItems   Json               @default("[]") @map("suggested_items")
+  citedDocCodes    String[]           @default([]) @map("cited_doc_codes")
+  status           AiSuggestionStatus @default(DE_XUAT)
+  appliedItemCount Int                @default(0) @map("applied_item_count")
+  createdBy        String             @map("created_by") @db.Uuid
+  decidedBy        String?            @map("decided_by") @db.Uuid
+  decidedAt        DateTime?          @map("decided_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  @@index([tenantId, kind, createdAt])
+  @@index([orderId, createdAt])
+  @@index([vehicleId, createdAt])
+  @@map("ai_suggestions")
+}
+
+

@@ -22,10 +22,11 @@ test.describe('Khung giao diện quản trị (Chủ garage)', () => {
     await grid.getByRole('link', { name: 'Đơn đang xử lý' }).click();
     await expect(page).toHaveURL(/\/don-dang-xu-ly$/);
     await expect(page.getByTestId('order-table')).toBeVisible();
-    // Màn hình chưa làm hiện trang chờ kèm vòng dự kiến
+    // Màn hình phân tích & AI mở đúng trang chức năng
     await page.goto('/trang-chu');
     await grid.getByRole('link', { name: 'Trợ lý AI' }).click();
-    await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng P5');
+    await expect(page).toHaveURL(/\/tro-ly-ai$/);
+    await expect(page.getByTestId('ai-assistant-page')).toBeVisible();
   });
 
   test('đường dẫn không có trong menu trả về 404', async ({ page }) => {

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { VehicleFields, vehiclePayload, type VehicleFormValue } from '@/components/crm-forms';
+import { VehicleAiSummaryCard } from '@/components/ai-assistant-cards';
 import { OrderHistory } from '@/components/order-history';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -142,6 +143,7 @@ function VehicleDetail() {
             </div>
             {v.note && <p className="mt-3 whitespace-pre-line rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">{v.note}</p>}
           </Card>
+          {can('ai.use') && <VehicleAiSummaryCard vehicleId={v.id} />}
           {can('ro.view') && <OrderHistory vehicleId={v.id} />}
           <Card className="p-4 lg:p-5">
             <CardTitle className="mb-3">Lịch sử số km</CardTitle>
