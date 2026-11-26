@@ -29,8 +29,7 @@ erDiagram
     string type "PLATFORM|GARAGE"
     string name
     string tax_code UK
-    string status "theo S4"
-    int commission_override_bp }
+    string status "theo S4" }
   branches { uuid id PK
     uuid tenant_id FK
     string name
@@ -56,15 +55,20 @@ erDiagram
     uuid reviewed_by
     string reject_reason }
   plans { uuid id PK
+    string code UK
     string name
     bigint monthly_fee
-    json limits }
+    int billing_months "1|3|6|12"
+    string_arr features
+    bool active }
   subscriptions { uuid id PK
     uuid tenant_id FK
     uuid plan_id FK
+    bigint monthly_fee "chụp giá lúc duyệt"
+    int billing_months
     date start_at
-    date end_at
-    string contract_url }
+    date paid_through "đã lập hoá đơn tới"
+    datetime ended_at }
   consents { uuid id PK
     uuid user_id FK
     string channel
@@ -81,6 +85,8 @@ erDiagram
     json after
     datetime at }
 ```
+
+**Vòng 3.1 (đã làm):** `partner_applications` (mã HS…, trạng thái CHO_DUYET → CAN_BO_SUNG / TU_CHOI / DA_DUYET, giấy tờ dạng JSON trỏ tới `files` của tenant sàn, băm mã bí mật của link theo dõi, `tenant_id` tạo ra khi duyệt) và `platform_invoices` (mã PHI…, kỳ, số tiền, hạn trả, DA_PHAT_HANH / DA_THANH_TOAN / HUY; ghi nhận thu ngay trên hoá đơn: ngày, hình thức, ghi chú, người ghi — chưa tách `platform_fee_payments`). Quá hạn tính khi đọc (chưa trả và qua hạn), không lưu cột.
 
 ## D2 · Khách hàng, xe, booking, lệnh sửa chữa
 
@@ -210,7 +216,66 @@ erDiagram
     uuid assignee_id FK }
 ```
 
+## D2b · Phiếu kiểm tra xe & app chủ xe (đã làm: vòng 1.5e, 2.1)
+
+```mermaid
+erDiagram
+  repair_orders ||--o| inspections : "phiếu kiểm tra"
+  users ||--o{ customer_links : "là chủ xe"
+  customers ||--o| customer_links : "liên kết app"
+  customers ||--o{ customer_invites : "lời mời"
+  users ||--o{ owner_sessions : "phiên app"
+  repair_orders ||--o{ order_quotes : "báo giá gửi khách"
+  repair_orders ||--o| order_reviews : "đánh giá"
+  tenants ||--o| zalo_tokens : "token OA (mã hoá)"
+  tenants ||--o{ zalo_messages : "tin ZNS đã gửi"
+  inspections { uuid id PK
+    uuid order_id FK "1 đơn 1 phiếu"
+    json data "lốp, an toàn, gầm, khuyến nghị, kiểm tra cuối"
+    uuid inspector_id
+    datetime completed_at }
+  customer_links { uuid id PK
+    uuid user_id FK
+    uuid tenant_id
+    uuid customer_id FK "unique"
+    datetime created_at }
+  customer_invites { uuid id PK
+    uuid customer_id FK
+    string token_hash "chỉ lưu băm, dùng 1 lần"
+    datetime expires_at "30 ngày"
+    datetime used_at
+    datetime revoked_at }
+  order_reviews { uuid id PK
+    uuid order_id FK "1 đơn 1 đánh giá"
+    int rating "1–5"
+    string comment
+    string reply "garage trả lời" }
+  zalo_messages { uuid id PK
+    string event "OTP · BOOKING_CONFIRMED · QUOTE_SENT · ORDER_DONE · CARE_REMINDER"
+    string phone
+    string status "SENT · FAILED" }
+  order_quotes { uuid id PK
+    uuid order_id FK
+    string status "CHO_DUYET · DA_DUYET · DUYET_MOT_PHAN · TU_CHOI · HET_HIEU_LUC"
+    json items "chụp hạng mục lúc gửi"
+    uuid_array approved_ids "dòng khách đồng ý"
+    bool applied "đã bỏ dòng bị từ chối khỏi đơn" }
+  owner_sessions { uuid id PK
+    uuid user_id FK
+    string token_hash
+    datetime expires_at
+    datetime revoked_at }
+```
+
+- Chủ xe dùng chung bảng `users` (một người vừa là nhân viên vừa là khách vẫn một tài khoản), nhưng **phiên đăng nhập tách riêng**: token loại `owner`, cookie `cardiy_ort`, bảng `owner_sessions`. Token nhân viên không gọi được API chủ xe và ngược lại.
+- Báo giá (vòng 2.2): garage gửi → chụp lại hạng mục; nhân viên sửa hạng mục / gửi bản mới / giao xe / huỷ đơn thì bản đang chờ **hết hiệu lực**. Khách trả lời → dòng bị từ chối được bỏ khỏi đơn và tính lại tổng (nếu đơn đã thu nhiều hơn tổng mới thì chỉ ghi nhận, `applied = false`, garage xử lý tay). Lịch khách tự đặt có `bookings.channel = APP`.
+- Chủ xe chỉ thấy xe **đang** đứng tên hồ sơ khách đã liên kết, và chỉ đơn của chính hồ sơ đó (không thấy đơn của chủ cũ). Bán xe (chuyển chủ) là hết quyền xem.
+
 ## D3 · Kho, danh mục chuẩn, gian hàng trên sàn
+
+> Đã làm (vòng 1.4c): `products.sale_price` = giá Bình Phước (giá chính), `products.sale_price_bd` = giá Bình Dương (trống thì dùng giá chính), `products.vat_price` = giá xuất hoá đơn VAT; `branches.price_zone` (`BP` | `BD`) quyết định giá mặc định khi thêm sản phẩm vào đơn ở chi nhánh đó. Nhập file Excel AppSheet tạo lô nhập `import_batches.kind = PRODUCTS`; tồn đầu kỳ ghi bằng phiếu kiểm kê (PK) mỗi chi nhánh.
+
+> **Đã làm (vòng 3.2), khác sơ đồ dự kiến:** sản phẩm chuẩn và dịch vụ chuẩn chung một bảng `catalog_items` (`kind` = PRODUCT | SERVICE, `code` = SKU / mã dịch vụ, thương hiệu là chữ, thông số `specs` dạng [{label, value}]); nhóm `catalog_categories` 2 cấp theo loại; `catalog_proposals` = đề xuất của garage. `shops` = hồ sơ gian hàng (1 / tenant, `slug` duy nhất, giờ mở cửa JSON). `offers`: chi nhánh bán lưu mảng `branch_ids` (chưa tách `offer_branches`); `product_id` (chỉ PLG) → tồn khả dụng = tổng `stock_levels` của các chi nhánh bán, tính khi đọc; đối tác dùng `manual_stock`. Trạng thái S5 không lưu HET_HANG: hết hàng = đang bán + tồn khả dụng 0. Chưa có giữ tồn cho đơn sàn (vòng 3.4), chưa liên kết `products.catalog_product_id`, chưa có bảng hãng / dòng xe tương thích.
 
 ```mermaid
 erDiagram
@@ -247,7 +312,7 @@ erDiagram
   categories { uuid id PK
     uuid parent_id
     string name
-    int commission_bp "hoa hồng sàn" }
+    int sort_order }
   products { uuid id PK
     uuid tenant_id FK
     string internal_code
@@ -296,102 +361,67 @@ erDiagram
     uuid branch_id FK }
 ```
 
-## D4 · Đơn hàng sàn, thanh toán, ví, đối soát, khuyến mại
+## D4 · Yêu cầu đặt hàng, thanh toán tại garage, voucher, phí đối tác
+
+> **Đã làm (vòng 3.4), khác sơ đồ dự kiến:** `order_requests` (mã YC… theo garage nhận, khách không cần tài khoản: tên, SĐT, biển số; giờ hẹn; tạm tính / giảm / giá chốt; băm mã bí mật của link theo dõi; `expires_at` 24 giờ) + `order_request_items` (chụp tên, giá, số lượng từ tin đăng). **Giữ tồn** không lưu bảng riêng: đang giữ = tổng số lượng các dòng sản phẩm của yêu cầu chờ xác nhận / đã xác nhận. `vouchers` của garage (PERCENT / AMOUNT, trần, đơn tối thiểu, áp dụng ALL / PRODUCT / SERVICE, thời hạn, số lượt); lượt đã dùng = số yêu cầu đang giữ chỗ hoặc hoàn tất có voucher (chưa có `voucher_redemptions`). Chưa có `payments` cho đơn sàn: tiền thu tại garage.
+>
+> **Đã làm (vòng 3.5):** `market_reviews` (1–1 với `order_requests` đã `HOAN_THANH`, 1–5 sao, trả lời của garage, trạng thái `HIEN` / `AN` khi bị báo cáo; điểm sao trên `/cho` gộp cả `market_reviews` đang hiện và `order_reviews` của PLG), `market_reports` (mã `PA…`, gửi từ link theo dõi yêu cầu hoặc trang gian hàng, luồng giải trình & kết luận), `shop_violations` (mã `VP…`: `NHAC_NHO` / `GO_TIN` / `TAM_KHOA` / `CHAM_DUT`), và `shop_daily_views` (cộng dồn lượt xem trang garage & tin đăng theo ngày giờ VN).
+
+> Sàn **không** có ví, sổ cái thu hộ, đối soát hay chi trả. `payments` là tiền **garage thu** (thuộc tenant). `platform_invoices` là phí gói **sàn thu của garage**.
 
 ```mermaid
 erDiagram
-  users ||--o{ carts : ""
-  carts ||--o{ cart_items : ""
-  users ||--o{ orders : "đặt"
-  orders ||--o{ order_items : ""
-  offers ||--o{ order_items : ""
-  orders |o--o| bookings : "lịch lắp"
-  orders |o--o| repair_orders : "RO lắp đặt"
-  orders ||--o{ payments : ""
-  repair_orders ||--o{ payments : ""
-  payments ||--o{ refunds : ""
-  wallets ||--o{ ledger_entries : ""
-  payments ||--o{ ledger_entries : "sinh bút toán"
-  tenants ||--|| wallets : "ví người bán"
-  users ||--o| wallets : "ví khách"
-  tenants ||--o{ settlements : "kỳ đối soát"
-  settlements ||--o{ settlement_lines : ""
-  order_items ||--o{ settlement_lines : ""
-  wallets ||--o{ payouts : "rút tiền"
+  users ||--o{ order_requests : "gửi"
+  tenants ||--o{ order_requests : "nhận"
+  order_requests ||--o{ order_request_items : ""
+  offers ||--o{ order_request_items : ""
+  order_requests |o--o| bookings : "lịch lắp"
+  order_requests |o--o| repair_orders : "RO lắp đặt"
+  repair_orders ||--o{ payments : "garage thu"
+  payments ||--o| cash_book_entries : "vào sổ quỹ"
+  tenants ||--o{ cash_book_entries : ""
+  tenants ||--o{ vouchers : "phát hành"
   vouchers ||--o{ voucher_redemptions : ""
-  orders ||--o{ voucher_redemptions : ""
-  orders ||--o{ disputes : ""
-  orders ||--o{ reviews : ""
+  repair_orders ||--o{ voucher_redemptions : ""
+  order_requests ||--o{ reports : "phản ánh"
+  tenants ||--o{ reports : "bị phản ánh"
   repair_orders ||--o{ reviews : ""
-  repair_orders ||--o{ invoices : ""
-  orders ||--o{ invoices : ""
+  repair_orders ||--o{ invoices : "garage xuất"
+  subscriptions ||--o{ platform_invoices : "phí theo kỳ"
+  platform_invoices ||--o{ platform_fee_payments : ""
 
-  orders { uuid id PK
+  order_requests { uuid id PK
     string code UK
     uuid buyer_id FK
     uuid seller_tenant_id FK
     uuid branch_id FK
     string status "theo S3"
-    bigint subtotal
-    bigint discount_seller
-    bigint discount_platform
-    bigint total
-    string payment_mode "PREPAID|PAY_AT_GARAGE" }
-  order_items { uuid id PK
-    uuid order_id FK
+    bigint estimated_total
+    bigint final_total "garage chốt"
+    datetime expires_at }
+  order_request_items { uuid id PK
+    uuid order_request_id FK
     uuid offer_id FK
     int qty
-    bigint unit_price
-    int commission_bp }
-  carts { uuid id PK
-    uuid user_id FK }
-  cart_items { uuid id PK
-    uuid cart_id FK
-    uuid offer_id FK
-    int qty }
+    bigint unit_price }
   payments { uuid id PK
-    string ref_type "ORDER|RO|RENTAL|SOS|SUBSCRIPTION"
+    uuid tenant_id FK "garage thu"
+    string ref_type "RO|ORDER_REQUEST|RENTAL|SOS"
     uuid ref_id
-    string method "VIETQR|CARD|WALLET|CASH"
+    string method "VIETQR|CARD|CASH|TRANSFER"
     bigint amount
-    string gateway_txn_id UK
+    uuid recorded_by FK
     string status }
-  refunds { uuid id PK
-    uuid payment_id FK
-    bigint amount
-    string reason
-    string status }
-  wallets { uuid id PK
-    string owner_type "USER|TENANT|PLATFORM"
-    uuid owner_id
-    bigint pending
-    bigint available }
-  ledger_entries { bigint id PK
-    uuid wallet_id FK
-    uuid txn_id "nhóm bút toán kép"
-    bigint debit
-    bigint credit
-    string memo }
-  settlements { uuid id PK
+  cash_book_entries { uuid id PK
     uuid tenant_id FK
-    date period_from
-    date period_to
-    bigint gross
-    bigint commission
-    bigint net
-    string status }
-  settlement_lines { uuid id PK
-    uuid settlement_id FK
-    uuid order_item_id FK
-    bigint amount }
-  payouts { uuid id PK
-    uuid wallet_id FK
+    uuid branch_id FK
+    string type "THU|CHI"
     bigint amount
-    string bank_account
-    string status "theo S7" }
+    string category
+    uuid payment_id FK }
   vouchers { uuid id PK
-    string issuer "PLATFORM|TENANT"
-    uuid tenant_id
+    uuid tenant_id FK "garage phát hành"
+    uuid campaign_id "chương trình chung của sàn, nếu có"
     string code
     string type "PERCENT|AMOUNT"
     bigint value
@@ -400,10 +430,13 @@ erDiagram
     datetime expires_at }
   voucher_redemptions { uuid id PK
     uuid voucher_id FK
-    uuid order_id FK
+    uuid ro_id FK
     bigint amount }
-  disputes { uuid id PK
-    uuid order_id FK
+  reports { uuid id PK
+    uuid reporter_id FK
+    uuid tenant_id FK
+    string ref_type
+    uuid ref_id
     string reason
     string status
     string resolution }
@@ -414,11 +447,26 @@ erDiagram
     string content
     string status }
   invoices { uuid id PK
+    uuid tenant_id FK
     string ref_type
     uuid ref_id
     string provider_no
     string pdf_url
     string status }
+  platform_invoices { uuid id PK
+    uuid tenant_id FK
+    uuid subscription_id FK
+    date period_from
+    date period_to
+    bigint amount
+    date due_date
+    string status "theo S7" }
+  platform_fee_payments { uuid id PK
+    uuid platform_invoice_id FK
+    bigint amount
+    string method
+    uuid recorded_by FK
+    datetime paid_at }
 ```
 
 ## D5 · Mở rộng: cứu hộ, thuê xe, xe cũ, cộng đồng, thông báo, AI
@@ -432,7 +480,7 @@ erDiagram
   rental_vehicles ||--o{ rental_contracts : ""
   users ||--o{ rental_contracts : "thuê"
   users ||--o{ used_car_listings : "đăng"
-  used_car_listings |o--o| inspections : "kiểm định"
+  used_car_listings |o--o| used_car_appraisals : "kiểm định"
   used_car_listings ||--o{ chat_threads : ""
   users ||--o{ posts : ""
   posts ||--o{ comments : ""
@@ -449,7 +497,7 @@ erDiagram
     string issue_type
     uuid assigned_tenant_id FK
     uuid assigned_staff_id FK
-    bigint quoted_price
+    bigint quoted_price "garage báo"
     string status "theo S6" }
   sos_tracks { bigint id PK
     uuid sos_id FK
@@ -461,7 +509,7 @@ erDiagram
     uuid vehicle_id FK
     bigint daily_price
     bigint deposit
-    string owner_type "GARAGE|CONSIGN" }
+    string owner_type "GARAGE|CONSIGN do garage quản lý" }
   rental_contracts { uuid id PK
     uuid rental_vehicle_id FK
     uuid renter_id FK
@@ -475,7 +523,7 @@ erDiagram
     uuid vehicle_id FK
     bigint price
     string status }
-  inspections { uuid id PK
+  used_car_appraisals { uuid id PK
     uuid listing_id FK
     uuid tenant_id FK
     json checklist

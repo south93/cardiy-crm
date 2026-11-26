@@ -1,0 +1,1597 @@
+// Mô hình dữ liệu CARDIY. Đặc tả đầy đủ: docs/06-mo-hinh-du-lieu.md (nhóm D1)
+// Vòng 0.1: tenants, branches. Vòng 0.2: users, memberships, roles, permissions,
+// sessions, audit_logs, files.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// PLATFORM: sàn CARDIY · GARAGE: garage PLG dùng CRM · PARTNER: đối tác (chỉ cổng đối tác, 1 tài khoản)
+enum TenantType {
+  PLATFORM
+  GARAGE
+  PARTNER
+}
+
+/// Trạng thái đối tác theo máy trạng thái S4
+enum TenantStatus {
+  NHAP
+  CHO_DUYET
+  CAN_BO_SUNG
+  TU_CHOI
+  CHO_KY_HOP_DONG
+  DANG_THIET_LAP
+  HOAT_DONG
+  TAM_KHOA
+  CHAM_DUT
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum PermissionScope {
+  PLATFORM
+  TENANT
+  PARTNER
+}
+
+model Tenant {
+  id            String       @id @default(uuid()) @db.Uuid
+  type          TenantType   @default(GARAGE)
+  name          String
+  taxCode       String?      @unique @map("tax_code")
+  status        TenantStatus @default(NHAP)
+  /// Thông tin in trên phiếu (tên hiển thị, hotline, tài khoản nhận tiền, ghi chú bảo hành…)
+  printSettings Json?        @map("print_settings")
+  /// Mốc nhắc chăm sóc khách (số ngày): đăng kiểm, bảo hiểm, bảo dưỡng, hỏi thăm sau sửa
+  careSettings  Json?        @map("care_settings")
+  /// Gửi tin Zalo ZNS: bật/tắt, chế độ, mẫu tin từng sự kiện (vòng 2.3). Refresh token lưu riêng (mã hoá) ở zalo_tokens
+  zaloSettings  Json?        @map("zalo_settings")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  branches    Branch[]
+  memberships Membership[]
+  roles       Role[]
+  files       FileObject[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  address   String?
+  phone     String?
+  lat       Float?
+  lng       Float?
+  bays      Int       @default(0)
+  /// Vùng giá: BP = giá Bình Phước (giá bán chính), BD = giá Bình Dương
+  priceZone String    @default("BP") @map("price_zone")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  membershipRoles MembershipRole[]
+  orders          RepairOrder[]
+  bookings        Booking[]
+  stock           StockLevel[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+/// Tài khoản đăng nhập. Một người có thể làm việc ở nhiều tenant (qua Membership).
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  phone              String     @unique
+  email              String?
+  fullName           String     @map("full_name")
+  passwordHash       String     @map("password_hash")
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  totpSecret         String?    @map("totp_secret")
+  totpEnabled        Boolean    @default(false) @map("totp_enabled")
+  avatarFileId       String?    @map("avatar_file_id") @db.Uuid
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  memberships   Membership[]
+  sessions      Session[]
+  customerLinks CustomerLink[]
+  ownerSessions OwnerSession[]
+
+  @@map("users")
+}
+
+/// Người dùng làm việc tại một tenant
+model Membership {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  tenantId  String     @map("tenant_id") @db.Uuid
+  title     String?
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id])
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  roles  MembershipRole[]
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+/// Vai trò. tenantId = null: vai trò hệ thống (không sửa được).
+model Role {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String?         @map("tenant_id") @db.Uuid
+  code       String
+  name       String
+  scope      PermissionScope @default(TENANT)
+  isSystem   Boolean         @default(false) @map("is_system")
+  require2fa Boolean         @default(false) @map("require_2fa")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  members     MembershipRole[]
+
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+model Permission {
+  code  String          @id
+  group String
+  label String
+  scope PermissionScope
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code])
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+/// Gán vai trò cho thành viên. branchId = null: áp dụng mọi chi nhánh.
+model MembershipRole {
+  id           String  @id @default(uuid()) @db.Uuid
+  membershipId String  @map("membership_id") @db.Uuid
+  roleId       String  @map("role_id") @db.Uuid
+  branchId     String? @map("branch_id") @db.Uuid
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id])
+  branch     Branch?    @relation(fields: [branchId], references: [id])
+
+  @@unique([membershipId, roleId, branchId])
+  @@index([membershipId])
+  @@map("membership_roles")
+}
+
+/// Phiên đăng nhập: lưu băm của refresh token, xoay vòng mỗi lần làm mới.
+model Session {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  membershipId String    @map("membership_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  userAgent    String?   @map("user_agent")
+  ip           String?
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  /// Thu hồi do xoay vòng (làm mới phiên), khác với đăng xuất / khoá
+  rotatedAt    DateTime? @map("rotated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Nhật ký thao tác: chỉ được thêm. Trigger trong migration chặn UPDATE/DELETE.
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model FileObject {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  storageKey String   @unique @map("storage_key")
+  mime       String
+  size       Int
+  name       String
+  uploadedBy String   @map("uploaded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("files")
+}
+
+// ======================= Vòng 1.1: Khách hàng & Xe (D2) =======================
+
+/// Bộ đếm sinh mã theo tenant (KH000001, RO000001…). Tăng nguyên tử bằng SQL.
+model TenantCounter {
+  tenantId String @map("tenant_id") @db.Uuid
+  key      String
+  value    Int    @default(0)
+
+  @@id([tenantId, key])
+  @@map("tenant_counters")
+}
+
+enum CustomerType {
+  PERSON
+  COMPANY
+}
+
+enum CustomerTier {
+  THUONG
+  BAC
+  VANG
+  KIM_CUONG
+}
+
+/// Nguồn khách theo danh mục đang dùng ở AppSheet của PLG
+enum CustomerSource {
+  ZALO
+  FACEBOOK
+  TIKTOK
+  GIOI_THIEU
+  KHACH_CU
+  VANG_LAI
+  WEBSITE
+  CUOC_GOI
+  GARA
+  CHAM_SOC_XE
+  DAI_LY
+  SAN_CARDIY
+  KHAC
+}
+
+model Customer {
+  id               String         @id @default(uuid()) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  code             String
+  type             CustomerType   @default(PERSON)
+  name             String
+  /// Số điện thoại chuẩn hoá 0xxxxxxxxx, không trùng trong một tenant.
+  /// Có thể trống (khách vãng lai): khi đó nhận diện theo biển số xe.
+  phone            String?
+  phone2           String?
+  email            String?
+  address          String?
+  taxCode          String?        @map("tax_code")
+  representative   String?
+  /// Chi nhánh phục vụ đầu tiên (khách dùng chung mọi chi nhánh)
+  branchId         String?        @map("branch_id") @db.Uuid
+  birthday         DateTime?      @db.Date
+  tier             CustomerTier   @default(THUONG)
+  source           CustomerSource @default(VANG_LAI)
+  note             String?
+  /// Khách đồng ý nhận tin chăm sóc / khuyến mại (Nghị định 13/2023)
+  marketingConsent Boolean        @default(false) @map("marketing_consent")
+  /// Công nợ ban đầu khi chuyển từ hệ thống cũ (VND)
+  openingDebt      BigInt         @default(0) @map("opening_debt")
+  importBatchId    String?        @map("import_batch_id") @db.Uuid
+  searchText       String         @default("") @map("search_text")
+  createdBy        String?        @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
+
+  ownerships VehicleOwnership[]
+  orders     RepairOrder[]
+  bookings   Booking[]
+  careTasks  CareTask[]
+
+  appLink    CustomerLink?
+  appInvites CustomerInvite[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, phone])
+  @@index([tenantId, searchText])
+  @@map("customers")
+}
+
+model Vehicle {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  /// Biển số chuẩn hoá (30A12345), không trùng trong một tenant
+  plateNo            String    @map("plate_no")
+  vin                String?
+  make               String?
+  model              String?
+  year               Int?
+  color              String?
+  fuel               String?
+  transmission       String?
+  tireSize           String?   @map("tire_size")
+  /// false: biển số chưa đúng mẫu (thiếu số…), cần xem lại
+  plateValid         Boolean   @default(true) @map("plate_valid")
+  importBatchId      String?   @map("import_batch_id") @db.Uuid
+  odometerKm         Int?      @map("odometer_km")
+  registrationExpiry DateTime? @map("registration_expiry") @db.Date
+  insuranceExpiry    DateTime? @map("insurance_expiry") @db.Date
+  note               String?
+  searchText         String    @default("") @map("search_text")
+  createdBy          String?   @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  ownerships VehicleOwnership[]
+  odometers  OdometerReading[]
+  orders     RepairOrder[]
+  bookings   Booking[]
+
+  @@unique([tenantId, plateNo])
+  @@index([tenantId, searchText])
+  @@map("vehicles")
+}
+
+/// Lịch sử chủ xe. toDate = null: chủ hiện tại (mỗi xe tối đa 1).
+model VehicleOwnership {
+  id         String    @id @default(uuid()) @db.Uuid
+  vehicleId  String    @map("vehicle_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  fromDate   DateTime  @default(now()) @map("from_date")
+  toDate     DateTime? @map("to_date")
+
+  vehicle  Vehicle  @relation(fields: [vehicleId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([vehicleId])
+  @@index([customerId])
+  @@map("vehicle_ownerships")
+}
+
+model OdometerReading {
+  id         String   @id @default(uuid()) @db.Uuid
+  vehicleId  String   @map("vehicle_id") @db.Uuid
+  km         Int
+  /// MANUAL: nhập tay · IMPORT: nhập file · RO: lúc tiếp nhận xe (vòng 1.2)
+  source     String   @default("MANUAL")
+  recordedBy String?  @map("recorded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId, createdAt])
+  @@map("odometer_readings")
+}
+
+enum ImportKind {
+  CUSTOMERS
+  VEHICLES
+  /// Danh mục sản phẩm + tồn đầu kỳ từ file Excel AppSheet (vòng 1.4c)
+  PRODUCTS
+}
+
+enum ImportStatus {
+  PREVIEW
+  DONE
+}
+
+/// Một lần nhập dữ liệu (xem trước → xác nhận). plan: kết quả phân tích, xoá sau khi nhập xong.
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  kind        ImportKind
+  status      ImportStatus @default(PREVIEW)
+  fileName    String       @map("file_name")
+  encoding    String
+  summary     Json
+  issues      Json
+  plan        Json?
+  createdBy   String       @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  committedAt DateTime?    @map("committed_at")
+
+  @@index([tenantId, createdAt])
+  @@map("import_batches")
+}
+
+// ---------------- Vòng 1.2 · Đơn hàng (lệnh sửa chữa / bán hàng) ----------------
+
+/// Luồng cơ bản: TIEP_NHAN → DANG_SUA → HOAN_THANH → DA_GIAO; huỷ được khi chưa giao.
+enum OrderStatus {
+  TIEP_NHAN
+  DANG_SUA
+  HOAN_THANH
+  DA_GIAO
+  HUY
+}
+
+enum OrderItemKind {
+  DICH_VU
+  PHU_TUNG
+}
+
+enum PaymentMethod {
+  TIEN_MAT
+  CHUYEN_KHOAN
+  THE
+  /// Công ty bảo hiểm thanh toán phần của họ
+  BAO_HIEM
+}
+
+model RepairOrder {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  branchId        String      @map("branch_id") @db.Uuid
+  /// DH000001… theo garage
+  code            String
+  customerId      String      @map("customer_id") @db.Uuid
+  /// Bán lẻ phụ kiện thì có thể không có xe
+  vehicleId       String?     @map("vehicle_id") @db.Uuid
+  status          OrderStatus @default(TIEP_NHAN)
+  odometerKm      Int?        @map("odometer_km")
+  /// Khách yêu cầu / triệu chứng
+  request         String?
+  note            String?
+  /// Người phụ trách (cố vấn dịch vụ) và kỹ thuật viên chính: membership id
+  advisorId       String?     @map("advisor_id") @db.Uuid
+  technicianId    String?     @map("technician_id") @db.Uuid
+  /// Tiền: đồng, số nguyên
+  subtotal        BigInt      @default(0)
+  /// Giảm giá trên cả đơn (ngoài giảm từng dòng)
+  orderDiscount   BigInt      @default(0) @map("order_discount")
+  /// Tổng thuế VAT (theo % thuế từng dòng, sau chiết khấu)
+  vatTotal        BigInt      @default(0) @map("vat_total")
+  /// Trong tổng cộng: phần bảo hiểm thanh toán (khách trả phần còn lại)
+  insuranceAmount BigInt      @default(0) @map("insurance_amount")
+  total           BigInt      @default(0)
+  paid            BigInt      @default(0)
+  receivedAt      DateTime    @default(now()) @map("received_at")
+  promisedAt      DateTime?   @map("promised_at")
+  completedAt     DateTime?   @map("completed_at")
+  deliveredAt     DateTime?   @map("delivered_at")
+  cancelledAt     DateTime?   @map("cancelled_at")
+  cancelReason    String?     @map("cancel_reason")
+  searchText      String      @default("") @map("search_text")
+  createdBy       String?     @map("created_by") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  branch     Branch               @relation(fields: [branchId], references: [id])
+  customer   Customer             @relation(fields: [customerId], references: [id])
+  vehicle    Vehicle?             @relation(fields: [vehicleId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+  history    OrderStatusHistory[]
+  booking    Booking?
+  inspection Inspection?
+  quotes     OrderQuote[]
+  review     OrderReview?
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, receivedAt])
+  @@index([tenantId, branchId, status])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@map("repair_orders")
+}
+
+model OrderItem {
+  id        String        @id @default(uuid()) @db.Uuid
+  orderId   String        @map("order_id") @db.Uuid
+  kind      OrderItemKind
+  /// Gắn sản phẩm trong danh mục (vòng 1.4); trống = nhập tay
+  productId String?       @map("product_id") @db.Uuid
+  name      String
+  unit      String?
+  quantity  Decimal       @db.Decimal(12, 2)
+  unitPrice BigInt        @map("unit_price")
+  discount  BigInt        @default(0)
+  amount    BigInt
+  /// % thuế VAT của dòng (0, 5, 8, 10…)
+  vatRate   Int           @default(0) @map("vat_rate")
+  /// Phần trên phiếu (VD: Phần lốp, Phần gầm); trống = không chia phần
+  section   String?
+  sortOrder Int           @default(0) @map("sort_order")
+
+  order   RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?    @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// Garage thu tiền trực tiếp (tiền không đi qua sàn). Thu nhầm thì huỷ phiếu, không xoá.
+model Payment {
+  id         String        @id @default(uuid()) @db.Uuid
+  tenantId   String        @map("tenant_id") @db.Uuid
+  orderId    String        @map("order_id") @db.Uuid
+  amount     BigInt
+  method     PaymentMethod
+  note       String?
+  paidAt     DateTime      @default(now()) @map("paid_at")
+  createdBy  String?       @map("created_by") @db.Uuid
+  voidedAt   DateTime?     @map("voided_at")
+  voidedBy   String?       @map("voided_by") @db.Uuid
+  voidReason String?       @map("void_reason")
+
+  order RepairOrder @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([tenantId, paidAt])
+  @@map("payments")
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(uuid()) @db.Uuid
+  orderId    String       @map("order_id") @db.Uuid
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  note       String?
+  actorId    String?      @map("actor_id") @db.Uuid
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+// ---------------- Vòng 1.4 · Danh mục sản phẩm & kho ----------------
+
+/// Nhóm sản phẩm 2 cấp (VD: Lốp xe → Lốp du lịch). Mỗi garage một bộ.
+model ProductCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  parent   ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children ProductCategory[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([tenantId, parentId])
+  @@map("product_categories")
+}
+
+/// Hàng hoá (PHU_TUNG, có tồn kho) hoặc dịch vụ (DICH_VU, không tồn kho)
+model Product {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  /// Mã hàng: tự sinh SP000001 hoặc nhập tay (mã cũ, mã vạch)
+  code         String
+  name         String
+  kind         OrderItemKind @default(PHU_TUNG)
+  categoryId   String?       @map("category_id") @db.Uuid
+  /// Thương hiệu sản phẩm (Michelin, GS, Castrol…)
+  brand        String?
+  unit         String?
+  salePrice    BigInt        @default(0) @map("sale_price")
+  /// Giá vùng Bình Dương (chi nhánh vùng giá BD dùng giá này; trống thì dùng giá bán chính)
+  salePriceBd  BigInt?       @map("sale_price_bd")
+  /// Giá khi xuất hoá đơn VAT (tham khảo)
+  vatPrice     BigInt?       @map("vat_price")
+  /// Giá vốn: cập nhật theo lần nhập gần nhất
+  costPrice    BigInt        @default(0) @map("cost_price")
+  /// Hãng xe dùng được (rỗng = mọi hãng)
+  vehicleMakes String[]      @default([]) @map("vehicle_makes")
+  /// Tháng / năm sản xuất (lốp, ắc quy…); tháng có thể trống
+  mfgMonth     Int?          @map("mfg_month")
+  mfgYear      Int?          @map("mfg_year")
+  /// Cảnh báo khi tồn tại một chi nhánh xuống dưới mức này
+  minStock     Decimal?      @map("min_stock") @db.Decimal(12, 2)
+  note         String?
+  active       Boolean       @default(true)
+  searchText   String        @default("") @map("search_text")
+  createdBy    String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+
+  category   ProductCategory? @relation(fields: [categoryId], references: [id])
+  stock      StockLevel[]
+  movements  StockMovement[]
+  orderItems OrderItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, searchText])
+  @@map("products")
+}
+
+/// Tồn hiện tại của một sản phẩm tại một chi nhánh (cho phép âm: bán trước, nhập sau)
+model StockLevel {
+  productId String   @map("product_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  quantity  Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  @@id([productId, branchId])
+  @@index([branchId])
+  @@map("stock_levels")
+}
+
+model Supplier {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  code           String
+  name           String
+  phone          String?
+  address        String?
+  taxCode        String?   @map("tax_code")
+  note           String?
+  /// Còn nợ nhà cung cấp lúc bắt đầu dùng hệ thống (đồng); công nợ = nợ đầu kỳ + phiếu nhập − phiếu chi trả NCC
+  openingPayable BigInt    @default(0) @map("opening_payable")
+  searchText     String    @default("") @map("search_text")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  documents StockDocument[]
+
+  @@unique([tenantId, code])
+  @@map("suppliers")
+}
+
+enum StockDocType {
+  NHAP
+  CHUYEN
+  DIEU_CHINH
+}
+
+/// Phiếu kho: nhập hàng (từ nhà cung cấp), chuyển kho giữa chi nhánh, điều chỉnh tồn (kiểm kê)
+model StockDocument {
+  id         String       @id @default(uuid()) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  /// PN000001 · PC000001 · PK000001
+  code       String
+  type       StockDocType
+  branchId   String       @map("branch_id") @db.Uuid
+  toBranchId String?      @map("to_branch_id") @db.Uuid
+  supplierId String?      @map("supplier_id") @db.Uuid
+  /// Số hoá đơn / chứng từ của nhà cung cấp
+  refNo      String?      @map("ref_no")
+  note       String?
+  total      BigInt       @default(0)
+  createdBy  String?      @map("created_by") @db.Uuid
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  supplier  Supplier?       @relation(fields: [supplierId], references: [id])
+  movements StockMovement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type, createdAt])
+  @@map("stock_documents")
+}
+
+enum StockMoveKind {
+  NHAP_HANG
+  XUAT_BAN
+  CHUYEN_DI
+  CHUYEN_DEN
+  DIEU_CHINH
+}
+
+/// Sổ kho: mọi thay đổi tồn đều ghi một dòng (số lượng có dấu), không sửa / xoá
+model StockMovement {
+  id         String        @id @default(uuid()) @db.Uuid
+  /// Thứ tự ghi sổ (các dòng cùng một giao dịch có cùng thời điểm)
+  seq        BigInt        @unique @default(autoincrement())
+  tenantId   String        @map("tenant_id") @db.Uuid
+  branchId   String        @map("branch_id") @db.Uuid
+  productId  String        @map("product_id") @db.Uuid
+  kind       StockMoveKind
+  quantity   Decimal       @db.Decimal(12, 2)
+  /// Tồn sau khi ghi (để xem lịch sử nhanh)
+  balance    Decimal       @db.Decimal(12, 2)
+  unitCost   BigInt?       @map("unit_cost")
+  documentId String?       @map("document_id") @db.Uuid
+  orderId    String?       @map("order_id") @db.Uuid
+  note       String?
+  createdBy  String?       @map("created_by") @db.Uuid
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  product  Product        @relation(fields: [productId], references: [id])
+  document StockDocument? @relation(fields: [documentId], references: [id])
+
+  @@index([productId, branchId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([orderId])
+  @@map("stock_movements")
+}
+
+// ---------------- Vòng 1.5a · Lịch hẹn ----------------
+
+/// Máy trạng thái S2 (docs/05-trang-thai.md)
+enum BookingStatus {
+  CHO_XAC_NHAN
+  DA_XAC_NHAN
+  DA_DEN
+  KHONG_DEN
+  KHACH_HUY
+  TU_CHOI
+}
+
+enum BookingChannel {
+  GOI_DIEN
+  ZALO
+  FACEBOOK
+  TRUC_TIEP
+  WEBSITE
+  KHAC
+  /// Khách tự đặt trên app chủ xe (vòng 2.2)
+  APP
+}
+
+model Booking {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  branchId     String         @map("branch_id") @db.Uuid
+  /// LH000001…
+  code         String
+  customerId   String         @map("customer_id") @db.Uuid
+  vehicleId    String?        @map("vehicle_id") @db.Uuid
+  scheduledAt  DateTime       @map("scheduled_at")
+  /// Thời gian dự kiến (phút)
+  durationMin  Int            @default(60) @map("duration_min")
+  /// Khách cần làm gì
+  service      String
+  note         String?
+  channel      BookingChannel @default(GOI_DIEN)
+  status       BookingStatus  @default(CHO_XAC_NHAN)
+  /// Kỹ thuật viên dự kiến (membership id)
+  technicianId String?        @map("technician_id") @db.Uuid
+  /// Đơn tạo ra khi khách đến (nhận xe)
+  orderId      String?        @unique @map("order_id") @db.Uuid
+  reason       String?
+  createdBy    String?        @map("created_by") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  branch   Branch       @relation(fields: [branchId], references: [id])
+  customer Customer     @relation(fields: [customerId], references: [id])
+  vehicle  Vehicle?     @relation(fields: [vehicleId], references: [id])
+  order    RepairOrder? @relation(fields: [orderId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId, scheduledAt])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@map("bookings")
+}
+
+// ---------------- Vòng 1.5b · Lịch gọi chăm sóc khách ----------------
+
+enum CareKind {
+  DANG_KIEM
+  BAO_HIEM
+  BAO_DUONG
+  HOI_THAM
+  KHAC
+}
+
+enum CareStatus {
+  /// Cần gọi (tới hạn hoặc sắp tới)
+  CAN_GOI
+  /// Khách hẹn gọi lại / không nghe máy: hạn gọi dời sang ngày khác
+  GOI_LAI
+  /// Xong (đã tư vấn, đã đặt lịch, khách không cần)
+  XONG
+  BO_QUA
+}
+
+enum CallOutcome {
+  DA_TU_VAN
+  DAT_LICH
+  KHONG_NGHE
+  GOI_LAI_SAU
+  KHONG_CAN
+  SAI_SO
+}
+
+/// Việc gọi chăm sóc khách: hệ thống tự tạo theo mốc (đăng kiểm, bảo hiểm, bảo dưỡng, hỏi thăm sau sửa) hoặc tạo tay
+model CareTask {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  branchId    String?      @map("branch_id") @db.Uuid
+  customerId  String       @map("customer_id") @db.Uuid
+  vehicleId   String?      @map("vehicle_id") @db.Uuid
+  orderId     String?      @map("order_id") @db.Uuid
+  kind        CareKind
+  /// Chống tạo trùng khi quét lại (VD: DANG_KIEM:<xe>:2027-01-15)
+  refKey      String       @map("ref_key")
+  title       String
+  /// Ngày cần gọi
+  dueDate     DateTime     @map("due_date") @db.Date
+  /// Mốc gốc (ngày hết hạn đăng kiểm, ngày giao xe…)
+  eventDate   DateTime?    @map("event_date") @db.Date
+  status      CareStatus   @default(CAN_GOI)
+  attempts    Int          @default(0)
+  lastOutcome CallOutcome? @map("last_outcome")
+  doneAt      DateTime?    @map("done_at")
+  createdBy   String?      @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  calls    CallLog[]
+
+  @@unique([tenantId, refKey])
+  @@index([tenantId, status, dueDate])
+  @@index([customerId])
+  @@map("care_tasks")
+}
+
+model CallLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  taskId    String      @map("task_id") @db.Uuid
+  outcome   CallOutcome
+  note      String?
+  /// Hẹn gọi lại
+  nextAt    DateTime?   @map("next_at") @db.Date
+  bookingId String?     @map("booking_id") @db.Uuid
+  actorId   String?     @map("actor_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  task CareTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("call_logs")
+}
+
+// ---------------- Vòng 1.5c · Thu chi & công nợ ----------------
+
+enum CashType {
+  THU
+  CHI
+}
+
+/// Phiếu thu / chi ngoài đơn hàng (tiền thu theo đơn nằm ở bảng payments). Ghi nhầm thì huỷ phiếu, không xoá.
+model CashEntry {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  branchId     String        @map("branch_id") @db.Uuid
+  /// PT000001 (thu) · PCH000001 (chi)
+  code         String
+  type         CashType
+  /// Khoản mục: THU_NO_DAU_KY, THU_KHAC, CHI_NHA_CUNG_CAP, LUONG, DIEN_NUOC, MAT_BANG, CONG_CU, CHI_KHAC…
+  category     String
+  amount       BigInt
+  method       PaymentMethod
+  /// Người nộp / người nhận (ghi tay)
+  counterparty String?
+  customerId   String?       @map("customer_id") @db.Uuid
+  supplierId   String?       @map("supplier_id") @db.Uuid
+  note         String?
+  occurredAt   DateTime      @default(now()) @map("occurred_at")
+  createdBy    String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  voidedAt     DateTime?     @map("voided_at")
+  voidedBy     String?       @map("voided_by") @db.Uuid
+  voidReason   String?       @map("void_reason")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId, occurredAt])
+  @@index([customerId])
+  @@map("cash_entries")
+}
+
+// ---------------- Vòng 1.5e · App kỹ thuật viên ----------------
+
+/// Phiếu kiểm tra xe điện tử: mỗi đơn một phiếu, KTV nhập trên điện thoại; bản in A4 lấy dữ liệu từ đây
+model Inspection {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  orderId     String    @unique @map("order_id") @db.Uuid
+  /// InspectionData (@cardiy/shared): lốp, gạt mưa, an toàn, gầm, khuyến nghị, kiểm tra cuối
+  data        Json      @default("{}")
+  /// KTV kiểm tra (membership id)
+  inspectorId String?   @map("inspector_id") @db.Uuid
+  completedAt DateTime? @map("completed_at")
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("inspections")
+}
+
+// ---------------- Vòng 2.1 · App chủ xe ----------------
+
+/// Tài khoản (users) của chủ xe ↔ hồ sơ khách ở một garage. Một hồ sơ khách chỉ gắn một tài khoản; một tài khoản có thể là khách của nhiều garage.
+model CustomerLink {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  customerId String   @unique @map("customer_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([userId])
+  @@map("customer_links")
+}
+
+/// Lời mời dùng app: garage gửi link / QR cho khách; khách mở link để kích hoạt tài khoản. Token chỉ lưu dạng băm, dùng một lần.
+model CustomerInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@map("customer_invites")
+}
+
+/// Phiên đăng nhập app chủ xe (tách khỏi phiên nhân viên: cookie riêng, token loại "owner")
+model OwnerSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  userAgent String?   @map("user_agent")
+  ip        String?
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  rotatedAt DateTime? @map("rotated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("owner_sessions")
+}
+
+// ---------------- Vòng 2.2 · Khách duyệt báo giá trên app ----------------
+
+enum QuoteStatus {
+  CHO_DUYET
+  DA_DUYET
+  DUYET_MOT_PHAN
+  TU_CHOI
+  /// Hết hiệu lực: nhân viên sửa hạng mục / gửi báo giá mới / đơn không còn sửa được
+  HET_HIEU_LUC
+}
+
+/// Báo giá gửi khách duyệt: chụp lại hạng mục lúc gửi; khách đồng ý / từ chối từng dòng trên app
+model OrderQuote {
+  id           String      @id @default(uuid()) @db.Uuid
+  tenantId     String      @map("tenant_id") @db.Uuid
+  orderId      String      @map("order_id") @db.Uuid
+  status       QuoteStatus @default(CHO_DUYET)
+  /// [{itemId, kind, name, unit, quantity, unitPrice, discount, amount, vatRate}]
+  items        Json
+  total        BigInt
+  message      String?
+  sentBy       String?     @map("sent_by") @db.Uuid
+  sentAt       DateTime    @default(now()) @map("sent_at")
+  /// itemId khách đồng ý
+  approvedIds  String[]    @default([]) @map("approved_ids") @db.Uuid
+  customerNote String?     @map("customer_note")
+  respondedAt  DateTime?   @map("responded_at")
+  /// Đã bỏ các dòng khách từ chối khỏi đơn chưa (không bỏ được khi tổng mới nhỏ hơn số đã thu)
+  applied      Boolean     @default(false)
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, sentAt])
+  @@index([tenantId, status])
+  @@map("order_quotes")
+}
+
+// ---------------- Vòng 2.3 · Zalo ZNS, OTP, đánh giá ----------------
+
+/// Token Zalo OA của garage (mã hoá AES-GCM). Refresh token dùng một lần: mỗi lần làm mới lưu lại token mới
+model ZaloToken {
+  tenantId        String    @id @map("tenant_id") @db.Uuid
+  /// Ứng dụng Zalo nhập trong CRM (Cài đặt → Zalo); trống thì dùng ZALO_APP_ID / ZALO_APP_SECRET của máy chủ
+  appId           String?   @map("app_id")
+  appSecretEnc    String?   @map("app_secret_enc")
+  refreshTokenEnc String?   @map("refresh_token_enc")
+  accessTokenEnc  String?   @map("access_token_enc")
+  accessExpiresAt DateTime? @map("access_expires_at")
+  lastError       String?   @map("last_error")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("zalo_tokens")
+}
+
+/// Nhật ký tin ZNS đã gửi / lỗi (đối soát chi phí, xem lỗi mẫu tin)
+model ZaloMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  event      String
+  phone      String
+  templateId String   @map("template_id")
+  status     String
+  error      String?
+  msgId      String?  @map("msg_id")
+  refId      String?  @map("ref_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([refId])
+  @@map("zalo_messages")
+}
+
+/// Khách đánh giá đơn sau khi nhận xe (1–5 sao); garage trả lời
+model OrderReview {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  orderId    String    @unique @map("order_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  rating     Int
+  comment    String?
+  reply      String?
+  repliedBy  String?   @map("replied_by") @db.Uuid
+  repliedAt  DateTime? @map("replied_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("order_reviews")
+}
+
+// ---------------- Vòng 3.1 · Đăng ký đối tác, gói, phí đối tác (sàn) ----------------
+
+/// Gói đối tác: giá theo tháng, thu theo kỳ (1/3/6/12 tháng). Bảng giá do sàn cấu hình
+model Plan {
+  id            String   @id @default(uuid()) @db.Uuid
+  code          String   @unique
+  name          String
+  monthlyFee    BigInt   @map("monthly_fee")
+  billingMonths Int      @default(1) @map("billing_months")
+  description   String?
+  /// Quyền lợi hiển thị trên trang đăng ký (mỗi dòng một ý)
+  features      String[] @default([])
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  applications  PartnerApplication[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum ApplicationStatus {
+  CHO_DUYET
+  CAN_BO_SUNG
+  TU_CHOI
+  DA_DUYET
+}
+
+/// Hồ sơ đăng ký làm đối tác (nộp trên trang công khai; Admin sàn duyệt)
+model PartnerApplication {
+  id             String            @id @default(uuid()) @db.Uuid
+  /// HS000001
+  code           String            @unique
+  status         ApplicationStatus @default(CHO_DUYET)
+  garageName     String            @map("garage_name")
+  taxCode        String?           @map("tax_code")
+  address        String
+  province       String?
+  representative String
+  phone          String
+  email          String?
+  planId         String?           @map("plan_id") @db.Uuid
+  note           String?
+  /// [{fileId, kind: GPKD|CCCD|ANH|KHAC, name}]
+  documents      Json              @default("[]")
+  /// Băm token trong link theo dõi hồ sơ gửi cho người nộp
+  accessHash     String            @map("access_hash")
+  reviewNote     String?           @map("review_note")
+  reviewedBy     String?           @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime?         @map("reviewed_at")
+  /// Tenant đối tác tạo ra khi duyệt
+  tenantId       String?           @unique @map("tenant_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  plan Plan? @relation(fields: [planId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("partner_applications")
+}
+
+/// Gói đối tác đang dùng (chụp giá lúc đăng ký)
+model Subscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  planId        String    @map("plan_id") @db.Uuid
+  monthlyFee    BigInt    @map("monthly_fee")
+  billingMonths Int       @map("billing_months")
+  startAt       DateTime  @map("start_at") @db.Date
+  /// Đã lập hoá đơn tới ngày này (kỳ tiếp theo bắt đầu từ đây)
+  paidThrough   DateTime  @map("paid_through") @db.Date
+  endedAt       DateTime? @map("ended_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  plan     Plan              @relation(fields: [planId], references: [id])
+  invoices PlatformInvoice[]
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
+
+enum PlatformInvoiceStatus {
+  DA_PHAT_HANH
+  DA_THANH_TOAN
+  HUY
+}
+
+/// Hoá đơn phí đối tác (sàn thu của đối tác). Quá hạn = chưa thanh toán và quá hạn thanh toán
+model PlatformInvoice {
+  id             String                @id @default(uuid()) @db.Uuid
+  /// PHI000001
+  code           String                @unique
+  tenantId       String                @map("tenant_id") @db.Uuid
+  subscriptionId String                @map("subscription_id") @db.Uuid
+  periodFrom     DateTime              @map("period_from") @db.Date
+  periodTo       DateTime              @map("period_to") @db.Date
+  amount         BigInt
+  dueDate        DateTime              @map("due_date") @db.Date
+  status         PlatformInvoiceStatus @default(DA_PHAT_HANH)
+  paidAt         DateTime?             @map("paid_at")
+  paidMethod     String?               @map("paid_method")
+  paidNote       String?               @map("paid_note")
+  recordedBy     String?               @map("recorded_by") @db.Uuid
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId, periodFrom])
+  @@index([status, dueDate])
+  @@map("platform_invoices")
+}
+
+// ======================= Vòng 3.2: Danh mục chuẩn, gian hàng, tin đăng (D3) =======================
+
+enum CatalogKind {
+  PRODUCT
+  SERVICE
+}
+
+/// Nhóm danh mục chuẩn của sàn (dùng chung mọi garage)
+model CatalogCategory {
+  id        String      @id @default(uuid()) @db.Uuid
+  kind      CatalogKind
+  parentId  String?     @map("parent_id") @db.Uuid
+  name      String
+  sortOrder Int         @default(0) @map("sort_order")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  parent   CatalogCategory?  @relation("CatalogTree", fields: [parentId], references: [id])
+  children CatalogCategory[] @relation("CatalogTree")
+  items    CatalogItem[]
+
+  @@index([kind, parentId])
+  @@map("catalog_categories")
+}
+
+/// Sản phẩm chuẩn (SKU) hoặc dịch vụ chuẩn của sàn. Tin đăng của garage phải chọn từ đây
+model CatalogItem {
+  id          String      @id @default(uuid()) @db.Uuid
+  kind        CatalogKind
+  /// SKU / mã dịch vụ chuẩn
+  code        String      @unique
+  name        String
+  categoryId  String?     @map("category_id") @db.Uuid
+  brand       String?
+  unit        String?
+  /// Thông số: [{label, value}] (kích cỡ, chỉ số tải, độ nhớt, dung lượng…)
+  specs       Json        @default("[]")
+  description String?
+  imageFileId String?     @map("image_file_id") @db.Uuid
+  /// Ẩn: không chọn được khi đăng tin mới, tin cũ vẫn giữ
+  active      Boolean     @default(true)
+  searchText  String      @default("") @map("search_text")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  category CatalogCategory? @relation(fields: [categoryId], references: [id])
+  offers   Offer[]
+
+  @@index([kind, categoryId])
+  @@map("catalog_items")
+}
+
+enum CatalogProposalStatus {
+  CHO_XU_LY
+  DA_TAO
+  TU_CHOI
+}
+
+/// Garage đề xuất thêm vào danh mục chuẩn khi không tìm thấy SKU / dịch vụ (A6.24)
+model CatalogProposal {
+  id            String                @id @default(uuid()) @db.Uuid
+  tenantId      String                @map("tenant_id") @db.Uuid
+  kind          CatalogKind
+  name          String
+  brand         String?
+  note          String?
+  status        CatalogProposalStatus @default(CHO_XU_LY)
+  catalogItemId String?               @map("catalog_item_id") @db.Uuid
+  reviewNote    String?               @map("review_note")
+  createdBy     String                @map("created_by") @db.Uuid
+  reviewedBy    String?               @map("reviewed_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  reviewedAt    DateTime?             @map("reviewed_at")
+
+  @@index([status, createdAt])
+  @@map("catalog_proposals")
+}
+
+/// Hồ sơ gian hàng trên sàn (mỗi garage / đối tác một gian hàng)
+model Shop {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @unique @map("tenant_id") @db.Uuid
+  /// Đường dẫn gian hàng: cardiy.vn/garage/<slug>
+  slug           String   @unique
+  name           String
+  intro          String?
+  phone          String?
+  address        String?
+  province       String?
+  lat            Float?
+  lng            Float?
+  /// [{day: 0..6 (CN..T7), open: "07:30", close: "17:30", closed: bool}]
+  openingHours   Json     @default("[]") @map("opening_hours")
+  returnPolicy   String?  @map("return_policy")
+  warrantyPolicy String?  @map("warranty_policy")
+  cancelPolicy   String?  @map("cancel_policy")
+  logoFileId     String?  @map("logo_file_id") @db.Uuid
+  coverFileId    String?  @map("cover_file_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("shops")
+}
+
+/// S5: tin đăng. Hết hàng tính khi đọc (tồn khả dụng = 0), không lưu trạng thái riêng
+enum OfferStatus {
+  NHAP
+  CHO_DUYET
+  DANG_BAN
+  BI_TU_CHOI
+  TAM_AN
+  BI_GO
+}
+
+/// Tin đăng sản phẩm / dịch vụ của garage trên sàn
+model Offer {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  kind            CatalogKind
+  catalogItemId   String      @map("catalog_item_id") @db.Uuid
+  /// PLG: hàng trong kho CRM, tồn khả dụng = tổng tồn các chi nhánh bán. Đối tác: trống, nhập tồn tay
+  productId       String?     @map("product_id") @db.Uuid
+  /// Đối tác nhập tay số lượng còn bán
+  manualStock     Int?        @map("manual_stock")
+  /// Chi nhánh bán / làm dịch vụ (rỗng = mọi chi nhánh)
+  branchIds       String[]    @default([]) @map("branch_ids") @db.Uuid
+  price           BigInt
+  /// Giá niêm yết (gạch ngang) nếu đang giảm
+  listPrice       BigInt?     @map("list_price")
+  /// Dịch vụ: giá là "từ" (tuỳ xe)
+  priceFrom       Boolean     @default(false) @map("price_from")
+  installIncluded Boolean     @default(false) @map("install_included")
+  mfgYear         Int?        @map("mfg_year")
+  /// Dịch vụ: thời gian làm dự kiến (phút)
+  durationMinutes Int?        @map("duration_minutes")
+  note            String?
+  imageFileIds    String[]    @default([]) @map("image_file_ids") @db.Uuid
+  status          OfferStatus @default(NHAP)
+  reviewNote      String?     @map("review_note")
+  reviewedBy      String?     @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?   @map("reviewed_at")
+  submittedAt     DateTime?   @map("submitted_at")
+  createdBy       String?     @map("created_by") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id])
+
+  @@index([tenantId, kind, status])
+  @@index([status, submittedAt])
+  @@index([catalogItemId, status])
+  @@map("offers")
+}
+
+// ======================= Vòng 3.4: Yêu cầu đặt hàng từ sàn, voucher (D4) =======================
+
+/// S3 (rút gọn): garage xác nhận rồi đánh dấu hoàn tất khi khách đến lắp / nhận và đã thu tiền
+enum OrderRequestStatus {
+  CHO_XAC_NHAN
+  DA_XAC_NHAN
+  HOAN_THANH
+  TU_CHOI
+  HET_HAN
+  KHACH_HUY
+  KHONG_DEN
+}
+
+enum VoucherKind {
+  PERCENT
+  AMOUNT
+}
+
+/// Voucher của garage (garage tự phát hành, tự chịu; sàn chỉ hiển thị)
+model Voucher {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  code        String
+  title       String
+  kind        VoucherKind
+  /// PERCENT: 1–100 (%); AMOUNT: số tiền giảm
+  value       Int
+  minOrder    BigInt      @default(0) @map("min_order")
+  /// Giảm tối đa (chỉ với PERCENT)
+  maxDiscount BigInt?     @map("max_discount")
+  /// ALL | PRODUCT | SERVICE
+  appliesTo   String      @default("ALL") @map("applies_to")
+  startsAt    DateTime    @map("starts_at")
+  endsAt      DateTime    @map("ends_at")
+  /// Tổng lượt dùng tối đa (trống = không giới hạn)
+  usageLimit  Int?        @map("usage_limit")
+  active      Boolean     @default(true)
+  createdBy   String?     @map("created_by") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  requests OrderRequest[]
+
+  @@unique([tenantId, code])
+  @@map("vouchers")
+}
+
+/// Yêu cầu đặt hàng / đặt lịch của khách trên sàn gửi tới một garage. Tiền không đi qua sàn
+model OrderRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  /// YC000001 (đếm theo garage nhận)
+  code           String
+  tenantId       String             @map("tenant_id") @db.Uuid
+  status         OrderRequestStatus @default(CHO_XAC_NHAN)
+  customerName   String             @map("customer_name")
+  phone          String
+  plateNo        String?            @map("plate_no")
+  note           String?
+  /// Giờ hẹn lắp / làm dịch vụ / nhận hàng
+  scheduledAt    DateTime           @map("scheduled_at")
+  voucherId      String?            @map("voucher_id") @db.Uuid
+  voucherCode    String?            @map("voucher_code")
+  subtotal       BigInt
+  discount       BigInt             @default(0)
+  /// Tạm tính = subtotal − discount; garage chốt giá cuối khi xác nhận
+  estimatedTotal BigInt             @map("estimated_total")
+  finalTotal     BigInt?            @map("final_total")
+  /// Ghi chú / lý do của garage (khách thấy)
+  sellerNote     String?            @map("seller_note")
+  accessHash     String             @map("access_hash")
+  /// Hết hạn chờ xác nhận (24 giờ): tự nhả tồn
+  expiresAt      DateTime           @map("expires_at")
+  confirmedAt    DateTime?          @map("confirmed_at")
+  closedAt       DateTime?          @map("closed_at")
+  handledBy      String?            @map("handled_by") @db.Uuid
+  ip             String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  voucher Voucher?           @relation(fields: [voucherId], references: [id])
+  items   OrderRequestItem[]
+  review  MarketReview?
+  reports MarketReport[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, createdAt])
+  @@index([phone, status])
+  @@index([status, expiresAt])
+  @@map("order_requests")
+}
+
+model OrderRequestItem {
+  id              String      @id @default(uuid()) @db.Uuid
+  requestId       String      @map("request_id") @db.Uuid
+  offerId         String      @map("offer_id") @db.Uuid
+  kind            CatalogKind
+  name            String
+  quantity        Int
+  unitPrice       BigInt      @map("unit_price")
+  installIncluded Boolean     @default(false) @map("install_included")
+  mfgYear         Int?        @map("mfg_year")
+
+  request OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([requestId])
+  @@map("order_request_items")
+}
+
+// ======================= Vòng 3.5: Đánh giá, phản ánh & vi phạm, thống kê gian hàng (M27, D4) =======================
+
+enum MarketReviewStatus {
+  HIEN
+  AN
+}
+
+/// Khách đánh giá sau khi yêu cầu đặt hàng / đặt lịch qua sàn hoàn tất (1 yêu cầu tối đa 1 đánh giá)
+model MarketReview {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
+  requestId      String             @unique @map("request_id") @db.Uuid
+  customerName   String             @map("customer_name")
+  rating         Int
+  comment        String?
+  reply          String?
+  repliedBy      String?            @map("replied_by") @db.Uuid
+  repliedAt      DateTime?          @map("replied_at")
+  status         MarketReviewStatus @default(HIEN)
+  /// Garage báo cáo đánh giá sai sự thật / xúc phạm lên sàn (A6.33)
+  reportedReason String?            @map("reported_reason")
+  reportedBy     String?            @map("reported_by") @db.Uuid
+  reportedAt     DateTime?          @map("reported_at")
+  moderatedBy    String?            @map("moderated_by") @db.Uuid
+  moderatedAt    DateTime?          @map("moderated_at")
+  moderationNote String?            @map("moderation_note")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  request OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([reportedAt])
+  @@map("market_reviews")
+}
+
+enum MarketReportReason {
+  SAI_GIA
+  HANG_KHONG_DUNG
+  THAI_DO_PHUC_VU
+  KHONG_LIEN_LAC_DUOC
+  BAO_HANH_DOI_TRA
+  THONG_TIN_SAI
+  KHAC
+}
+
+enum MarketReportStatus {
+  MOI
+  CHO_GIAI_TRINH
+  DA_GIAI_TRINH
+  DA_XU_LY
+  TU_CHOI
+}
+
+/// Phản ánh của khách gửi tới sàn (từ link theo dõi yêu cầu hoặc từ trang gian hàng). Không làm đổi trạng thái yêu cầu (S3)
+model MarketReport {
+  id                String             @id @default(uuid()) @db.Uuid
+  /// PA000001… (đếm theo tenant sàn)
+  code              String             @unique
+  tenantId          String             @map("tenant_id") @db.Uuid
+  requestId         String?            @map("request_id") @db.Uuid
+  offerId           String?            @map("offer_id") @db.Uuid
+  reporterName      String             @map("reporter_name")
+  reporterPhone     String             @map("reporter_phone")
+  reason            MarketReportReason
+  description       String
+  status            MarketReportStatus @default(MOI)
+  /// Nội dung sàn yêu cầu garage giải trình
+  adminNote         String?            @map("admin_note")
+  /// Giải trình của garage / đối tác
+  sellerExplanation String?            @map("seller_explanation")
+  explainedBy       String?            @map("explained_by") @db.Uuid
+  explainedAt       DateTime?          @map("explained_at")
+  /// Kết luận xử lý của sàn (khách & garage thấy)
+  resolution        String?
+  handledBy         String?            @map("handled_by") @db.Uuid
+  resolvedAt        DateTime?          @map("resolved_at")
+  ip                String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  request    OrderRequest?   @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  violations ShopViolation[]
+
+  @@index([status, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([requestId])
+  @@index([reporterPhone, status])
+  @@map("market_reports")
+}
+
+enum ViolationAction {
+  NHAC_NHO
+  GO_TIN
+  TAM_KHOA
+  CHAM_DUT
+}
+
+/// Quyết định xử lý vi phạm gian hàng / đối tác của sàn (A6.42)
+model ShopViolation {
+  id        String          @id @default(uuid()) @db.Uuid
+  /// VP000001… (đếm theo tenant sàn)
+  code      String          @unique
+  tenantId  String          @map("tenant_id") @db.Uuid
+  reportId  String?         @map("report_id") @db.Uuid
+  offerId   String?         @map("offer_id") @db.Uuid
+  action    ViolationAction
+  reason    String
+  createdBy String          @map("created_by") @db.Uuid
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  report MarketReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+  @@map("shop_violations")
+}
+
+/// Lượt xem gian hàng (targetKey = "SHOP") và từng tin đăng (targetKey = offerId) cộng dồn theo ngày giờ VN (A7.30, A3.57)
+model ShopDailyView {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  viewDate  DateTime @map("view_date") @db.Date
+  targetKey String   @map("target_key")
+  offerId   String?  @map("offer_id") @db.Uuid
+  views     Int      @default(0)
+
+  @@id([tenantId, viewDate, targetKey])
+  @@index([tenantId, viewDate])
+  @@map("shop_daily_views")
+}
+

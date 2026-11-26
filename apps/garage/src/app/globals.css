@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-slate-800 antialiased;
+    background: linear-gradient(135deg, #e8ecfb 0%, #eef2fb 45%, #e9f4f1 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: #cdd5e6;
+    border-radius: 3px;
+  }
+}
+
+/* ---------- Phiếu in (A4) ---------- */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+.print-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto;
+  padding: 8mm 10mm;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 6px 24px rgb(15 23 42 / 0.08);
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-page {
+    margin: 0;
+    box-shadow: none;
+    break-after: page;
+    overflow: hidden;
+    height: 297mm;
+  }
+  .print-page:last-child {
+    break-after: auto;
+  }
+}

@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kiem-tra:
+    name: Lint · Kiểm tra kiểu · Test · Build · E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cardiy
+          POSTGRES_PASSWORD: cardiy
+          POSTGRES_DB: cardiy
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cardiy" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://cardiy:cardiy@localhost:5432/cardiy?schema=public
+      REDIS_URL: redis://localhost:6379
+      API_PORT: 4000
+      GARAGE_PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      PUBLIC_API_URL: http://localhost:4000
+      CORS_ORIGINS: http://localhost:3000
+      # Chỉ dùng cho CI, không phải bí mật thật
+      JWT_SECRET: ci-only-secret-khong-dung-o-dau-khac-0123456789
+      AUTH_ENFORCE_2FA: "false"
+      FILE_STORAGE: local
+      FILE_LOCAL_DIR: ./storage
+      SEED_DEMO: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - name: Build package dùng chung
+        run: pnpm --filter @cardiy/shared build
+      - name: Chạy migration + dữ liệu mẫu
+        run: pnpm db:deploy && pnpm db:seed
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: E2E API (gồm lưu file S3 qua s3rver giả lập)
+        run: pnpm --filter @cardiy/api test:e2e
+      - name: Cài trình duyệt Chromium
+        run: pnpm --filter @cardiy/garage exec playwright install --with-deps chromium
+      - name: E2E giao diện (máy tính + điện thoại)
+        run: pnpm --filter @cardiy/garage test:e2e
+
+  docker:
+    name: Docker · chạy thử đúng cấu hình VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tạo cấu hình giống VPS
+        run: |
+          {
+            echo "DOMAIN=localhost"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "SEED_DEMO=true"
+            echo "AUTH_ENFORCE_2FA=false"
+          } > deploy/.env
+      - name: Build + chạy (docker compose production)
+        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d --build
+      - name: API khởi động, migration chạy, sức khoẻ ok
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4000/api/health; then echo; exit 0; fi
+            sleep 2
+          done
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env ps
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env logs api --tail 100
+          exit 1
+      - name: Đồng bộ quyền như update.sh (không tạo dữ liệu demo)
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm -e SEED_DEMO=false api node dist-seed/seed.js | grep -q "SEED_DEMO=false"
+      - name: Tạo dữ liệu demo + đăng nhập thử
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env run --rm api node dist-seed/seed.js
+          curl -sf -X POST http://127.0.0.1:4000/api/auth/login -H 'content-type: application/json' \
+            -d '{"phone":"0900000001","password":"Cardiy2026"}' | grep -q accessToken
+      - name: Web trả trang đăng nhập
+        run: curl -sf http://127.0.0.1:3000/dang-nhap | grep -q "BOOKING CARDIY"
+      - name: Sao lưu chạy được
+        run: BACKUP_DIR=$PWD/backups bash deploy/backup.sh && ls -la backups
+      - name: Log khi lỗi
+        if: failure()
+        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env logs --tail 80

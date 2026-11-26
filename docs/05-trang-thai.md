@@ -45,29 +45,31 @@ stateDiagram-v2
   KHACH_HUY --> [*]
 ```
 
-## S3 · Đơn hàng sàn
+## S3 · Yêu cầu đặt hàng từ sàn
 
 ```mermaid
 stateDiagram-v2
-  [*] --> CHO_THANH_TOAN
-  CHO_THANH_TOAN --> DA_THANH_TOAN: Thanh toán thành công
-  CHO_THANH_TOAN --> HUY: Hết 30 phút giữ hàng
-  CHO_THANH_TOAN --> CHO_GARAGE_XAC_NHAN: Chọn trả tại garage
-  DA_THANH_TOAN --> CHO_GARAGE_XAC_NHAN
-  CHO_GARAGE_XAC_NHAN --> DANG_CHUAN_BI: Garage xác nhận
-  CHO_GARAGE_XAC_NHAN --> HUY: Garage từ chối → hoàn tiền
-  DANG_CHUAN_BI --> DANG_LAP_DAT: Khách đến, tạo RO lắp
-  DANG_CHUAN_BI --> DANG_GIAO: Giao tận nơi
-  DANG_LAP_DAT --> HOAN_THANH
-  DANG_GIAO --> HOAN_THANH
-  HOAN_THANH --> KHIEU_NAI: Trong hạn khiếu nại
-  KHIEU_NAI --> HOAN_TIEN: Sàn xử khách thắng
-  KHIEU_NAI --> DA_DOI_SOAT: Garage thắng
-  HOAN_THANH --> DA_DOI_SOAT: Hết hạn khiếu nại
-  HOAN_TIEN --> [*]
-  DA_DOI_SOAT --> [*]
-  HUY --> [*]
+  [*] --> CHO_GARAGE_XAC_NHAN: Khách gửi yêu cầu, giữ tồn tạm
+  CHO_GARAGE_XAC_NHAN --> DA_XAC_NHAN: Garage xác nhận, chốt giá
+  CHO_GARAGE_XAC_NHAN --> TU_CHOI: Garage từ chối
+  CHO_GARAGE_XAC_NHAN --> HET_HAN: Quá 24 giờ, nhả tồn
+  CHO_GARAGE_XAC_NHAN --> KHACH_HUY
+  DA_XAC_NHAN --> KHACH_HUY
+  DA_XAC_NHAN --> DANG_LAP_DAT: Khách đến, tạo RO lắp
+  DA_XAC_NHAN --> DANG_GIAO: Garage giao tận nơi
+  DA_XAC_NHAN --> KHONG_DEN: Quá giờ hẹn
+  DANG_LAP_DAT --> HOAN_THANH: Garage ghi nhận đã thu tiền
+  DANG_GIAO --> HOAN_THANH: Garage ghi nhận đã thu tiền
+  HOAN_THANH --> [*]
+  TU_CHOI --> [*]
+  HET_HAN --> [*]
+  KHACH_HUY --> [*]
+  KHONG_DEN --> [*]
 ```
+
+> **Đã làm (vòng 3.4), bản rút gọn:** `CHO_XAC_NHAN → DA_XAC_NHAN → HOAN_THANH`, cùng `TU_CHOI`, `HET_HAN` (24 giờ, tính khi đọc), `KHACH_HUY`, `KHONG_DEN`. Chưa tách `DANG_LAP_DAT` / `DANG_GIAO`: garage xác nhận rồi bấm Hoàn tất khi khách đã đến lắp / nhận và đã trả tiền. PLG chưa tự tạo lệnh sửa chữa từ yêu cầu (nhân viên lập đơn trong CRM như thường).
+
+> Không có trạng thái thanh toán, hoàn tiền hay đối soát vì tiền không đi qua sàn. Phản ánh của khách là một đối tượng riêng (`market_reports`: `MOI → CHO_GIAI_TRINH → DA_GIAI_TRINH → DA_XU_LY | TU_CHOI`), không làm thay đổi trạng thái yêu cầu.
 
 ## S4 · Đối tác garage (tenant)
 
@@ -111,38 +113,35 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
   [*] --> MOI
-  MOI --> DANG_TIM_DOI
-  DANG_TIM_DOI --> DA_NHAN: Đội nhận ca
-  DANG_TIM_DOI --> DIEU_PHOI_TAY: Hết 2 phút
-  DIEU_PHOI_TAY --> DA_NHAN
-  DA_NHAN --> DANG_DEN
+  MOI --> DANG_TIM_GARAGE
+  DANG_TIM_GARAGE --> DA_NHAN: Một garage nhận ca
+  DANG_TIM_GARAGE --> KHONG_CO_GARAGE: Hết 3 phút, hiện hotline các garage
+  DA_NHAN --> DANG_DEN: Garage điều đội
   DANG_DEN --> TAI_HIEN_TRUONG
   TAI_HIEN_TRUONG --> XU_LY_TAI_CHO
   TAI_HIEN_TRUONG --> DANG_KEO_XE
-  DANG_KEO_XE --> DA_BAN_GIAO_GARAGE: Tạo RO
-  XU_LY_TAI_CHO --> HOAN_THANH
-  DA_BAN_GIAO_GARAGE --> HOAN_THANH
+  DANG_KEO_XE --> DA_VE_GARAGE: Tạo RO tại garage nhận ca
+  XU_LY_TAI_CHO --> HOAN_THANH: Garage ghi nhận đã thu
+  DA_VE_GARAGE --> HOAN_THANH
   MOI --> KHACH_HUY
-  DANG_TIM_DOI --> KHACH_HUY
-  DA_NHAN --> KHACH_HUY: Có thể tính phí huỷ
+  DANG_TIM_GARAGE --> KHACH_HUY
+  DA_NHAN --> KHACH_HUY: Theo chính sách huỷ của garage
   HOAN_THANH --> [*]
   KHACH_HUY --> [*]
+  KHONG_CO_GARAGE --> [*]
 ```
 
-## S7 · Yêu cầu rút tiền (payout)
+## S7 · Hoá đơn phí đối tác
 
 ```mermaid
 stateDiagram-v2
-  [*] --> YEU_CAU
-  YEU_CAU --> DANG_KIEM_TRA: Kế toán sàn nhận
-  DANG_KIEM_TRA --> DA_DUYET
-  DANG_KIEM_TRA --> TU_CHOI: Sai thông tin / đang tranh chấp
-  DA_DUYET --> DANG_CHUYEN
-  DANG_CHUYEN --> THANH_CONG
-  DANG_CHUYEN --> THAT_BAI: Ngân hàng trả về
-  THAT_BAI --> YEU_CAU: Tiền về lại ví
-  THANH_CONG --> [*]
-  TU_CHOI --> [*]
+  [*] --> DA_PHAT_HANH: Đầu kỳ, theo gói
+  DA_PHAT_HANH --> DA_THANH_TOAN: Kế toán sàn ghi nhận
+  DA_PHAT_HANH --> QUA_HAN: Quá hạn thanh toán
+  QUA_HAN --> DA_THANH_TOAN
+  QUA_HAN --> GIAN_HANG_TAM_AN: Quá hạn 15 ngày
+  GIAN_HANG_TAM_AN --> DA_THANH_TOAN: Thanh toán, hiện lại gian hàng
+  DA_THANH_TOAN --> [*]
 ```
 
 ## S8 · Hợp đồng thuê xe
