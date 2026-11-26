@@ -24,7 +24,7 @@ test.describe('Khung giao diện quản trị (Chủ garage)', () => {
     await expect(page.getByTestId('order-table')).toBeVisible();
     // Màn hình chưa làm hiện trang chờ kèm vòng dự kiến
     await page.goto('/trang-chu');
-    await grid.getByRole('link', { name: 'Marketing' }).click();
+    await grid.getByRole('link', { name: 'Trợ lý AI' }).click();
     await expect(page.getByTestId('placeholder')).toContainText('Dự kiến vòng P5');
   });
 

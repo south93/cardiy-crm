@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Spinner } from '@cardiy/ui';
-import { CalendarClock, CalendarPlus, ChevronRight, Gauge, Headphones, LifeBuoy, Wrench } from 'lucide-react';
+import { Bell, CalendarClock, CalendarPlus, ChevronRight, Gauge, Headphones, LifeBuoy, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { fmtDate } from '@/lib/crm';
@@ -31,11 +31,15 @@ export default function OwnerHome() {
   const { me } = useOwner();
   const [vs, setVs] = useState<OwnerVehicle[] | null>(null);
   const [activeSos, setActiveSos] = useState<SosDetail | null>(null);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
   useEffect(() => {
     const load = () => {
       void ownerApi<OwnerVehicle[]>('/vehicles').then(setVs);
       void ownerApi<{ active: SosDetail | null }>('/sos')
         .then((r) => setActiveSos(r.active))
+        .catch(() => null);
+      void ownerApi<{ unreadCount: number }>('/notifications')
+        .then((r) => setUnreadNotifs(r.unreadCount))
         .catch(() => null);
     };
     load();
@@ -45,22 +49,38 @@ export default function OwnerHome() {
   }, []);
   return (
     <div className="space-y-4">
-      <header className="flex items-end justify-between gap-2">
-        <div>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-sm text-slate-500">Xin chào</p>
-          <h1 className="text-2xl font-semibold" data-testid="owner-name">
+          <h1 className="truncate text-2xl font-semibold" data-testid="owner-name">
             {me?.name}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Link
+            href="/app/thong-bao"
+            className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-brand-300"
+            aria-label="Thông báo"
+            data-testid="owner-notif-bell"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadNotifs > 0 && (
+              <span
+                className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white"
+                data-testid="owner-notif-badge"
+              >
+                {unreadNotifs}
+              </span>
+            )}
+          </Link>
           <Link
             href="/app/cuu-ho"
-            className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700"
             data-testid="owner-sos-cta"
           >
             <LifeBuoy className="h-4 w-4" /> SOS
           </Link>
-          <Link href="/app/dat-lich" className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm" data-testid="book-cta">
+          <Link href="/app/dat-lich" className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm" data-testid="book-cta">
             <CalendarPlus className="h-4 w-4" /> Đặt lịch
           </Link>
         </div>

@@ -10,6 +10,7 @@ import { RentalsModule } from './rentals/rentals';
 import { UsedCarsModule } from './used-cars/used-cars';
 import { CommunityModule } from './community/community';
 import { ReportsModule } from './reports/reports';
+import { MarketingModule } from './marketing/marketing';
 import { FinanceModule } from './finance/finance.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
@@ -49,6 +50,7 @@ import { RedisModule } from './redis/redis.module';
     UsedCarsModule,
     CommunityModule,
     ReportsModule,
+    MarketingModule,
     HealthModule,
   ],
 })
