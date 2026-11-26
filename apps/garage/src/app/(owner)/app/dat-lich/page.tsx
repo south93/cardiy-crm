@@ -100,7 +100,16 @@ export default function BookPage() {
       <Link href="/app" className="flex items-center gap-1 text-sm text-slate-500">
         <ArrowLeft className="h-4 w-4" /> Xe của tôi
       </Link>
-      <h1 className="text-xl font-semibold">Đặt lịch sửa xe</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">Đặt lịch sửa xe</h1>
+        <Link
+          href="/app/tro-ly-ai"
+          className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+          data-testid="book-ask-ai-link"
+        >
+          Nhờ AI tư vấn hạng mục & giờ trống →
+        </Link>
+      </div>
 
       <Card className="p-4">
         <CardTitle className="mb-2 text-base">Xe</CardTitle>

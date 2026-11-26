@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Sparkles } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: { default: 'Sàn CARDIY · Tìm garage, so giá lốp, dầu nhớt, bảo dưỡng', template: '%s · Sàn CARDIY' },
@@ -17,6 +17,7 @@ const NAV = [
   { href: '/cho/thue-xe', label: 'Thuê xe' },
   { href: '/cho/cuu-ho', label: 'Cứu hộ SOS' },
   { href: '/cho/cong-dong', label: 'Cộng đồng' },
+  { href: '/cho/tro-ly-ai', label: 'Trợ lý AI' },
   { href: '/dang-ky-doi-tac', label: 'Dành cho garage' },
 ];
 
@@ -44,7 +45,13 @@ export default function MarketLayout({ children }: { children: ReactNode }) {
             aria-label="Sàn"
           >
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className={`hover:text-brand-700 ${n.href === '/dang-ky-doi-tac' ? 'hidden sm:inline' : ''}`}>
+              <Link
+                key={n.href}
+                href={n.href}
+                data-testid={n.href === '/cho/tro-ly-ai' ? 'market-chatbot-link' : undefined}
+                className={`inline-flex items-center gap-1 hover:text-brand-700 ${n.href === '/dang-ky-doi-tac' ? 'hidden sm:inline' : ''} ${n.href === '/cho/tro-ly-ai' ? 'font-semibold text-indigo-700' : ''}`}
+              >
+                {n.href === '/cho/tro-ly-ai' && <Sparkles className="h-3.5 w-3.5" />}
                 {n.label}
               </Link>
             ))}

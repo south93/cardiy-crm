@@ -27,7 +27,10 @@ import { CurrentAuth, RequirePermissions } from '../common/auth.decorators';
 import { clientIp, type RequestAuth } from '../common/request-auth';
 import { ZodPipe } from '../common/zod.pipe';
 import { AppConfig } from '../config/app-config';
+import { MarketplaceModule } from '../marketplace/marketplace.module';
 import { OrdersModule } from '../orders/orders.module';
+import { OwnerModule } from '../owner/owner';
+import { ChatbotService, OwnerChatbotController, PublicChatbotController } from './chatbot';
 import { OrdersService, type OrderItemInput } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -460,6 +463,7 @@ export class AiService {
 
     const docs = await this.prisma.aiDocument.findMany({
       where: { active: true, OR: [{ tenantId: null }, { tenantId: a.tenantId }] },
+      orderBy: { updatedAt: 'desc' },
     });
     const matched = scoreKnowledgeDocs(redacted.text, docs, dto.vehicleMake);
 
@@ -753,9 +757,9 @@ export class GarageAiController {
 }
 
 @Module({
-  imports: [OrdersModule],
-  controllers: [GarageAiController],
-  providers: [AiService],
-  exports: [AiService],
+  imports: [OrdersModule, OwnerModule, MarketplaceModule],
+  controllers: [GarageAiController, PublicChatbotController, OwnerChatbotController],
+  providers: [AiService, ChatbotService],
+  exports: [AiService, ChatbotService],
 })
 export class AiModule {}

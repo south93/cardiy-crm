@@ -604,6 +604,50 @@ async function main() {
     }
   }
 
+  // Cẩm nang bảo dưỡng công khai toàn sàn cho Chủ xe & Chatbot AI đặt lịch (Vòng 5.3 · tenantId = null)
+  const publicOwnerDocs = [
+    {
+      code: 'PUB-BD-DINH-KY',
+      title: 'Cẩm nang các mốc bảo dưỡng ô tô định kỳ 5.000 – 10.000 – 20.000 – 40.000 – 80.000 km',
+      category: 'BAO_DUONG',
+      tags: ['bao duong', 'dinh ky', 'thay dau', 'nhot', '40000', '20000', '10000', '5000'],
+      content:
+        '• Mốc 5.000 km (hoặc 6 tháng): Thay dầu động cơ, đảo lốp & cân áp suất, kiểm tra đèn/gạt mưa/nước rửa kính.\n• Mốc 10.000 km: Thay dầu + lọc dầu động cơ, vệ sinh lọc gió động cơ & lọc gió điều hoà, bảo dưỡng phanh 4 bánh.\n• Mốc 20.000 km: Thay lọc gió điều hoà & lọc gió động cơ, cân bằng động 4 bánh, kiểm tra ắc quy & hệ thống treo.\n• Mốc 40.000 km / 80.000 km (Cấp lớn): Thay dầu phanh DOT4, nước làm mát, lọc nhiên liệu, kiểm tra/thay bugi & dầu hộp số.',
+    },
+    {
+      code: 'PUB-LOP-AC-QUY',
+      title: 'Dấu hiệu cần thay lốp xe, cân bằng động và kiểm tra ắc quy ô tô',
+      category: 'LOP_PHANH',
+      tags: ['lop', 'vo xe', 'michelin', 'bridgestone', 'ac quy', 'binh dien', 'de yeu', 'het binh'],
+      content:
+        '• Lốp xe nên thay khi gai lốp mòn tới vạch chỉ thị 1.6mm, thành lốp phồng rộp hoặc đã quá 5–6 năm kể từ năm sản xuất.\n• Đảo lốp & cân bằng động mỗi 10.000 km giúp chống rung vô lăng ở tốc độ cao.\n• Ắc quy ô tô thường có tuổi thọ 2–3 năm; nếu buổi sáng đề dai, đèn taplo mờ khi đề thì nên đo kiểm dung lượng và thay sớm trước các chuyến đi xa.',
+    },
+    {
+      code: 'PUB-DIEU-HOA-PHANH',
+      title: 'Lưu ý cho chủ xe khi điều hoà kém mát hoặc phanh phát tiếng kêu',
+      category: 'CHAN_DOAN',
+      tags: ['dieu hoa', 'kem mat', 'mui hoi', 'phanh', 'ma phanh', 'keu rit'],
+      content:
+        '• Điều hoà gió yếu hoặc có mùi ẩm mốc thường do lọc gió cabin bẩn nghẹt sau 15.000–20.000 km; nếu chỉ có gió quạt mà không lạnh cần kiểm tra môi chất lạnh và lốc điều hoà.\n• Khi đạp phanh có tiếng kêu rít kim loại hoặc bàn đạp rung, chủ xe nên đặt lịch kiểm tra độ dày má phanh và đĩa phanh ngay để đảm bảo an toàn.',
+    },
+  ];
+  for (const pubDoc of publicOwnerDocs) {
+    const existsPub = await prisma.aiDocument.findFirst({ where: { tenantId: null, code: pubDoc.code } });
+    if (!existsPub) {
+      await prisma.aiDocument.create({
+        data: {
+          tenantId: null,
+          code: pubDoc.code,
+          title: pubDoc.title,
+          category: pubDoc.category,
+          content: pubDoc.content,
+          tags: pubDoc.tags,
+          searchText: searchKey(pubDoc.code, pubDoc.title, pubDoc.category, pubDoc.content, ...pubDoc.tags),
+        },
+      });
+    }
+  }
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 
