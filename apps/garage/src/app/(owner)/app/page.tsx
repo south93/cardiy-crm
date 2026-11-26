@@ -1,13 +1,14 @@
 'use client';
 
 import { Card, Spinner } from '@cardiy/ui';
-import { CalendarClock, CalendarPlus, ChevronRight, Gauge, Wrench } from 'lucide-react';
+import { CalendarClock, CalendarPlus, ChevronRight, Gauge, LifeBuoy, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { fmtDate } from '@/lib/crm';
 import { Reminders } from '@/components/owner-reminders';
 import { ownerApi, useOwner } from '@/lib/owner';
 import { fmtDateTime } from '@/lib/orders';
+import type { SosDetail } from '@/lib/sos';
 
 interface OwnerVehicle {
   id: string;
@@ -29,26 +30,59 @@ interface OwnerVehicle {
 export default function OwnerHome() {
   const { me } = useOwner();
   const [vs, setVs] = useState<OwnerVehicle[] | null>(null);
+  const [activeSos, setActiveSos] = useState<SosDetail | null>(null);
   useEffect(() => {
-    const load = () => ownerApi<OwnerVehicle[]>('/vehicles').then(setVs);
-    void load();
-    // Theo dõi tiến độ: tự cập nhật trạng thái xe đang ở garage
-    const t = setInterval(() => document.visibilityState === 'visible' && void load(), 15_000);
+    const load = () => {
+      void ownerApi<OwnerVehicle[]>('/vehicles').then(setVs);
+      void ownerApi<{ active: SosDetail | null }>('/sos')
+        .then((r) => setActiveSos(r.active))
+        .catch(() => null);
+    };
+    load();
+    // Theo dõi tiến độ: tự cập nhật trạng thái xe đang ở garage & ca cứu hộ
+    const t = setInterval(() => document.visibilityState === 'visible' && load(), 15_000);
     return () => clearInterval(t);
   }, []);
   return (
     <div className="space-y-4">
-      <header className="flex items-end justify-between gap-3">
+      <header className="flex items-end justify-between gap-2">
         <div>
           <p className="text-sm text-slate-500">Xin chào</p>
           <h1 className="text-2xl font-semibold" data-testid="owner-name">
             {me?.name}
           </h1>
         </div>
-        <Link href="/app/dat-lich" className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm" data-testid="book-cta">
-          <CalendarPlus className="h-4 w-4" /> Đặt lịch
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/app/cuu-ho"
+            className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700"
+            data-testid="owner-sos-cta"
+          >
+            <LifeBuoy className="h-4 w-4" /> SOS
+          </Link>
+          <Link href="/app/dat-lich" className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm" data-testid="book-cta">
+            <CalendarPlus className="h-4 w-4" /> Đặt lịch
+          </Link>
+        </div>
       </header>
+      {activeSos && (
+        <Link
+          href={`/app/cuu-ho/${activeSos.id}`}
+          className="flex items-center gap-2.5 rounded-2xl bg-rose-600 px-4 py-3 text-sm text-white shadow-sm"
+          data-testid="owner-active-sos"
+        >
+          <LifeBuoy className="h-5 w-5 shrink-0" />
+          <div className="flex-1">
+            <div className="font-semibold">
+              Cứu hộ {activeSos.code} · {activeSos.statusLabel}
+            </div>
+            <div className="text-xs text-rose-100">
+              {activeSos.assignedGarage ? activeSos.assignedGarage.name : 'Bấm để theo dõi tiến độ đội cứu hộ'}
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
       {!vs ? (
         <Spinner className="h-6 w-6 text-brand-600" />
       ) : !vs.length ? (

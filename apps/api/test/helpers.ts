@@ -18,6 +18,7 @@ export const PHONES = {
   cskh: '0900000007',
   accountant: '0900000006',
   managerCn2: '0900000008',
+  rescue: '0900000009',
   partnerOwner: '0900000010',
 };
 

@@ -103,6 +103,8 @@ export const NAV: NavGroup[] = [
       { href: '/viec-cua-toi', label: 'Việc của tôi', icon: ClipboardList, screen: 'A4.01', round: '1.5', tone: 'sky', permission: 'ro.task.update', built: true },
       { href: '/lich-sua-chua', label: 'Lịch sửa chữa', icon: CalendarDays, screen: 'A3.40', round: '1.5', tone: 'peach', permission: 'booking.view', built: true },
       { href: '/lich-goi', label: 'Lịch gọi', icon: PhoneCall, screen: 'A3.41', round: '1.5', tone: 'rose', permission: 'customer.view', built: true },
+      { href: '/cuu-ho', label: 'Ca cứu hộ', icon: LifeBuoy, screen: 'A3.43', round: '4.1', tone: 'rose', permission: 'sos.manage', built: true },
+      { href: '/doi-cuu-ho', label: 'Đội cứu hộ', icon: Truck, screen: 'A5.01', round: '4.1', tone: 'rose', permission: 'sos.handle', built: true },
     ],
   },
   {
@@ -137,9 +139,9 @@ export const NAV: NavGroup[] = [
     label: 'Yêu cầu từ khách',
     items: [
       { href: '/doi-tac/yeu-cau', label: 'Đặt hàng & đặt lịch', icon: Inbox, screen: 'A7.20', round: '3.4', tone: 'sky', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
-      { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: 'P4', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER' },
-      { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: 'P4', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER' },
-      { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: 'P4', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: '4.1', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
+      { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: '4.2', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: '4.3', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },
       { href: '/doi-tac/danh-gia', label: 'Đánh giá', icon: Star, screen: 'A7.24', round: '3.5', tone: 'peach', permission: 'partner.review.reply', workspace: 'PARTNER', built: true },
     ],
   },
@@ -158,6 +160,7 @@ export const NAV: NavGroup[] = [
       { href: '/san/tin-dang', label: 'Kiểm duyệt tin đăng', icon: ShieldCheck, screen: 'A6.30', round: '3.2', tone: 'peach', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
+      { href: '/san/cuu-ho', label: 'Giám sát cứu hộ', icon: LifeBuoy, screen: 'A6.61', round: '4.1', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
     ],
   },
   {
@@ -186,10 +189,10 @@ export function visibleNav(permissions: readonly string[], workspace: TenantKind
   return NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length > 0);
 }
 
-/** Trang đầu tiên người dùng được vào (KTV không có Tổng quan → vào Trang chủ). */
+/** Trang đầu tiên người dùng được vào (KTV / Đội cứu hộ không có Tổng quan → vào thẳng màn hình việc). */
 export function homeFor(permissions: readonly string[], workspace: TenantKind): string {
   if (workspace === 'GARAGE' && permissions.includes('dashboard.view')) return '/';
-  // KTV: vào thẳng danh sách việc
   if (workspace === 'GARAGE' && permissions.includes('ro.task.update')) return '/viec-cua-toi';
+  if (workspace === 'GARAGE' && permissions.includes('sos.handle')) return '/doi-cuu-ho';
   return '/trang-chu';
 }

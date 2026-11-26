@@ -68,11 +68,12 @@ export class PublicMarketService {
       };
     const ids = shops.map((s) => s.tenantId);
     const now = new Date();
-    const [tenants, live, orderRatings, marketRatings, vouchers] = await Promise.all([
+    const [tenants, live, orderRatings, marketRatings, sosRatings, vouchers] = await Promise.all([
       this.prisma.tenant.findMany({ where: { id: { in: ids } }, select: { id: true, type: true, status: true, deletedAt: true } }),
       this.prisma.offer.groupBy({ by: ['tenantId', 'kind'], where: { tenantId: { in: ids }, status: 'DANG_BAN' }, _count: true }),
       this.prisma.orderReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids } }, _sum: { rating: true }, _count: true }),
       this.prisma.marketReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids }, status: 'HIEN' }, _sum: { rating: true }, _count: true }),
+      this.prisma.sosReview.groupBy({ by: ['tenantId'], where: { tenantId: { in: ids } }, _sum: { rating: true }, _count: true }),
       this.prisma.voucher.findMany({ where: { tenantId: { in: ids }, active: true, startsAt: { lte: now }, endsAt: { gte: now } }, orderBy: { endsAt: 'asc' } }),
     ]);
     const counts = new Map<string, { PRODUCT: number; SERVICE: number }>();
@@ -85,9 +86,11 @@ export class PublicMarketService {
     for (const tid of ids) {
       const o = orderRatings.find((r) => r.tenantId === tid);
       const m = marketRatings.find((r) => r.tenantId === tid);
+      const sr = sosRatings.find((r) => r.tenantId === tid);
       const combined = combineRating([
         { sum: o?._sum.rating ?? 0, count: o?._count ?? 0 },
         { sum: m?._sum.rating ?? 0, count: m?._count ?? 0 },
+        { sum: sr?._sum.rating ?? 0, count: sr?._count ?? 0 },
       ]);
       if (combined) ratings.set(tid, combined);
     }
@@ -189,7 +192,7 @@ export class PublicMarketService {
     const v = await this.visibleShops({ slug });
     const s = v.shops[0];
     if (!s) throw new NotFoundException('Không tìm thấy gian hàng');
-    const [card, offers, orderReviews, marketReviews, branches] = await Promise.all([
+    const [card, offers, orderReviews, marketReviews, sosReviews, branches] = await Promise.all([
       this.card(s, v, geo),
       this.offerRows({ tenantId: s.tenantId }),
       this.prisma.orderReview.findMany({
@@ -204,6 +207,11 @@ export class PublicMarketService {
         take: 20,
         include: { request: { select: { items: { select: { name: true } } } } },
       }),
+      this.prisma.sosReview.findMany({
+        where: { tenantId: s.tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
       v.tenants.get(s.tenantId)?.type === 'GARAGE'
         ? this.prisma.branch.findMany({ where: { tenantId: s.tenantId, deletedAt: null }, orderBy: { code: 'asc' }, select: { id: true, name: true, address: true, phone: true } })
         : Promise.resolve([]),
@@ -216,6 +224,14 @@ export class PublicMarketService {
         createdAt: r.createdAt,
         name: reviewerName(r.customerName),
         items: r.request.items.map((i) => i.name),
+      })),
+      ...sosReviews.map((r) => ({
+        rating: r.rating,
+        comment: r.comment,
+        reply: r.reply,
+        createdAt: r.createdAt,
+        name: reviewerName(r.customerName),
+        items: ['Cứu hộ SOS'],
       })),
       ...orderReviews.map((r) => ({
         rating: r.rating,
