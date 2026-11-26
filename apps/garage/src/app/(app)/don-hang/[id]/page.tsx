@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Sp
 import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { OrderQuoteCard } from '@/components/order-quote-card';
+import { OrderAiQuoteCard } from '@/components/ai-assistant-cards';
 import { OrderReviewCard, type Review } from '@/components/order-review-card';
 import { useParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useState } from 'react';
@@ -208,6 +209,15 @@ function OrderDetail() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
         <div className="space-y-4">
+          {o.editable && can('ai.use') && (
+            <OrderAiQuoteCard
+              orderId={o.id}
+              defaultSymptoms={o.request ?? ''}
+              canApply={canEdit}
+              seesMoney={seesMoney}
+              onApplied={load}
+            />
+          )}
           <Card className="p-4 lg:p-5">
             <div className="flex items-center justify-between">
               <CardTitle>Hạng mục</CardTitle>

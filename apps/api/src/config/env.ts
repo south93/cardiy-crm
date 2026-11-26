@@ -42,6 +42,12 @@ export const envSchema = z.object({
   ZALO_TRANSPORT: z.enum(['http', 'fake']).default('http'),
   ZALO_OAUTH_URL: z.string().default('https://oauth.zaloapp.com/v4/oa/access_token'),
   ZALO_ZNS_URL: z.string().default('https://business.openapi.zalo.me/message/template'),
+
+  /** Dịch vụ Trợ lý AI (Vòng 5.2 · M36): mặc định heuristic tra cứu kho & tri thức nội bộ, hoặc gọi HTTP LLM tương thích OpenAI */
+  AI_PROVIDER: z.enum(['heuristic', 'http']).default('heuristic'),
+  AI_API_URL: z.string().default('https://api.openai.com/v1/chat/completions'),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('gpt-4o-mini'),
 });
 
 export type Env = z.infer<typeof envSchema>;

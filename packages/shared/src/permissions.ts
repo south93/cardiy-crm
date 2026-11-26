@@ -82,6 +82,8 @@ export const PERMISSIONS = [
   P('used_car.appraise', 'Xe cũ', 'Thực hiện chấm checklist kiểm định xe cũ'),
   P('community.manage', 'Cộng đồng', 'Đăng bài chia sẻ & trả lời cộng đồng của garage'),
   P('marketing.manage', 'Marketing', 'Phân khúc, chiến dịch'),
+  P('ai.use', 'Trợ lý AI', 'Sử dụng Trợ lý AI tóm tắt lịch sử xe, chẩn đoán & gợi ý báo giá'),
+  P('ai.manage', 'Trợ lý AI', 'Quản lý kho tri thức kỹ thuật & cấu hình Trợ lý AI'),
   P('report.view', 'Báo cáo', 'Xem báo cáo'),
   P('branch.manage', 'Cài đặt', 'Quản lý chi nhánh'),
   P('role.manage', 'Cài đặt', 'Tạo / sửa vai trò tuỳ chỉnh'),
@@ -122,16 +124,16 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
   { code: 'CG', name: 'Chủ garage', scope: 'TENANT', require2fa: true, permissions: TENANT_ALL },
   {
     code: 'QL', name: 'Quản lý chi nhánh', scope: 'TENANT', require2fa: true,
-    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'ro.approve', 'ro.task.update', 'quote.manage', 'payment.collect', 'inventory.view', 'inventory.adjust.approve', 'purchase.approve', 'finance.view', 'staff.view', 'staff.manage', 'shop.manage', 'order_request.manage', 'promotion.manage', 'sos.manage', 'sos.handle', 'rental.view', 'rental.manage', 'used_car.manage', 'used_car.appraise', 'marketing.manage', 'report.view', 'audit.view', 'file.upload'],
+    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'ro.approve', 'ro.task.update', 'quote.manage', 'payment.collect', 'inventory.view', 'inventory.adjust.approve', 'purchase.approve', 'finance.view', 'staff.view', 'staff.manage', 'shop.manage', 'order_request.manage', 'promotion.manage', 'sos.manage', 'sos.handle', 'rental.view', 'rental.manage', 'used_car.manage', 'used_car.appraise', 'marketing.manage', 'ai.use', 'report.view', 'audit.view', 'file.upload'],
   },
   {
     code: 'BH', name: 'Bán hàng / Cố vấn dịch vụ', scope: 'TENANT', require2fa: false,
-    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'quote.manage', 'payment.collect', 'inventory.view', 'shop.manage', 'order_request.manage', 'rental.view', 'rental.manage', 'used_car.manage', 'used_car.appraise', 'file.upload'],
+    permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'vehicle.manage', 'booking.view', 'booking.manage', 'ro.view', 'ro.manage', 'quote.manage', 'payment.collect', 'inventory.view', 'shop.manage', 'order_request.manage', 'rental.view', 'rental.manage', 'used_car.manage', 'used_car.appraise', 'ai.use', 'file.upload'],
   },
-  { code: 'KTV', name: 'Kỹ thuật viên', scope: 'TENANT', require2fa: false, permissions: ['ro.view', 'ro.task.update', 'vehicle.view', 'used_car.appraise', 'file.upload'] },
-  { code: 'TK', name: 'Thủ kho', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'inventory.view', 'inventory.manage', 'purchase.manage', 'order_request.manage', 'ro.view', 'file.upload'] },
-  { code: 'KT', name: 'Kế toán garage', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'finance.view', 'finance.manage', 'invoice.manage', 'ro.view', 'payment.collect', 'customer.view', 'inventory.view', 'rental.view', 'report.view', 'file.upload'] },
-  { code: 'CS', name: 'Chăm sóc khách hàng', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'booking.view', 'booking.manage', 'ro.view', 'order_request.manage', 'sos.manage', 'rental.view', 'rental.manage', 'marketing.manage', 'file.upload'] },
+  { code: 'KTV', name: 'Kỹ thuật viên', scope: 'TENANT', require2fa: false, permissions: ['ro.view', 'ro.task.update', 'vehicle.view', 'used_car.appraise', 'ai.use', 'file.upload'] },
+  { code: 'TK', name: 'Thủ kho', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'inventory.view', 'inventory.manage', 'purchase.manage', 'order_request.manage', 'ro.view', 'ai.use', 'file.upload'] },
+  { code: 'KT', name: 'Kế toán garage', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'finance.view', 'finance.manage', 'invoice.manage', 'ro.view', 'payment.collect', 'customer.view', 'inventory.view', 'rental.view', 'report.view', 'ai.use', 'file.upload'] },
+  { code: 'CS', name: 'Chăm sóc khách hàng', scope: 'TENANT', require2fa: false, permissions: ['dashboard.view', 'customer.view', 'customer.manage', 'vehicle.view', 'booking.view', 'booking.manage', 'ro.view', 'order_request.manage', 'sos.manage', 'rental.view', 'rental.manage', 'marketing.manage', 'ai.use', 'file.upload'] },
   { code: 'CH', name: 'Đội cứu hộ', scope: 'TENANT', require2fa: false, permissions: ['sos.handle', 'vehicle.view', 'file.upload'] },
 ];
 

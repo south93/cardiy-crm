@@ -131,7 +131,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/bao-cao', label: 'Báo cáo', icon: ChartColumn, screen: 'A3.80', round: '4.4', tone: 'lav', permission: 'report.view', built: true },
       { href: '/marketing', label: 'Marketing', icon: Megaphone, screen: 'A3.62', round: '5.1', tone: 'peach', permission: 'marketing.manage', built: true },
-      { href: '/tro-ly-ai', label: 'Trợ lý AI', icon: Sparkles, screen: 'A3.63', round: 'P5', tone: 'lav', permission: 'dashboard.view' },
+      { href: '/tro-ly-ai', label: 'Trợ lý AI', icon: Sparkles, screen: 'A3.63', round: '5.2', tone: 'lav', permission: 'ai.use', built: true },
     ],
   },
   // ---- Cổng đối tác (A7): đối tác 1 tài khoản, mọi dịch vụ xử lý ở đây ----

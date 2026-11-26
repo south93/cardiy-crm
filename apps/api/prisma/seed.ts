@@ -552,6 +552,58 @@ async function main() {
     });
   }
 
+  // Kho tri thức kỹ thuật chuẩn cho Trợ lý AI Garage (Vòng 5.2 · M36)
+  const demoAiDocs = [
+    {
+      code: 'DOC-BD-DINH-KY',
+      title: 'Quy chuẩn bảo dưỡng định kỳ các mốc 5.000 – 10.000 – 20.000 – 40.000 km',
+      category: 'BAO_DUONG',
+      tags: ['bao duong', 'thay dau', 'loc dau', 'loc gio', '40000km', '20000km'],
+      content:
+        'Mốc 5.000 km: Thay dầu động cơ, kiểm tra áp suất lốp & nước rửa kính.\nMốc 10.000 km: Thay dầu động cơ + lọc dầu, đảo lốp 4 bánh, vệ sinh lọc gió động cơ & điều hoà.\nMốc 20.000 km: Thay dầu + lọc dầu, thay lọc gió điều hoà, vệ sinh họng ga & bảo dưỡng phanh 4 bánh.\nMốc 40.000 km (cấp lớn): Thay dầu động cơ + lọc dầu, lọc gió động cơ, lọc gió điều hoà, dầu phanh DOT4, nước làm mát, kiểm tra bugi & dầu hộp số.',
+    },
+    {
+      code: 'DOC-CHAN-DOAN-DIEU-HOA',
+      title: 'Quy trình chẩn đoán điều hoà ô tô kém mát, có mùi hoặc đóng đá giàn lạnh',
+      category: 'CHAN_DOAN',
+      tags: ['dieu hoa', 'kem mat', 'loc lanh', 'gas lanh', 'loc gio dieu hoa', 'gian lanh'],
+      content:
+        '1. Gió yếu kèm mùi ẩm: kiểm tra lọc gió điều hoà bẩn nghẹt, vệ sinh nội soi giàn lạnh.\n2. Lúc đầu mát sau 20–30 phút mất lạnh: kiểm tra cảm biến nhiệt giàn lạnh (thermistor) gây đóng băng hoặc rơ-le ly hợp từ lốc lạnh.\n3. Áp suất thấp thiếu môi chất: kiểm tra rò rỉ phớt lốc, giàn nóng, nạp gas lạnh R134a đúng định lượng và bổ sung dầu lạnh.',
+    },
+    {
+      code: 'DOC-HE-THONG-PHANH-LOP',
+      title: 'Chẩn đoán phanh kêu két két, rung vô lăng khi phanh và mòn lốp lệch',
+      category: 'LOP_PHANH',
+      tags: ['phanh', 'ma phanh', 'dia phanh', 'rung vo lang', 'lop', 'can bang dong', 'dao lop'],
+      content:
+        '1. Phanh kêu rít kim loại: má phanh mòn tới phe báo mòn (< 3mm), cần thay má phanh và láng đĩa phanh nếu xước gờ.\n2. Rung bàn đạp phanh / vô lăng ở tốc độ cao: kiểm tra độ đảo đĩa phanh, cân bằng động 4 bánh và chỉnh độ chụm thước lái.\n3. Lốp mòn vẹt mép trong/ngoài: kiểm tra rô-tuyn lái, cao su càng A và góc đặt bánh xe.',
+    },
+    {
+      code: 'DOC-AC-QUY-DIEN-OBD',
+      title: 'Chẩn đoán đề dai khó nổ, đèn báo ắc quy / Check Engine OBD-II phổ biến',
+      category: 'DIEN_OBD',
+      tags: ['ac quy', 'kho no', 'de dai', 'may phat', 'check engine', 'obd', 'bugi', 'mobin'],
+      content:
+        '1. Đề yếu buổi sáng, điện áp tĩnh < 12.2V hoặc sụt dưới 9.6V khi đề: ắc quy chai nội trở cao, cần thay ắc quy đúng dung lượng Ah/CCA.\n2. Đèn báo ắc quy sáng khi đang nổ máy: kiểm tra điện áp nạp máy phát (chuẩn 13.8V – 14.4V) và dây curoa tổng.\n3. Mã lỗi P0300–P0304 (bỏ máy): kiểm tra bugi, mobin đánh lửa và kim phun nhiên liệu.',
+    },
+  ];
+  for (const doc of demoAiDocs) {
+    const existing = await prisma.aiDocument.findFirst({ where: { tenantId: plg.id, code: doc.code } });
+    if (!existing) {
+      await prisma.aiDocument.create({
+        data: {
+          tenantId: plg.id,
+          code: doc.code,
+          title: doc.title,
+          category: doc.category,
+          content: doc.content,
+          tags: doc.tags,
+          searchText: searchKey(doc.code, doc.title, doc.category, doc.content, ...doc.tags),
+        },
+      });
+    }
+  }
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 
