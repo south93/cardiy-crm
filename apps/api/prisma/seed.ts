@@ -94,6 +94,7 @@ async function main() {
   await upsertMember({ phone: '0900000006', fullName: 'Đỗ Kế Toán', tenantId: plg.id, roles: [{ code: 'KT', branchId: null }] });
   await upsertMember({ phone: '0900000007', fullName: 'Hoàng Chăm Sóc', tenantId: plg.id, roles: [{ code: 'CS', branchId: null }] });
   await upsertMember({ phone: '0900000008', fullName: 'Ngô Quản Lý CN2', tenantId: plg.id, title: 'Quản lý CN2', roles: [{ code: 'QL', branchId: cn2.id }] });
+  await upsertMember({ phone: '0900000009', fullName: 'Đặng Cứu Hộ', tenantId: plg.id, title: 'Đội cứu hộ CN1', roles: [{ code: 'CH', branchId: cn1.id }] });
   await upsertMember({ phone: '0900000010', fullName: 'Minh Phát Auto', tenantId: partner.id, title: 'Đối tác', roles: [{ code: 'DT', branchId: null }] });
 
   // Gói đối tác mẫu (giá sửa được ở Sàn → Gói đối tác)
@@ -112,6 +113,7 @@ async function main() {
   const bd = await cat('SERVICE', 'Bảo dưỡng', 1);
   const ds = await cat('SERVICE', 'Đồng sơn', 2);
   const sc = await cat('SERVICE', 'Sửa chữa', 3);
+  const ch = await cat('SERVICE', 'Cứu hộ', 4);
   const items: { kind: 'PRODUCT' | 'SERVICE'; code: string; name: string; categoryId: string; brand?: string; unit?: string; specs?: { label: string; value: string }[] }[] = [
     { kind: 'PRODUCT', code: 'LOP-MICH-2055516-PS4', name: 'Lốp Michelin Primacy 4 205/55R16', categoryId: lop.id, brand: 'Michelin', unit: 'Lốp', specs: [{ label: 'Kích cỡ', value: '205/55R16' }, { label: 'Chỉ số tải / tốc độ', value: '91V' }] },
     { kind: 'PRODUCT', code: 'LOP-BRID-2156016-T005', name: 'Lốp Bridgestone Turanza T005 215/60R16', categoryId: lop.id, brand: 'Bridgestone', unit: 'Lốp', specs: [{ label: 'Kích cỡ', value: '215/60R16' }] },
@@ -121,11 +123,24 @@ async function main() {
     { kind: 'SERVICE', code: 'DV-BD-CAP2', name: 'Bảo dưỡng cấp 2 (10.000 km)', categoryId: bd.id },
     { kind: 'SERVICE', code: 'DV-DS-1MAT', name: 'Sơn 1 mặt (cản / cửa / capo)', categoryId: ds.id },
     { kind: 'SERVICE', code: 'DV-SC-GAM', name: 'Kiểm tra & sửa gầm', categoryId: sc.id },
+    { kind: 'SERVICE', code: 'DV-CUU-HO-24H', name: 'Cứu hộ giao thông & kích bình 24/7', categoryId: ch.id },
   ];
   for (const it of items) {
     const searchText = searchKey(it.code, it.name, it.brand, ...(it.specs ?? []).map((x) => x.value));
     await prisma.catalogItem.upsert({ where: { code: it.code }, update: {}, create: { ...it, specs: it.specs ?? [], searchText } });
   }
+
+  // Cấu hình cứu hộ mẫu cho PLG và đối tác demo (giữ cấu hình đang có nếu đã sửa)
+  await prisma.sosConfig.upsert({
+    where: { tenantId: plg.id },
+    update: {},
+    create: { tenantId: plg.id, enabled: true, onDuty: true, hotline: '0900000001', radiusKm: 40, basePrice: 300_000n, branchId: cn1.id, note: 'Kích bình, vá lốp lưu động, xe sàn trượt kéo về xưởng' },
+  });
+  await prisma.sosConfig.upsert({
+    where: { tenantId: partner.id },
+    update: {},
+    create: { tenantId: partner.id, enabled: true, onDuty: true, hotline: '0900000010', radiusKm: 25, basePrice: 250_000n, note: 'Cứu hộ nội thành & vành đai 24/7' },
+  });
 
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }

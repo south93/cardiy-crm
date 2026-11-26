@@ -64,7 +64,12 @@ flowchart LR
 🎯 **Mốc demo 3:** một garage đối tác thật đăng ký và nhận yêu cầu đầu tiên từ sàn.
 
 ### P4 · Dịch vụ mở rộng của garage (4 vòng)
-SOS, thuê xe, kiểm định xe cũ: đối tác xử lý trong Cổng đối tác, PLG xử lý trong CRM · Cộng đồng · Quản lý chuỗi (KPI)
+| Vòng | Nội dung |
+|---|---|
+| 4.1 ✅ | **Cứu hộ SOS** (`M33`, `F5`, `S6`): khách gửi SOS từ web sàn (`/cho/cuu-ho`, link theo dõi, không cần tài khoản) hoặc App chủ xe (`/app/cuu-ho`, nút SOS nổi) kèm GPS, loại sự cố, biển số, ảnh. Tìm garage đang bật cứu hộ & đang trực trong bán kính; quá **3 phút** không garage nào nhận tự chuyển `KHONG_CO_GARAGE` và hiện danh sách hotline cứu hộ gần nhất. Garage nhận ca (báo giá dự kiến + ETA) → điều đội (`DANG_DEN`, cập nhật GPS) → tới hiện trường (`TAI_HIEN_TRUONG`, ảnh hiện trường, chốt giá) → xử lý tại chỗ hoặc kéo về garage (PLG tự tạo lệnh sửa chữa `DH…` tại chi nhánh nhận ca) → hoàn thành khi đã thu tiền trực tiếp; khách đánh giá sau ca cứu hộ. Đối tác xử lý ở *Cổng đối tác → Cứu hộ* (`A7.21`), PLG ở *CRM → Ca cứu hộ* (`A3.43`) + *Đội cứu hộ* (`A5`), Sàn theo dõi ở *Giám sát cứu hộ* (`A6.61`) |
+| 4.2 | **Thuê xe** (`M31`, `F9`, `S8`): đối tác (`A7.22`) và PLG (`A3.60`) đăng đội xe cho thuê (giá ngày, tiền cọc, điều kiện), sàn kiểm duyệt, hiển thị trên `/cho/thue-xe` (`A1.08`) & App chủ xe (`A2.08`); đặt thuê, xác minh giấy tờ, ký hợp đồng + cọc, bàn giao xe, trả xe & quyết toán |
+| 4.3 | **Xe cũ & Kiểm định xe cũ** (`M32`, `F8`): đăng tin bán xe cũ, đặt dịch vụ kiểm định tại garage (`A7.23`, `A3.61`), chấm checklist kiểm định + gắn huy hiệu báo cáo lên tin, sàn kiểm duyệt (`A6.31`), tìm xe trên `/cho/xe-cu` (`A1.07`) & App chủ xe (`A2.09`) |
+| 4.4 | **Cộng đồng & Quản lý chuỗi KPI** (`M34`, `M30`): cộng đồng chủ xe (`/cho/cong-dong` `A1.10`, `A2.11`, kiểm duyệt & nội dung `A6.32`, `A6.62`) và báo cáo / KPI chuỗi chi nhánh PLG (`A3.80`) + Dashboard báo cáo sàn (`A6.01`, `A6.80`) |
 
 ### P5 · Marketing & AI (3 vòng)
 Phân khúc khách, chiến dịch, tích điểm · Trợ lý AI: tóm tắt lịch sử xe, gợi ý báo giá, chatbot đặt lịch

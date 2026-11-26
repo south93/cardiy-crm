@@ -131,6 +131,8 @@ stateDiagram-v2
   KHONG_CO_GARAGE --> [*]
 ```
 
+> **Đã làm (vòng 4.1):** đủ toàn bộ trạng thái `MOI → DANG_TIM_GARAGE → DA_NHAN → DANG_DEN → TAI_HIEN_TRUONG → XU_LY_TAI_CHO | DANG_KEO_XE → DA_VE_GARAGE → HOAN_THANH`, cùng `KHONG_CO_GARAGE` (quá 3 phút chưa có garage nhận, tính khi đọc qua `search_expires_at`, hoặc không có garage trực trong bán kính lúc gửi — trả danh sách hotline cứu hộ gần nhất) và `KHACH_HUY` (chỉ khi `MOI | DANG_TIM_GARAGE | DA_NHAN`). Khi chuyển `DANG_KEO_XE → DA_VE_GARAGE`, garage PLG tự tìm/tạo hồ sơ khách + xe và lập lệnh sửa chữa `DH…` tại chi nhánh nhận ca; đối tác không có CRM nên ghi nhận xe về xưởng trên ca cứu hộ rồi bấm Hoàn thành khi đã thu tiền trực tiếp.
+
 ## S7 · Hoá đơn phí đối tác
 
 ```mermaid

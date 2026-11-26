@@ -5,6 +5,7 @@ import { OwnerModule } from './owner/owner';
 import { ZaloModule } from './zalo/zalo';
 import { PlatformModule } from './platform/platform.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
+import { SosModule } from './sos/sos';
 import { FinanceModule } from './finance/finance.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
@@ -39,6 +40,7 @@ import { RedisModule } from './redis/redis.module';
     ZaloModule,
     PlatformModule,
     MarketplaceModule,
+    SosModule,
     HealthModule,
   ],
 })

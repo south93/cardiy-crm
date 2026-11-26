@@ -34,15 +34,15 @@ export function ownerRefresh(): Promise<boolean> {
   return refreshing;
 }
 
-export async function ownerApi<T>(path: string, opts: { method?: string; body?: unknown; retry?: boolean } = {}): Promise<T> {
+export async function ownerApi<T>(path: string, opts: { method?: string; body?: unknown; form?: FormData; retry?: boolean } = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(`${API_URL}/api/owner${path}`, {
-    method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
+    method: opts.method ?? (opts.body !== undefined || opts.form ? 'POST' : 'GET'),
     headers,
     credentials: 'include',
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
   });
   if (res.status === 401 && opts.retry !== false && !path.startsWith('/auth/') && (await ownerRefresh())) return ownerApi<T>(path, { ...opts, retry: false });
   const body = await parse(res);

@@ -13,6 +13,7 @@ const NAV = [
   { href: '/cho/tim-garage', label: 'Tìm garage' },
   { href: '/cho/san-pham', label: 'Sản phẩm' },
   { href: '/cho/dich-vu', label: 'Dịch vụ' },
+  { href: '/cho/cuu-ho', label: 'Cứu hộ SOS' },
   { href: '/dang-ky-doi-tac', label: 'Dành cho garage' },
 ];
 

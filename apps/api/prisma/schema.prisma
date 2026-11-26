@@ -1595,3 +1595,138 @@ model ShopDailyView {
   @@map("shop_daily_views")
 }
 
+// ======================= Vòng 4.1: Cứu hộ SOS (M33, F5, S6, D5) =======================
+
+/// Máy trạng thái S6 (docs/05-trang-thai.md)
+enum SosStatus {
+  MOI
+  DANG_TIM_GARAGE
+  DA_NHAN
+  KHONG_CO_GARAGE
+  DANG_DEN
+  TAI_HIEN_TRUONG
+  XU_LY_TAI_CHO
+  DANG_KEO_XE
+  DA_VE_GARAGE
+  HOAN_THANH
+  KHACH_HUY
+}
+
+enum SosIssueType {
+  HET_BINH
+  THUNG_LOP
+  CHET_MAY
+  TAI_NAN
+  HET_NHIEN_LIEU
+  KEO_XE
+  KHAC
+}
+
+/// Cấu hình dịch vụ cứu hộ của garage (đối tác hoặc PLG)
+model SosConfig {
+  tenantId  String   @id @map("tenant_id") @db.Uuid
+  enabled   Boolean  @default(false)
+  /// Đang trực nhận ca cứu hộ ngay lúc này
+  onDuty    Boolean  @default(true) @map("on_duty")
+  hotline   String?
+  radiusKm  Int      @default(30) @map("radius_km")
+  basePrice BigInt   @default(0) @map("base_price")
+  /// Chi nhánh trực mặc định (cho garage PLG khi tạo lệnh sửa chữa kéo xe về xưởng)
+  branchId  String?  @map("branch_id") @db.Uuid
+  note      String?
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sos_configs")
+}
+
+/// Yêu cầu cứu hộ SOS: sàn kết nối tới garage có dịch vụ cứu hộ gần nhất, khách trả tiền trực tiếp cho garage
+model SosRequest {
+  id                 String       @id @default(uuid()) @db.Uuid
+  /// SOS000001… (đếm theo tenant sàn)
+  code               String       @unique
+  status             SosStatus    @default(MOI)
+  userId             String?      @map("user_id") @db.Uuid
+  vehicleId          String?      @map("vehicle_id") @db.Uuid
+  customerName       String       @map("customer_name")
+  phone              String
+  plateNo            String?      @map("plate_no")
+  vehicleInfo        String?      @map("vehicle_info")
+  lat                Float
+  lng                Float
+  addressText        String?      @map("address_text")
+  issueType          SosIssueType @map("issue_type")
+  description        String?
+  customerImageIds   String[]     @default([]) @map("customer_image_ids") @db.Uuid
+  sceneImageIds      String[]     @default([]) @map("scene_image_ids") @db.Uuid
+  /// Các garage đang trực trong bán kính được thông báo lúc gửi yêu cầu
+  candidateTenantIds String[]     @default([]) @map("candidate_tenant_ids") @db.Uuid
+  assignedTenantId   String?      @map("assigned_tenant_id") @db.Uuid
+  assignedBranchId   String?      @map("assigned_branch_id") @db.Uuid
+  /// Nhân viên đội cứu hộ được điều (membership id tại garage PLG)
+  assignedStaffId    String?      @map("assigned_staff_id") @db.Uuid
+  etaMinutes         Int?         @map("eta_minutes")
+  quotedPrice        BigInt?      @map("quoted_price")
+  finalPrice         BigInt?      @map("final_price")
+  sellerNote         String?      @map("seller_note")
+  cancelReason       String?      @map("cancel_reason")
+  /// Lệnh sửa chữa tạo tại garage PLG khi kéo xe về xưởng (DANG_KEO_XE -> DA_VE_GARAGE)
+  orderId            String?      @unique @map("order_id") @db.Uuid
+  /// Băm mã bí mật cho link theo dõi công khai (/cho/cuu-ho/:id?t=...)
+  accessHash         String       @map("access_hash")
+  /// Hạn chờ garage nhận ca (3 phút từ lúc gửi); quá hạn tự chuyển KHONG_CO_GARAGE
+  searchExpiresAt    DateTime     @map("search_expires_at")
+  acceptedAt         DateTime?    @map("accepted_at")
+  arrivedAt          DateTime?    @map("arrived_at")
+  completedAt        DateTime?    @map("completed_at")
+  cancelledAt        DateTime?    @map("cancelled_at")
+  ip                 String?
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  tracks SosTrack[]
+  review SosReview?
+
+  @@index([status, searchExpiresAt])
+  @@index([assignedTenantId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([phone, status])
+  @@index([createdAt])
+  @@map("sos_requests")
+}
+
+/// Lịch sử vị trí GPS của đội cứu hộ khi đang di chuyển (D5)
+model SosTrack {
+  id      BigInt   @id @default(autoincrement())
+  sosId   String   @map("sos_id") @db.Uuid
+  lat     Float
+  lng     Float
+  note    String?
+  actorId String?  @map("actor_id") @db.Uuid
+  at      DateTime @default(now())
+
+  sos SosRequest @relation(fields: [sosId], references: [id], onDelete: Cascade)
+
+  @@index([sosId, at])
+  @@map("sos_tracks")
+}
+
+/// Khách đánh giá garage sau khi ca cứu hộ hoàn thành (1 ca tối đa 1 đánh giá)
+model SosReview {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  sosId        String    @unique @map("sos_id") @db.Uuid
+  customerName String    @map("customer_name")
+  rating       Int
+  comment      String?
+  reply        String?
+  repliedBy    String?   @map("replied_by") @db.Uuid
+  repliedAt    DateTime? @map("replied_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  sos SosRequest @relation(fields: [sosId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("sos_reviews")
+}
