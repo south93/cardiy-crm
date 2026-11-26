@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Spinner } from '@cardiy/ui';
-import { Bell, CalendarClock, CalendarPlus, ChevronRight, Gauge, Headphones, LifeBuoy, Wrench } from 'lucide-react';
+import { Bell, CalendarClock, CalendarPlus, ChevronRight, Gauge, Headphones, LifeBuoy, Sparkles, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { fmtDate } from '@/lib/crm';
@@ -96,6 +96,20 @@ export default function OwnerHome() {
         <div className="flex-1">
           <div className="font-semibold text-slate-900">Cộng đồng chủ xe & Sách nói</div>
           <div className="text-xs text-slate-500">Đặt câu hỏi kỹ thuật, đọc blog chuyên gia & nghe sách nói đường dài</div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400" />
+      </Link>
+      <Link
+        href="/app/tro-ly-ai"
+        className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-white px-4 py-3 text-sm shadow-sm hover:border-indigo-400"
+        data-testid="owner-chatbot-cta"
+      >
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-100 text-indigo-700">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Trợ lý AI bảo dưỡng & đặt lịch</div>
+          <div className="text-xs text-slate-500">Hỏi mốc km, xem giá dịch vụ trên sàn & gợi ý khung giờ trống</div>
         </div>
         <ChevronRight className="h-4 w-4 text-slate-400" />
       </Link>

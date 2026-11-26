@@ -2445,4 +2445,95 @@ model AiSuggestion {
   @@map("ai_suggestions")
 }
 
+// ======================= Vòng 5.3: Chatbot AI đặt lịch & Tư vấn chủ xe (M36, D5, A1, A2) =======================
 
+enum ChatbotChannel {
+  PUBLIC_WEB
+  OWNER_APP
+}
+
+enum ChatbotProposalStatus {
+  DE_XUAT
+  DA_XAC_NHAN
+  DA_HUY
+}
+
+/// Phiên hội thoại Chatbot AI tư vấn bảo dưỡng, báo giá sàn & đề xuất đặt lịch (A1 /cho & A2 /app)
+model ChatbotSession {
+  id           String                   @id @default(uuid()) @db.Uuid
+  channel      ChatbotChannel
+  userId       String?                  @map("user_id") @db.Uuid
+  /// Băm SHA-256 của sessionToken phía trình duyệt cho khách vãng lai trên Web sàn (PUBLIC_WEB)
+  sessionHash  String?                  @unique @map("session_hash")
+  vehicleId    String?                  @map("vehicle_id") @db.Uuid
+  vehicleMake  String?                  @map("vehicle_make")
+  vehicleModel String?                  @map("vehicle_model")
+  odometerKm   Int?                     @map("odometer_km")
+  ip           String?
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  messages  ChatbotMessage[]
+  proposals ChatbotBookingProposal[]
+
+  @@index([userId, channel, updatedAt])
+  @@map("chatbot_sessions")
+}
+
+/// Lịch sử tin nhắn trong phiên Chatbot AI (lưu đối chứng ngữ cảnh sạch PII trên mỗi lượt trả lời)
+model ChatbotMessage {
+  id               String         @id @default(uuid()) @db.Uuid
+  sessionId        String         @map("session_id") @db.Uuid
+  /// USER | ASSISTANT
+  role             String
+  content          String
+  sanitizedContext String?        @map("sanitized_context")
+  piiMaskedCount   Int            @default(0) @map("pii_masked_count")
+  provider         String         @default("heuristic")
+  citedDocCodes    String[]       @default([]) @map("cited_doc_codes")
+  /// Danh sách tin đăng sản phẩm / dịch vụ đang bán trên sàn khớp nhu cầu
+  matchedOffers    Json           @default("[]") @map("matched_offers")
+  /// Gợi ý hạng mục bảo dưỡng theo mốc km (nếu có)
+  maintenancePlan  Json?          @map("maintenance_plan")
+  proposalId       String?        @map("proposal_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  session ChatbotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chatbot_messages")
+}
+
+/// Đề xuất khung giờ đặt lịch của Chatbot AI: chỉ ở trạng thái DE_XUAT cho tới khi chủ xe / khách bấm Xác nhận
+model ChatbotBookingProposal {
+  id               String                @id @default(uuid()) @db.Uuid
+  sessionId        String                @map("session_id") @db.Uuid
+  channel          ChatbotChannel
+  status           ChatbotProposalStatus @default(DE_XUAT)
+  tenantId         String                @map("tenant_id") @db.Uuid
+  shopName         String                @map("shop_name")
+  shopSlug         String?               @map("shop_slug")
+  branchId         String?               @map("branch_id") @db.Uuid
+  branchName       String?               @map("branch_name")
+  vehicleId        String?               @map("vehicle_id") @db.Uuid
+  vehicleLabel     String?               @map("vehicle_label")
+  offerId          String?               @map("offer_id") @db.Uuid
+  unitPrice        BigInt?               @map("unit_price")
+  serviceName      String                @map("service_name")
+  /// Mảng ISO datetime các khung giờ hợp lệ được AI gợi ý
+  suggestedSlots   Json                  @default("[]") @map("suggested_slots")
+  confirmedSlot    DateTime?             @map("confirmed_slot")
+  bookingId        String?               @map("booking_id") @db.Uuid
+  bookingCode      String?               @map("booking_code")
+  orderRequestId   String?               @map("order_request_id") @db.Uuid
+  orderRequestCode String?               @map("order_request_code")
+  trackingPath     String?               @map("tracking_path")
+  decidedAt        DateTime?             @map("decided_at")
+  createdAt        DateTime              @default(now()) @map("created_at")
+
+  session ChatbotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@map("chatbot_booking_proposals")
+}

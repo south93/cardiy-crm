@@ -26,5 +26,6 @@ import { ShopStatsController, ShopStatsService } from './shop-stats';
     ReviewsReportsService,
     ShopStatsService,
   ],
+  exports: [RequestsService],
 })
 export class MarketplaceModule {}

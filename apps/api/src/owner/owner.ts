@@ -343,6 +343,6 @@ export class OwnerController {
 @Module({
   controllers: [OwnerAuthController, OwnerController, OwnerBookingController, CustomerAppController],
   providers: [OwnerAuthService, OwnerService, OwnerBookingService, OwnerGuard],
-  exports: [OwnerGuard],
+  exports: [OwnerGuard, OwnerBookingService],
 })
 export class OwnerModule {}

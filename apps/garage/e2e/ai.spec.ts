@@ -98,7 +98,7 @@ test('tóm tắt lịch sử xe có che PII (/xe/[id] · A3.32) -> AI gợi ý b
   await expect(page.getByTestId('ai-docs-list')).toContainText(docCode);
 
   await page.getByRole('tab', { name: /Hỏi đáp kỹ thuật xưởng/ }).click();
-  await page.getByLabel('Câu hỏi kỹ thuật / Mã lỗi OBD *').fill('Xe bị giật cục hộp số CVT khi đạp ga cần kiểm tra thông số nào?');
+  await page.getByLabel('Câu hỏi kỹ thuật / Mã lỗi OBD *').fill(`Xe bị giật cục hộp số CVT ${tag} khi đạp ga cần kiểm tra thông số nào?`);
   await page.getByTestId('ai-ask-tech-btn').click();
   await expect(page.getByTestId('ai-tech-output')).toContainText(`Trích dẫn: ${docCode}`);
   await expect(page.getByTestId('ai-tech-output')).toContainText('40 độ C');
