@@ -121,6 +121,7 @@ export const NAV: NavGroup[] = [
     label: 'Mở rộng',
     items: [
       { href: '/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A3.60', round: '4.2', tone: 'mint', permission: 'rental.view', built: true },
+      { href: '/xe-cu', label: 'Xe cũ & kiểm định', icon: ClipboardCheck, screen: 'A3.61', round: '4.3', tone: 'lav', permission: 'used_car.appraise', built: true },
     ],
   },
   {
@@ -147,7 +148,7 @@ export const NAV: NavGroup[] = [
       { href: '/doi-tac/yeu-cau', label: 'Đặt hàng & đặt lịch', icon: Inbox, screen: 'A7.20', round: '3.4', tone: 'sky', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/cuu-ho', label: 'Cứu hộ', icon: LifeBuoy, screen: 'A7.21', round: '4.1', tone: 'rose', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/thue-xe', label: 'Thuê xe', icon: CarFront, screen: 'A7.22', round: '4.2', tone: 'mint', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
-      { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: '4.3', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER' },
+      { href: '/doi-tac/kiem-dinh', label: 'Kiểm định xe cũ', icon: ClipboardCheck, screen: 'A7.23', round: '4.3', tone: 'lav', permission: 'partner.request.manage', workspace: 'PARTNER', built: true },
       { href: '/doi-tac/danh-gia', label: 'Đánh giá', icon: Star, screen: 'A7.24', round: '3.5', tone: 'peach', permission: 'partner.review.reply', workspace: 'PARTNER', built: true },
     ],
   },
@@ -165,6 +166,7 @@ export const NAV: NavGroup[] = [
       { href: '/san/danh-muc-chuan', label: 'Danh mục chuẩn', icon: BookOpen, screen: 'A6.20', round: '3.2', tone: 'lav', permission: 'platform.catalog.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/tin-dang', label: 'Kiểm duyệt tin đăng', icon: ShieldCheck, screen: 'A6.30', round: '3.2', tone: 'peach', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/thue-xe', label: 'Kiểm duyệt xe thuê', icon: CarFront, screen: 'A6.30b', round: '4.2', tone: 'mint', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
+      { href: '/san/xe-cu', label: 'Kiểm duyệt xe cũ', icon: Car, screen: 'A6.31', round: '4.3', tone: 'lav', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
       { href: '/san/cuu-ho', label: 'Giám sát cứu hộ', icon: LifeBuoy, screen: 'A6.61', round: '4.1', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },

@@ -224,6 +224,8 @@ flowchart TB
   I --> J["Đánh dấu đã bán / hết hạn sau 60 ngày"]
 ```
 
+> **Đã làm (vòng 4.3):** Chủ xe trên App chủ xe (`A2.09`) hoặc garage PLG / Đối tác (`A3.61`, `A7.23`) tạo tin bán xe cũ (`XC…`, kèm ảnh giấy tờ riêng tư chỉ người bán – garage kiểm định – kiểm duyệt sàn xem được). Chủ xe có thể đặt lịch kiểm định tại bất kỳ garage đang bật dịch vụ kiểm định (hoặc garage tự lập phiếu kiểm định cho xe mình bán); KTV / garage chấm checklist 6 nhóm kỹ thuật (100 điểm), chụp ảnh báo cáo và thu phí trực tiếp tại garage → báo cáo gắn vào tin (huy hiệu **Đã kiểm định** khi đạt chuẩn). Mọi tin gửi duyệt qua Kiểm duyệt `A6.31` trước khi hiển thị công khai trên `/cho/xe-cu` (`A1.07`); tự động hết hạn sau 60 ngày (`expires_at`), người mua gửi tin nhắn chat & đặt lịch hẹn xem xe trực tiếp với người bán.
+
 ## F9 · Thuê xe
 
 ```mermaid

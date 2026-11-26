@@ -1870,3 +1870,205 @@ model RentalContract {
   @@map("rental_contracts")
 }
 
+// ======================= Vòng 4.3: Xe cũ & Kiểm định xe cũ (M32, F8, D5) =======================
+
+enum UsedCarSellerType {
+  OWNER
+  GARAGE
+}
+
+enum UsedCarListingStatus {
+  NHAP
+  CHO_DUYET
+  DANG_BAN
+  BI_TU_CHOI
+  TAM_AN
+  DA_BAN
+  HET_HAN
+  BI_GO
+}
+
+enum UsedCarAppraisalStatus {
+  CHO_XAC_NHAN
+  DA_HEN
+  DANG_KIEM_DINH
+  HOAN_THANH
+  TU_CHOI
+  HUY
+}
+
+enum AppraisalGrade {
+  DAT_CHUAN
+  LUU_Y
+  KHONG_DAT
+}
+
+/// Cấu hình dịch vụ kiểm định xe cũ của garage (khách trả phí kiểm định trực tiếp cho garage)
+model AppraisalConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @unique @map("tenant_id") @db.Uuid
+  enabled   Boolean  @default(false)
+  fee       BigInt   @default(500000)
+  branchId  String?  @map("branch_id") @db.Uuid
+  note      String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("appraisal_configs")
+}
+
+/// Tin đăng bán xe cũ của chủ xe cá nhân (App chủ xe) hoặc garage PLG / Đối tác
+model UsedCarListing {
+  id                  String               @id @default(uuid()) @db.Uuid
+  /// XC000001… duy nhất toàn sàn
+  code                String               @unique
+  sellerType          UsedCarSellerType    @map("seller_type")
+  sellerUserId        String?              @map("seller_user_id") @db.Uuid
+  sellerTenantId      String?              @map("seller_tenant_id") @db.Uuid
+  branchId            String?              @map("branch_id") @db.Uuid
+  vehicleId           String?              @map("vehicle_id") @db.Uuid
+  title               String
+  plateNo             String?              @map("plate_no")
+  vin                 String?
+  make                String
+  model               String
+  year                Int
+  mileageKm           Int                  @map("mileage_km")
+  /// SEDAN | SUV_CUV | HATCHBACK | MPV | PICKUP | OTHER
+  bodyStyle           String               @default("SEDAN") @map("body_style")
+  /// TU_DONG | SO_SAN
+  transmission        String               @default("TU_DONG")
+  /// XANG | DAU | DIEN | HYBRID
+  fuel                String               @default("XANG")
+  exteriorColor       String?              @map("exterior_color")
+  seats               Int                  @default(5)
+  ownersCount         Int                  @default(1) @map("owners_count")
+  price               BigInt
+  negotiable          Boolean              @default(true)
+  province            String
+  addressText         String?              @map("address_text")
+  contactName         String               @map("contact_name")
+  contactPhone        String               @map("contact_phone")
+  description         String?
+  /// Ảnh xe hiển thị công khai
+  imageFileIds        String[]             @default([]) @map("image_file_ids") @db.Uuid
+  /// Ảnh cà vẹt / đăng kiểm: chỉ người bán, garage kiểm định và kiểm duyệt sàn xem được
+  docFileIds          String[]             @default([]) @map("doc_file_ids") @db.Uuid
+  verifiedAppraisalId String?              @map("verified_appraisal_id") @db.Uuid
+  hasVerifiedBadge    Boolean              @default(false) @map("has_verified_badge")
+  status              UsedCarListingStatus @default(NHAP)
+  reviewNote          String?              @map("review_note")
+  reviewedBy          String?              @map("reviewed_by") @db.Uuid
+  reviewedAt          DateTime?            @map("reviewed_at")
+  submittedAt         DateTime?            @map("submitted_at")
+  publishedAt         DateTime?            @map("published_at")
+  /// Tự chuyển HET_HAN sau 60 ngày kể từ khi duyệt đăng (F8)
+  expiresAt           DateTime?            @map("expires_at")
+  soldAt              DateTime?            @map("sold_at")
+  viewsCount          Int                  @default(0) @map("views_count")
+  searchText          String               @default("") @map("search_text")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  appraisals UsedCarAppraisal[]
+  saves      UsedCarSave[]
+  threads    UsedCarThread[]
+
+  @@index([status, hasVerifiedBadge, publishedAt])
+  @@index([status, province])
+  @@index([sellerUserId, createdAt])
+  @@index([sellerTenantId, status])
+  @@index([status, submittedAt])
+  @@map("used_car_listings")
+}
+
+/// Phiếu đặt lịch & báo cáo kiểm định xe cũ tại garage
+model UsedCarAppraisal {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  /// KD000001… theo garage kiểm định
+  code               String
+  listingId          String                 @map("listing_id") @db.Uuid
+  tenantId           String                 @map("tenant_id") @db.Uuid
+  branchId           String?                @map("branch_id") @db.Uuid
+  requestedByUserId  String?                @map("requested_by_user_id") @db.Uuid
+  assignedMemberId   String?                @map("assigned_member_id") @db.Uuid
+  scheduledAt        DateTime               @map("scheduled_at")
+  quotedFee          BigInt                 @map("quoted_fee")
+  finalFee           BigInt?                @map("final_fee")
+  paymentMethod      PaymentMethod?         @map("payment_method")
+  cashEntryId        String?                @unique @map("cash_entry_id") @db.Uuid
+  status             UsedCarAppraisalStatus @default(CHO_XAC_NHAN)
+  checklist          Json                   @default("[]")
+  noMajorAccident    Boolean                @default(true) @map("no_major_accident")
+  noFloodDamage      Boolean                @default(true) @map("no_flood_damage")
+  validDocuments     Boolean                @default(true) @map("valid_documents")
+  inspectedMileageKm Int?                   @map("inspected_mileage_km")
+  score              Int?
+  grade              AppraisalGrade?
+  summary            String?
+  reportImageIds     String[]               @default([]) @map("report_image_ids") @db.Uuid
+  customerNote       String?                @map("customer_note")
+  rejectReason       String?                @map("reject_reason")
+  completedAt        DateTime?              @map("completed_at")
+  completedBy        String?                @map("completed_by") @db.Uuid
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  listing UsedCarListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([listingId, createdAt])
+  @@index([tenantId, status, scheduledAt])
+  @@map("used_car_appraisals")
+}
+
+/// Tin xe cũ đã lưu của chủ xe trên App chủ xe (A2.09)
+model UsedCarSave {
+  userId    String   @map("user_id") @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listing UsedCarListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([userId, listingId])
+  @@index([listingId])
+  @@map("used_car_saves")
+}
+
+/// Luồng chat hỏi thông tin & đặt lịch hẹn xem xe giữa người mua và người bán (A1.07, A2.09, F8)
+model UsedCarThread {
+  id            String   @id @default(uuid()) @db.Uuid
+  listingId     String   @map("listing_id") @db.Uuid
+  buyerUserId   String?  @map("buyer_user_id") @db.Uuid
+  buyerName     String   @map("buyer_name")
+  buyerPhone    String   @map("buyer_phone")
+  viewingAt     DateTime? @map("viewing_at")
+  /// NONE | CHO_XAC_NHAN | DA_XAC_NHAN | TU_CHOI
+  viewingStatus String   @default("NONE") @map("viewing_status")
+  accessHash    String   @map("access_hash")
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  listing  UsedCarListing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  messages UsedCarMessage[]
+
+  @@index([listingId, lastMessageAt])
+  @@index([buyerUserId, lastMessageAt])
+  @@map("used_car_threads")
+}
+
+model UsedCarMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  threadId   String   @map("thread_id") @db.Uuid
+  /// BUYER | SELLER
+  senderRole String   @map("sender_role")
+  senderName String   @map("sender_name")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  thread UsedCarThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("used_car_messages")
+}
+
+

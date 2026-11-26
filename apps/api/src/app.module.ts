@@ -7,6 +7,7 @@ import { PlatformModule } from './platform/platform.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { SosModule } from './sos/sos';
 import { RentalsModule } from './rentals/rentals';
+import { UsedCarsModule } from './used-cars/used-cars';
 import { FinanceModule } from './finance/finance.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { Module } from '@nestjs/common';
@@ -43,6 +44,7 @@ import { RedisModule } from './redis/redis.module';
     MarketplaceModule,
     SosModule,
     RentalsModule,
+    UsedCarsModule,
     HealthModule,
   ],
 })

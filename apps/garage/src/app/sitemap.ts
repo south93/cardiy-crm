@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /** sitemap.xml: trang chủ sàn, gian hàng, sản phẩm / dịch vụ đang có garage bán */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const fixed: MetadataRoute.Sitemap = ['/cho', '/cho/tim-garage', '/cho/san-pham', '/cho/dich-vu', '/cho/thue-xe', '/cho/cuu-ho', '/dang-ky-doi-tac'].map((p) => ({ url: `${SITE}${p}` }));
+  const fixed: MetadataRoute.Sitemap = ['/cho', '/cho/tim-garage', '/cho/san-pham', '/cho/dich-vu', '/cho/xe-cu', '/cho/thue-xe', '/cho/cuu-ho', '/dang-ky-doi-tac'].map((p) => ({ url: `${SITE}${p}` }));
   try {
     const res = await fetch(`${API}/api/public/market/sitemap`, { cache: 'no-store' });
     if (!res.ok) return fixed;

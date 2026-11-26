@@ -46,6 +46,7 @@ export async function createApp(overrides: Partial<Env> = {}): Promise<INestAppl
     ...(await redis.client.keys('acl:*')),
     ...(await redis.client.keys('rental:ip:*')),
     ...(await redis.client.keys('sos:ip:*')),
+    ...(await redis.client.keys('usedcar:ip:*')),
   ];
   if (keys.length) await redis.client.del(...keys);
   return app;

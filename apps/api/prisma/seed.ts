@@ -208,6 +208,164 @@ async function main() {
     create: { tenantId: partner.id, key: 'rental_vehicle', value: 1 },
   });
 
+  // Cấu hình kiểm định xe cũ & tin xe cũ mẫu (Vòng 4.3)
+  const kd = await cat('SERVICE', 'Kiểm định xe cũ', 5);
+  await prisma.catalogItem.upsert({
+    where: { code: 'DV-KIEM-DINH-XE-CU' },
+    update: {},
+    create: {
+      kind: 'SERVICE',
+      code: 'DV-KIEM-DINH-XE-CU',
+      name: 'Kiểm định xe cũ toàn diện 150 hạng mục',
+      categoryId: kd.id,
+      specs: [],
+      searchText: searchKey('DV-KIEM-DINH-XE-CU', 'Kiểm định xe cũ toàn diện 150 hạng mục'),
+    },
+  });
+
+  await prisma.appraisalConfig.upsert({
+    where: { tenantId: plg.id },
+    update: {},
+    create: {
+      tenantId: plg.id,
+      enabled: true,
+      fee: 600_000n,
+      branchId: cn1.id,
+      note: 'Kiểm tra cầu nâng khung gầm, chẩn đoán OBD, đo độ dày sơn & lịch sử bảo dưỡng',
+    },
+  });
+  await prisma.appraisalConfig.upsert({
+    where: { tenantId: partner.id },
+    update: {},
+    create: {
+      tenantId: partner.id,
+      enabled: true,
+      fee: 500_000n,
+      note: 'Kiểm định 150 điểm cam kết không đâm đụng khung gầm, không thuỷ kích',
+    },
+  });
+
+  const pubNow = new Date();
+  const exp60 = new Date(pubNow.getTime() + 60 * 86_400_000);
+  const demoChecklist = [
+    { key: 'BODY_FRAME', group: 'Khung gầm & Thân vỏ', label: 'Sắt-xi, cột kèo, keo chỉ nguyên bản, không biến dạng va chạm', maxPoints: 30, status: 'TOT', note: 'Sơn zin 95%, keo chỉ nguyên bản' },
+    { key: 'ENGINE_GEARBOX', group: 'Động cơ & Hộp số', label: 'Máy nổ êm, ốc chân máy nguyên zin, hộp số sang số mượt, không rò dầu', maxPoints: 25, status: 'TOT', note: 'Máy khô ráo, không lỗi' },
+    { key: 'SUSPENSION_BRAKE', group: 'Lái, Treo, Phanh & Lốp', label: 'Thước lái, giảm xóc, má phanh và độ sâu gai lốp đạt chuẩn', maxPoints: 15, status: 'LUU_Y', note: 'Hai lốp trước còn 65%, đi thêm ~15.000 km' },
+    { key: 'ELECTRICAL_AC', group: 'Điện, Đèn & Điều hoà', label: 'Điều hoà lạnh sâu, ắc quy tốt, quét OBD không có mã lỗi', maxPoints: 15, status: 'TOT', note: 'Không mã lỗi OBD' },
+    { key: 'INTERIOR_SAFETY', group: 'Nội thất & Túi khí', label: 'Túi khí, dây đai an toàn, ghế da và màn hình hoạt động đầy đủ', maxPoints: 10, status: 'TOT', note: 'Nội thất giữ kỹ' },
+    { key: 'LEGAL_ODO', group: 'Giấy tờ & Lịch sử ODO', label: 'Số khung số máy khớp cà vẹt, ODO chuẩn theo lịch sử bảo dưỡng', maxPoints: 5, status: 'TOT', note: 'Chính chủ từ đầu' },
+  ];
+
+  const xc1 = await prisma.usedCarListing.upsert({
+    where: { code: 'XC000001' },
+    update: {},
+    create: {
+      code: 'XC000001',
+      sellerType: 'GARAGE',
+      sellerTenantId: partner.id,
+      title: 'Toyota Corolla Cross 1.8V 2022 · 1 chủ từ đầu · Đã kiểm định',
+      plateNo: '30H56789',
+      make: 'Toyota',
+      model: 'Corolla Cross',
+      year: 2022,
+      mileageKm: 28_500,
+      bodyStyle: 'SUV_CUV',
+      transmission: 'TU_DONG',
+      fuel: 'XANG',
+      exteriorColor: 'Trắng ngọc trai',
+      seats: 5,
+      ownersCount: 1,
+      price: 735_000_000n,
+      negotiable: true,
+      province: 'Hà Nội',
+      addressText: 'Hà Đông, Hà Nội',
+      contactName: 'Minh Phát Auto',
+      contactPhone: '0900000010',
+      description: 'Xe gia đình 1 chủ mua mới từ hãng, bảo dưỡng đầy đủ mỗi 5.000 km, gói an toàn Toyota Safety Sense.',
+      hasVerifiedBadge: true,
+      status: 'DANG_BAN',
+      publishedAt: pubNow,
+      expiresAt: exp60,
+      searchText: searchKey('XC000001', 'Toyota Corolla Cross 1.8V 2022', 'SUV_CUV', 'Hà Nội'),
+    },
+  });
+
+  const kd1 = await prisma.usedCarAppraisal.upsert({
+    where: { tenantId_code: { tenantId: partner.id, code: 'KD000001' } },
+    update: {},
+    create: {
+      code: 'KD000001',
+      listingId: xc1.id,
+      tenantId: partner.id,
+      scheduledAt: pubNow,
+      quotedFee: 500_000n,
+      finalFee: 500_000n,
+      status: 'HOAN_THANH',
+      checklist: demoChecklist,
+      noMajorAccident: true,
+      noFloodDamage: true,
+      validDocuments: true,
+      inspectedMileageKm: 28_500,
+      score: 93,
+      grade: 'DAT_CHUAN',
+      summary: 'Xe nguyên bản, khung gầm và động cơ xuất sắc, không tai nạn hay ngập nước.',
+      completedAt: pubNow,
+    },
+  });
+
+  if (!xc1.verifiedAppraisalId) {
+    await prisma.usedCarListing.update({
+      where: { id: xc1.id },
+      data: { verifiedAppraisalId: kd1.id, hasVerifiedBadge: true },
+    });
+  }
+
+  await prisma.usedCarListing.upsert({
+    where: { code: 'XC000002' },
+    update: {},
+    create: {
+      code: 'XC000002',
+      sellerType: 'GARAGE',
+      sellerTenantId: plg.id,
+      branchId: cn1.id,
+      title: 'Honda City RS 2021 · Số tự động · Xe đẹp nguyên zin',
+      plateNo: '93A45678',
+      make: 'Honda',
+      model: 'City RS',
+      year: 2021,
+      mileageKm: 39_000,
+      bodyStyle: 'SEDAN',
+      transmission: 'TU_DONG',
+      fuel: 'XANG',
+      exteriorColor: 'Đỏ cá tính',
+      seats: 5,
+      ownersCount: 1,
+      price: 465_000_000n,
+      negotiable: true,
+      province: 'Bình Phước',
+      addressText: 'Đồng Xoài, Bình Phước',
+      contactName: 'Garage PLG',
+      contactPhone: '0900000001',
+      description: 'Honda City bản RS cao cấp nhất, lẫy chuyển số vô lăng, bảo dưỡng định kỳ tại Garage PLG.',
+      hasVerifiedBadge: false,
+      status: 'DANG_BAN',
+      publishedAt: pubNow,
+      expiresAt: exp60,
+      searchText: searchKey('XC000002', 'Honda City RS 2021', 'SEDAN', 'Bình Phước'),
+    },
+  });
+
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: platform.id, key: 'used_car' } },
+    update: {},
+    create: { tenantId: platform.id, key: 'used_car', value: 2 },
+  });
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: partner.id, key: 'appraisal' } },
+    update: {},
+    create: { tenantId: partner.id, key: 'appraisal', value: 1 },
+  });
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 
