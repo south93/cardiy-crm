@@ -5,9 +5,24 @@ import { marketApi, type Category, type ItemCard, type ShopCard } from '@/lib/ma
 
 export const dynamic = 'force-dynamic';
 
+const API_INTERNAL = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+interface HomeBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  linkUrl: string | null;
+  ctaLabel: string | null;
+}
+
 /** A1.01 Trang chủ sàn */
 export default async function MarketHome() {
-  const d = await marketApi<{ categories: Category[]; shops: ShopCard[]; items: ItemCard[]; stats: { shops: number } }>('/home');
+  const [d, homeBanners] = await Promise.all([
+    marketApi<{ categories: Category[]; shops: ShopCard[]; items: ItemCard[]; stats: { shops: number } }>('/home'),
+    fetch(`${API_INTERNAL}/api/public/community/banners?position=HOME`, { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<HomeBanner[]>) : []))
+      .catch(() => [] as HomeBanner[]),
+  ]);
   const roots = d.categories.filter((c) => !c.parentId);
   return (
     <div className="space-y-10">
@@ -32,11 +47,32 @@ export default async function MarketHome() {
           <Link href="/cho/thue-xe" className="rounded-full bg-white/15 px-3 py-1.5 hover:bg-white/25" data-testid="market-rental-cta">
             Thuê xe tự lái
           </Link>
+          <Link href="/cho/cong-dong" className="rounded-full bg-white/15 px-3 py-1.5 hover:bg-white/25" data-testid="market-community-cta">
+            Cộng đồng & Sách nói
+          </Link>
           <Link href="/cho/cuu-ho" className="rounded-full bg-rose-500 px-3.5 py-1.5 font-semibold text-white hover:bg-rose-600" data-testid="market-sos-cta">
             Cứu hộ SOS 24/7
           </Link>
         </div>
       </section>
+
+      {homeBanners.length > 0 && (
+        <section className="grid gap-3 md:grid-cols-2" data-testid="market-home-banners">
+          {homeBanners.map((b) => (
+            <div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-4">
+              <div>
+                <div className="font-semibold text-slate-900">{b.title}</div>
+                {b.subtitle && <p className="mt-0.5 text-xs text-slate-600">{b.subtitle}</p>}
+              </div>
+              {b.linkUrl && (
+                <Link href={b.linkUrl} className="rounded-full bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">
+                  {b.ctaLabel ?? 'Xem ngay'}
+                </Link>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
 
       {roots.length > 0 && (
         <section>

@@ -35,6 +35,7 @@ export const PERMISSIONS = [
   P('platform.fee.manage', 'Sàn: Phí đối tác', 'Gói, hoá đơn phí, ghi nhận thanh toán phí', 'PLATFORM'),
   P('platform.report.handle', 'Sàn: Giám sát', 'Xử lý phản ánh, vi phạm, giám sát cứu hộ', 'PLATFORM'),
   P('platform.content.manage', 'Sàn: Nội dung', 'Blog, banner, chương trình chung', 'PLATFORM'),
+  P('platform.report.view', 'Sàn: Báo cáo', 'Xem Dashboard & báo cáo toàn sàn', 'PLATFORM'),
   P('platform.config.manage', 'Sàn: Cấu hình', 'Cấu hình sàn, nhân sự sàn', 'PLATFORM'),
 
   // ---- Cổng đối tác (đối tác chỉ có 1 tài khoản, mọi dịch vụ xử lý qua đây) ----
@@ -79,6 +80,7 @@ export const PERMISSIONS = [
   P('rental.manage', 'Thuê xe', 'Quản lý xe cho thuê & hợp đồng thuê xe'),
   P('used_car.manage', 'Xe cũ', 'Đăng bán xe cũ, tiếp nhận kiểm định & khách hẹn xem'),
   P('used_car.appraise', 'Xe cũ', 'Thực hiện chấm checklist kiểm định xe cũ'),
+  P('community.manage', 'Cộng đồng', 'Đăng bài chia sẻ & trả lời cộng đồng của garage'),
   P('marketing.manage', 'Marketing', 'Phân khúc, chiến dịch'),
   P('report.view', 'Báo cáo', 'Xem báo cáo'),
   P('branch.manage', 'Cài đặt', 'Quản lý chi nhánh'),
@@ -109,10 +111,10 @@ export interface SystemRoleDef {
 /** Vai trò hệ thống: không sửa được. Chủ garage có thể tạo vai trò tuỳ chỉnh từ danh mục quyền. */
 export const SYSTEM_ROLES: SystemRoleDef[] = [
   { code: 'SA', name: 'Super Admin sàn', scope: 'PLATFORM', require2fa: true, permissions: [...PLATFORM_ALL, 'audit.view', 'staff.view', 'staff.manage', 'role.manage', 'file.upload'] },
-  { code: 'AV', name: 'Admin vận hành sàn', scope: 'PLATFORM', require2fa: true, permissions: ['platform.partner.review', 'platform.catalog.manage', 'platform.report.handle', 'audit.view', 'file.upload'] },
-  { code: 'KS', name: 'Kế toán sàn', scope: 'PLATFORM', require2fa: true, permissions: ['platform.fee.manage', 'file.upload'] },
-  { code: 'MK', name: 'Marketing & Nội dung sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.content.manage', 'file.upload'] },
-  { code: 'GS', name: 'Giám sát chất lượng sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.report.handle', 'file.upload'] },
+  { code: 'AV', name: 'Admin vận hành sàn', scope: 'PLATFORM', require2fa: true, permissions: ['platform.partner.review', 'platform.catalog.manage', 'platform.report.handle', 'platform.report.view', 'audit.view', 'file.upload'] },
+  { code: 'KS', name: 'Kế toán sàn', scope: 'PLATFORM', require2fa: true, permissions: ['platform.fee.manage', 'platform.report.view', 'file.upload'] },
+  { code: 'MK', name: 'Marketing & Nội dung sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.content.manage', 'platform.report.view', 'file.upload'] },
+  { code: 'GS', name: 'Giám sát chất lượng sàn', scope: 'PLATFORM', require2fa: false, permissions: ['platform.report.handle', 'platform.report.view', 'file.upload'] },
 
   // Đối tác: 1 tài khoản duy nhất, không quản lý nhân viên, không có CRM
   { code: 'DT', name: 'Đối tác', scope: 'PARTNER', require2fa: false, permissions: [...PARTNER_ALL, 'file.upload'] },
