@@ -2192,3 +2192,189 @@ model PlatformBanner {
   @@index([position, active, sortOrder])
   @@map("platform_banners")
 }
+
+// ======================= Vòng 5.1: Marketing, Phân khúc, Chiến dịch & Điểm thưởng (M35, D1, D5) =======================
+
+enum LoyaltyTxType {
+  EARN
+  REDEEM
+  ADJUST
+}
+
+enum CampaignChannel {
+  APP_PUSH
+  ZALO_ZNS
+  SMS
+}
+
+enum CampaignStatus {
+  NHAP
+  DA_LEN_LICH
+  HOAN_THANH
+  HUY
+}
+
+enum CampaignDeliveryStatus {
+  SENT
+  SKIPPED_NO_CONSENT
+  FAILED
+}
+
+/// Lịch sử đồng ý / rút lại đồng ý nhận tin của chủ xe (D1 · Nghị định 13/2023)
+model Consent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// ALL | ZNS | SMS | EMAIL | PUSH
+  channel   String   @default("ALL")
+  /// MARKETING | CARE
+  purpose   String   @default("MARKETING")
+  granted   Boolean
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("consents")
+}
+
+/// Cấu hình tích điểm & ngưỡng hạng thành viên theo garage PLG (M35)
+model LoyaltyConfig {
+  tenantId      String   @id @map("tenant_id") @db.Uuid
+  enabled       Boolean  @default(true)
+  /// Số tiền (VND) trên đơn đã giao để tích 1 điểm (VD: 100.000đ = 1 điểm)
+  vndPerPoint   Int      @default(100000) @map("vnd_per_point")
+  /// Giá trị quy đổi tham khảo của 1 điểm (VD: 1.000đ)
+  pointValueVnd Int      @default(1000) @map("point_value_vnd")
+  silverPoints  Int      @default(50) @map("silver_points")
+  goldPoints    Int      @default(200) @map("gold_points")
+  diamondPoints Int      @default(500) @map("diamond_points")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_configs")
+}
+
+/// Sổ cái giao dịch điểm thưởng của khách hàng tại garage PLG
+model LoyaltyTransaction {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  customerId   String        @map("customer_id") @db.Uuid
+  orderId      String?       @map("order_id") @db.Uuid
+  type         LoyaltyTxType
+  /// Dương khi EARN, âm khi REDEEM, dương/âm khi ADJUST
+  points       Int
+  balanceAfter Int           @map("balance_after")
+  note         String?
+  createdBy    String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  @@unique([tenantId, orderId, type])
+  @@index([tenantId, customerId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+/// Phân khúc khách hàng động của garage PLG (A3.62)
+model CustomerSegment {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  /// PK000001… theo garage
+  code        String
+  name        String
+  description String?
+  /// { tiers, sources, branchId, minSpent, inactiveDays, expiringWithinDays }
+  rules       Json      @default("{}")
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  campaigns MarketingCampaign[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, deletedAt])
+  @@map("customer_segments")
+}
+
+/// Chiến dịch chăm sóc / khuyến mại của garage PLG (A3.62) hoặc toàn sàn (A6.63)
+model MarketingCampaign {
+  id               String         @id @default(uuid()) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  /// CD000001… theo tenant
+  code             String
+  name             String
+  channel          CampaignChannel @default(APP_PUSH)
+  segmentId        String?        @map("segment_id") @db.Uuid
+  templateCode     String?        @map("template_code")
+  voucherId        String?        @map("voucher_id") @db.Uuid
+  title            String
+  bodyTemplate     String         @map("body_template")
+  status           CampaignStatus @default(NHAP)
+  scheduledAt      DateTime?      @map("scheduled_at")
+  sentAt           DateTime?      @map("sent_at")
+  totalMatched     Int            @default(0) @map("total_matched")
+  sentCount        Int            @default(0) @map("sent_count")
+  skippedNoConsent Int            @default(0) @map("skipped_no_consent")
+  createdBy        String?        @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  segment    CustomerSegment?   @relation(fields: [segmentId], references: [id])
+  deliveries CampaignDelivery[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, createdAt])
+  @@map("marketing_campaigns")
+}
+
+/// Nhật ký gửi từng khách trong chiến dịch (ghi nhận rõ khách bị bỏ qua do chưa đồng ý nhận tin)
+model CampaignDelivery {
+  id            String                 @id @default(uuid()) @db.Uuid
+  campaignId    String                 @map("campaign_id") @db.Uuid
+  customerId    String?                @map("customer_id") @db.Uuid
+  userId        String?                @map("user_id") @db.Uuid
+  recipientName String                 @map("recipient_name")
+  phone         String?
+  status        CampaignDeliveryStatus
+  renderedBody  String?                @map("rendered_body")
+  reason        String?
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  campaign MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([customerId])
+  @@map("campaign_deliveries")
+}
+
+/// Mẫu thông báo chuẩn của sàn (D5 · A6.63)
+model NotificationTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  /// ZNS | SMS | EMAIL | PUSH
+  channel   String   @default("PUSH")
+  title     String
+  body      String
+  active    Boolean  @default(true)
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+/// Hộp thư thông báo của chủ xe trên App chủ xe (D5 · A2.12)
+model OwnerNotification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tenantId   String?   @map("tenant_id") @db.Uuid
+  campaignId String?   @map("campaign_id") @db.Uuid
+  /// CAMPAIGN | LOYALTY | REMINDER | SYSTEM
+  kind       String    @default("CAMPAIGN")
+  title      String
+  body       String
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, readAt, createdAt])
+  @@map("owner_notifications")
+}
+

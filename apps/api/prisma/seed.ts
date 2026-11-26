@@ -485,6 +485,73 @@ async function main() {
     });
   }
 
+  // Cấu hình tích điểm, phân khúc mẫu & mẫu thông báo sàn (Vòng 5.1)
+  await prisma.loyaltyConfig.upsert({
+    where: { tenantId: plg.id },
+    update: {},
+    create: {
+      tenantId: plg.id,
+      enabled: true,
+      vndPerPoint: 100_000,
+      pointValueVnd: 1_000,
+      silverPoints: 50,
+      goldPoints: 200,
+      diamondPoints: 500,
+    },
+  });
+
+  await prisma.customerSegment.upsert({
+    where: { tenantId_code: { tenantId: plg.id, code: 'PK000001' } },
+    update: {},
+    create: {
+      tenantId: plg.id,
+      code: 'PK000001',
+      name: 'Khách thân thiết hạng Bạc trở lên',
+      description: 'Tập khách hàng tích luỹ từ hạng Bạc, Vàng, Kim cương để gửi ưu đãi tri ân định kỳ',
+      rules: { tiers: ['BAC', 'VANG', 'KIM_CUONG'] },
+    },
+  });
+  await prisma.customerSegment.upsert({
+    where: { tenantId_code: { tenantId: plg.id, code: 'PK000002' } },
+    update: {},
+    create: {
+      tenantId: plg.id,
+      code: 'PK000002',
+      name: 'Xe sắp đến hạn đăng kiểm / bảo hiểm 30 ngày',
+      description: 'Nhắc lịch kiểm tra an toàn trước kỳ đăng kiểm hoặc gia hạn bảo hiểm',
+      rules: { expiringWithinDays: 30 },
+    },
+  });
+  await prisma.tenantCounter.upsert({
+    where: { tenantId_key: { tenantId: plg.id, key: 'customer_segment' } },
+    update: {},
+    create: { tenantId: plg.id, key: 'customer_segment', value: 2 },
+  });
+
+  const demoTemplates = [
+    {
+      code: 'TPL_BAO_DUONG_DINH_KY',
+      name: 'Nhắc bảo dưỡng & kiểm tra xe định kỳ',
+      channel: 'PUSH',
+      title: 'Nhắc lịch chăm sóc xe cùng {{ten_garage}}',
+      body: 'Chào {{ten_khach}}, xe của bạn sắp tới kỳ kiểm tra định kỳ. Đặt lịch trước trên App CARDIY để không phải chờ đợi!',
+    },
+    {
+      code: 'TPL_UU_DAI_THANH_VIEN',
+      name: 'Thông báo ưu đãi hạng thẻ & voucher',
+      channel: 'ZNS',
+      title: 'Ưu đãi dành riêng cho hội viên {{hang_the}}',
+      body: 'Cảm ơn {{ten_khach}} đã đồng hành cùng {{ten_garage}} (hiện có {{diem_thuong}} điểm). Nhập mã {{ma_voucher}} khi đặt lịch lần tới!',
+    },
+  ];
+  for (const tpl of demoTemplates) {
+    await prisma.notificationTemplate.upsert({
+      where: { code: tpl.code },
+      update: {},
+      create: tpl,
+    });
+  }
+
   console.log(`Seed xong. Tài khoản demo 0900000001…0900000010, mật khẩu: ${DEMO_PASSWORD}`);
 }
 

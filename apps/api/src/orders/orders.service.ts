@@ -5,6 +5,7 @@ import { AccessService, type Access } from '../auth/access.service';
 import { AuditService } from '../audit/audit.service';
 import { reserveNumbers } from '../crm/counters';
 import { applyMovement } from '../inventory/stock';
+import { awardOrderLoyaltyPoints } from '../marketing/loyalty-helper';
 import { PrismaService } from '../prisma/prisma.service';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
 import { expirePendingQuotes } from './quotes';
@@ -472,6 +473,15 @@ export class OrdersService {
         for (const it of stocked) {
           await applyMovement(tx, { tenantId: a.tenantId, branchId: o.branchId, productId: it.productId!, kind: 'XUAT_BAN', quantity: it.quantity.neg(), orderId: id, note: `Xuất bán theo đơn ${o.code}`, actorId: a.userId });
         }
+        // Tự động tích điểm thưởng & xét nâng hạng thành viên cho khách hàng (Vòng 5.1 · M35)
+        await awardOrderLoyaltyPoints(tx, {
+          tenantId: a.tenantId,
+          customerId: o.customerId,
+          orderId: id,
+          orderCode: o.code,
+          orderTotal: num(o.total),
+          actorId: a.userId,
+        });
       }
       await tx.repairOrder.update({ where: { id }, data });
       const note = dto.to === 'HUY' ? dto.reason!.trim() : dto.to === 'DA_GIAO' && num(o.total) > num(o.paid) ? `Ghi công nợ ${(num(o.total) - num(o.paid)).toLocaleString('vi-VN')} đ` : dto.note?.trim() || null;

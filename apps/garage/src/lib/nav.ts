@@ -130,7 +130,7 @@ export const NAV: NavGroup[] = [
     label: 'Phân tích',
     items: [
       { href: '/bao-cao', label: 'Báo cáo', icon: ChartColumn, screen: 'A3.80', round: '4.4', tone: 'lav', permission: 'report.view', built: true },
-      { href: '/marketing', label: 'Marketing', icon: Megaphone, screen: 'A3.62', round: 'P5', tone: 'peach', permission: 'marketing.manage' },
+      { href: '/marketing', label: 'Marketing', icon: Megaphone, screen: 'A3.62', round: '5.1', tone: 'peach', permission: 'marketing.manage', built: true },
       { href: '/tro-ly-ai', label: 'Trợ lý AI', icon: Sparkles, screen: 'A3.63', round: 'P5', tone: 'lav', permission: 'dashboard.view' },
     ],
   },
@@ -171,6 +171,7 @@ export const NAV: NavGroup[] = [
       { href: '/san/thue-xe', label: 'Kiểm duyệt xe thuê', icon: CarFront, screen: 'A6.30b', round: '4.2', tone: 'mint', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/xe-cu', label: 'Kiểm duyệt xe cũ', icon: Car, screen: 'A6.31', round: '4.3', tone: 'lav', permission: 'platform.partner.review', workspace: 'PLATFORM', built: true },
       { href: '/san/cong-dong', label: 'Cộng đồng & Nội dung', icon: MessageSquare, screen: 'A6.32', round: '4.4', tone: 'peach', permission: 'platform.report.view', workspace: 'PLATFORM', built: true },
+      { href: '/san/thong-bao', label: 'Mẫu tin & Chiến dịch', icon: Megaphone, screen: 'A6.63', round: '5.1', tone: 'peach', permission: 'platform.report.view', workspace: 'PLATFORM', built: true },
       { href: '/san/phi-doi-tac', label: 'Phí đối tác', icon: Receipt, screen: 'A6.50', round: '3.1', tone: 'mint', permission: 'platform.fee.manage', workspace: 'PLATFORM', built: true },
       { href: '/san/phan-anh', label: 'Phản ánh & vi phạm', icon: Flag, screen: 'A6.41', round: '3.5', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
       { href: '/san/cuu-ho', label: 'Giám sát cứu hộ', icon: LifeBuoy, screen: 'A6.61', round: '4.1', tone: 'rose', permission: 'platform.report.handle', workspace: 'PLATFORM', built: true },
