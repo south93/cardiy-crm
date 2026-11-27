@@ -38,7 +38,10 @@ test.beforeAll(async () => {
 test.describe('Vòng 3.3: web sàn công khai /cho', () => {
   test('khách chưa đăng nhập: tìm sản phẩm → so giá các garage → trang garage', async ({ page }) => {
     await page.goto('/cho');
+    await expect(page.getByRole('heading', { name: /Nâng Tầm/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Dịch vụ nổi bật tại CARDIY/ })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Tìm garage uy tín/ })).toBeVisible();
+    await expect(page.getByTestId('market-footer')).toBeVisible();
     await page.getByLabel('Tìm trên sàn').fill(`185/65r15 ${tag}`);
     await page.getByLabel('Tìm trên sàn').press('Enter');
     await expect(page).toHaveURL(/\/cho\/san-pham\?q=/);
