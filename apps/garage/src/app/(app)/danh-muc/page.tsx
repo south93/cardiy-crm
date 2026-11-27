@@ -5,6 +5,7 @@ import { FileUp, FolderPlus, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { ProductForm, emptyProduct, productPayload } from '@/components/product-form';
 import { RequirePermission } from '@/components/require-permission';
@@ -12,6 +13,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
 import { fmtMoney } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 import { fmtMfg, fmtQty, type Category, type ProductRow } from '@/lib/inventory';
 import type { Paged } from '@/lib/crm';
 
@@ -38,19 +40,27 @@ function Catalog() {
     api<string[]>('/products/vehicle-makes').then(setMakes, () => setMakes([]));
   }, [loadCats]);
 
+  const buildQuery = useCallback(
+    (pg: number, ps: number) => {
+      const p = new URLSearchParams({ page: String(pg), pageSize: String(ps), branchId });
+      if (cat) p.set('categoryId', cat);
+      if (q.trim()) p.set('q', q.trim());
+      if (kind) p.set('kind', kind);
+      if (make) p.set('make', make);
+      return `/products?${p}`;
+    },
+    [branchId, cat, q, kind, make],
+  );
+
   useEffect(() => {
     if (!branchId) return;
-    const p = new URLSearchParams({ page: String(page), pageSize: '25', branchId });
-    if (cat) p.set('categoryId', cat);
-    if (q.trim()) p.set('q', q.trim());
-    if (kind) p.set('kind', kind);
-    if (make) p.set('make', make);
-    const t = setTimeout(() => api<Paged<ProductRow>>(`/products?${p}`).then(setData), q ? 250 : 0);
+    const t = setTimeout(() => api<Paged<ProductRow>>(buildQuery(page, 25)).then(setData), q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [cat, q, kind, make, page, branchId]);
+  }, [buildQuery, page, branchId, q]);
 
   const pickCat = (id: string) => (setCat(id), setPage(1));
   const total = cats?.reduce((s, c) => s + c.count, 0) ?? 0;
+  const showCost = !!data?.items.some((p) => p.costPrice !== null);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
@@ -110,6 +120,28 @@ function Catalog() {
             ))}
           </Select>
           <div className="flex-1" />
+          <ExportButton<ProductRow>
+            filename="danh-muc-san-pham"
+            sheetName="Sản phẩm"
+            testId="export-products"
+            disabled={!branchId || !data || data.total === 0}
+            fetchRows={() => fetchAllPages<ProductRow>(buildQuery)}
+            columns={() => [
+              { header: 'Mã SP', value: (p) => p.code },
+              { header: 'Tên sản phẩm / dịch vụ', value: (p) => p.name },
+              { header: 'Loại', value: (p) => (p.kind === 'DICH_VU' ? 'Dịch vụ' : 'Hàng hoá') },
+              { header: 'Thương hiệu', value: (p) => p.brand ?? '' },
+              { header: 'Nhóm', value: (p) => p.category?.name ?? '' },
+              { header: 'Đơn vị', value: (p) => p.unit ?? '' },
+              { header: 'Hãng xe phù hợp', value: (p) => (p.vehicleMakes.length ? p.vehicleMakes.join(', ') : 'Mọi xe') },
+              { header: 'Giá bán', value: (p) => p.salePrice },
+              ...(showCost ? [{ header: 'Giá vốn', value: (p: ProductRow) => p.costPrice }] : []),
+              { header: 'Tồn chi nhánh', value: (p) => (p.kind === 'DICH_VU' ? null : p.stock) },
+              { header: 'Tồn tối thiểu', value: (p) => (p.kind === 'DICH_VU' ? null : p.minStock) },
+              { header: 'SX', value: (p) => fmtMfg(p.mfgMonth, p.mfgYear) ?? '' },
+              { header: 'Trạng thái', value: (p) => (p.active ? 'Đang bán' : 'Ngừng bán') },
+            ]}
+          />
           {can('inventory.manage') && (
             <Link href="/danh-muc/nhap" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-testid="open-product-import">
               <FileUp className="h-4 w-4" />

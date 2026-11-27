@@ -9,6 +9,7 @@ import { OrderAiQuoteCard } from '@/components/ai-assistant-cards';
 import { OrderReviewCard, type Review } from '@/components/order-review-card';
 import { useParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { OrderItemsEditor } from '@/components/order-items';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -219,14 +220,39 @@ function OrderDetail() {
             />
           )}
           <Card className="p-4 lg:p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle>Hạng mục</CardTitle>
-              {canEdit && !editing && (
-                <Button variant="outline" onClick={startEdit} data-testid="edit-items">
-                  <Pencil className="h-4 w-4" />
-                  Sửa hạng mục
-                </Button>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {!editing && (
+                  <ExportButton
+                    filename={`hang-muc-${o.code}`}
+                    sheetName={o.code}
+                    testId="export-order-items"
+                    rows={o.items}
+                    columns={() => [
+                      { header: 'Nhóm', value: (i) => i.section ?? '' },
+                      { header: 'Hạng mục', value: (i) => i.name },
+                      { header: 'Loại', value: (i) => (i.kind === 'DICH_VU' ? 'Dịch vụ' : 'Phụ tùng') },
+                      { header: 'Số lượng', value: (i) => Number(i.quantity) },
+                      { header: 'Đơn vị', value: (i) => i.unit ?? '' },
+                      ...(seesMoney
+                        ? [
+                            { header: 'Đơn giá', value: (i: Order['items'][number]) => i.unitPrice ?? 0 },
+                            { header: 'Giảm giá', value: (i: Order['items'][number]) => i.discount ?? 0 },
+                            { header: 'VAT (%)', value: (i: Order['items'][number]) => i.vatRate ?? 0 },
+                            { header: 'Thành tiền', value: (i: Order['items'][number]) => i.amount ?? 0 },
+                          ]
+                        : []),
+                    ]}
+                  />
+                )}
+                {canEdit && !editing && (
+                  <Button variant="outline" onClick={startEdit} data-testid="edit-items">
+                    <Pencil className="h-4 w-4" />
+                    Sửa hạng mục
+                  </Button>
+                )}
+              </div>
             </div>
             {editing ? (
               <div className="mt-3 space-y-3">

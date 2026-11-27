@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, CardTitle, Field, Input, Select, Spinner } from '@cardiy/ui';
 import { Plus, Send, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/orders';
 
@@ -247,7 +248,22 @@ export function ZaloSettingsTab() {
       </Card>
 
       <Card className="p-5">
-        <CardTitle className="mb-2">Tin đã gửi gần đây</CardTitle>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>Tin đã gửi gần đây</CardTitle>
+          <ExportButton
+            filename="nhat-ky-zalo"
+            sheetName="Tin nhắn Zalo"
+            testId="export-zalo-log"
+            rows={log}
+            columns={[
+              { header: 'Thời gian', value: (m) => fmtDateTime(m.createdAt) },
+              { header: 'Sự kiện', value: (m) => st.events.find((e) => e.code === m.event)?.label ?? m.event },
+              { header: 'Số điện thoại', value: (m) => m.phone },
+              { header: 'Trạng thái', value: (m) => (m.status === 'SENT' ? 'Đã gửi' : 'Lỗi') },
+              { header: 'Lỗi', value: (m) => m.error ?? '' },
+            ]}
+          />
+        </div>
         <table className="w-full text-sm" data-testid="zalo-log">
           <tbody>
             {log.map((m) => (

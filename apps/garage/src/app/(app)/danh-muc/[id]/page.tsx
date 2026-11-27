@@ -5,6 +5,7 @@ import { ChevronLeft, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { ProductForm, productPayload, type ProductFormValue } from '@/components/product-form';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -154,7 +155,23 @@ function ProductDetail() {
             {p.minStock !== null && <p className="mt-2 text-xs text-slate-500">Tồn tối thiểu: {fmtQty(p.minStock)}</p>}
           </Card>
           <Card className="p-4 lg:p-5">
-            <CardTitle className="mb-3">Sổ kho (50 lần gần nhất)</CardTitle>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <CardTitle>Sổ kho (50 lần gần nhất)</CardTitle>
+              <ExportButton
+                filename={`so-kho-${p.code}`}
+                sheetName="Sổ kho"
+                testId="export-movements"
+                rows={p.movements}
+                columns={[
+                  { header: 'Thời gian', value: (m) => fmtDateTime(m.at) },
+                  { header: 'Loại', value: (m) => MOVE_KINDS[m.kind] ?? m.kind },
+                  { header: 'Chi nhánh', value: (m) => branchName(m.branchId) },
+                  { header: 'Chứng từ', value: (m) => m.document?.code ?? m.order?.code ?? '' },
+                  { header: 'Số lượng', value: (m) => m.quantity },
+                  { header: 'Tồn sau', value: (m) => m.balance },
+                ]}
+              />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm" data-testid="movement-table">
                 <thead>

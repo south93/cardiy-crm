@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { Stars } from '@/components/order-review-card';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -466,6 +467,23 @@ function ViolationsTab() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã VP, tên garage, lý do…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm vi phạm" />
         </div>
         <div className="flex-1" />
+        <ExportButton
+          filename="bien-ban-vi-pham"
+          sheetName="Vi phạm"
+          testId="export-violations"
+          rows={data?.items ?? []}
+          columns={[
+            { header: 'Mã biên bản', value: (v) => v.code },
+            { header: 'Thời gian', value: (v) => fmtDateTime(v.createdAt) },
+            { header: 'Mã phản ánh', value: (v) => v.reportCode ?? '' },
+            { header: 'Garage / Đối tác', value: (v) => v.sellerName },
+            { header: 'Tổng lần vi phạm', value: (v) => v.totalViolations },
+            { header: 'Biện pháp', value: (v) => VIOLATION_ACTION[v.action]?.label ?? v.action },
+            { header: 'Tin bị gỡ', value: (v) => v.offerName ?? '' },
+            { header: 'Lý do xử lý', value: (v) => v.reason },
+            { header: 'Người lập', value: (v) => v.createdBy ?? '' },
+          ]}
+        />
         <Button
           onClick={() => {
             setTenantId('');

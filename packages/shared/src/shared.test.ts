@@ -103,3 +103,60 @@ test('đọc số tiền thành chữ', () => {
   assert.equal(moneyToWords(1_200_000_000_000), 'Một nghìn tỷ hai trăm tỷ đồng');
   assert.throws(() => moneyToWords(-1));
 });
+
+test('export CSV: UTF-8 BOM, escape dấu nháy, chống formula injection', async () => {
+  const { buildCsv } = await import('./export');
+  const csv = buildCsv(
+    [
+      { header: 'Tên', value: (r: { name: string; amount: number; note: string }) => r.name },
+      { header: 'Số tiền', value: (r) => r.amount },
+      { header: 'Ghi chú', value: (r) => r.note },
+    ],
+    [
+      { name: 'Nguyễn Văn "An"', amount: -50000, note: '=CMD|calc' },
+      { name: 'Trần Bình', amount: 1200000, note: 'Bình thường' },
+    ],
+  );
+  assert.ok(csv.startsWith('\uFEFF'), 'phải có UTF-8 BOM');
+  const lines = csv.slice(1).split('\r\n');
+  assert.equal(lines[0], '"Tên","Số tiền","Ghi chú"');
+  assert.equal(lines[1], '"Nguyễn Văn ""An""","-50000","\'=CMD|calc"');
+  assert.equal(lines[2], '"Trần Bình","1200000","Bình thường"');
+});
+
+test('export XLSX: tạo file ZIP OOXML hợp lệ với header và nội dung tiếng Việt', async () => {
+  const { buildXlsx, excelColName, safeSheetName } = await import('./export');
+  assert.equal(excelColName(0), 'A');
+  assert.equal(excelColName(25), 'Z');
+  assert.equal(excelColName(26), 'AA');
+  assert.equal(safeSheetName('Khách hàng: Q1/2026 * [PLG]'), 'Khách hàng Q1 2026 PLG');
+
+  const bytes = buildXlsx(
+    'Danh sách xe',
+    [
+      { header: 'Biển số', value: (r: { plate: string; km: number | null }) => r.plate },
+      { header: 'Số km', value: (r) => r.km },
+    ],
+    [
+      { plate: '30A-123.45', km: 25000 },
+      { plate: '51F-999.99', km: null },
+    ],
+  );
+  // Kiểm tra chữ ký ZIP PK\x03\x04 ở đầu và EOCD PK\x05\x06 ở cuối
+  assert.equal(bytes[0], 0x50);
+  assert.equal(bytes[1], 0x4b);
+  assert.equal(bytes[2], 0x03);
+  assert.equal(bytes[3], 0x04);
+  const tail = bytes.slice(bytes.length - 22);
+  assert.equal(tail[0], 0x50);
+  assert.equal(tail[1], 0x4b);
+  assert.equal(tail[2], 0x05);
+  assert.equal(tail[3], 0x06);
+
+  const text = Buffer.from(bytes).toString('utf8');
+  assert.ok(text.includes('xl/worksheets/sheet1.xml'));
+  assert.ok(text.includes('30A-123.45'));
+  assert.ok(text.includes('<v>25000</v>'));
+  assert.ok(text.includes('Danh sách xe'));
+});
+

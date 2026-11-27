@@ -4,6 +4,7 @@ import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spi
 import { normalizeVnPhone } from '@cardiy/shared';
 import { KeyRound, Lock, Pencil, Plus, ShieldCheck, Unlock, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -178,6 +179,22 @@ export default function StaffPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Input placeholder="Tìm tên hoặc số điện thoại…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs rounded-full bg-white/80" aria-label="Tìm nhân viên" />
           <div className="flex-1" />
+          <ExportButton<StaffRow>
+            filename="danh-sach-nhan-vien"
+            sheetName="Nhân viên"
+            testId="export-staff"
+            rows={filtered}
+            columns={[
+              { header: 'Họ và tên', value: (s) => s.fullName },
+              { header: 'Số điện thoại', value: (s) => s.phone },
+              { header: 'Chức danh', value: (s) => s.title ?? '' },
+              { header: 'Vai trò', value: (s) => [...new Set(s.roles.map((r) => r.name))].join(', ') },
+              { header: 'Chi nhánh', value: (s) => [...new Set(s.roles.map((r) => r.branchName ?? 'Mọi chi nhánh'))].join(', ') },
+              { header: 'Trạng thái', value: (s) => (s.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khoá') },
+              { header: '2FA', value: (s) => (s.totpEnabled ? 'Đã bật' : 'Chưa bật') },
+              { header: 'Đăng nhập gần nhất', value: (s) => (s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập') },
+            ]}
+          />
           {can('staff.manage') && (
             <Button onClick={() => setDialog({ kind: 'create' })} data-testid="add-staff">
               <Plus className="h-4 w-4" />

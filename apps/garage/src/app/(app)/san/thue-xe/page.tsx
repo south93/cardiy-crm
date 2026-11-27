@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Spinner, Tabs } from '@cardiy/ui';
 import { Ban, CheckCircle2, Search, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/orders';
@@ -202,6 +203,28 @@ function PlatformRentalsBody() {
         <Card className="p-10 text-center text-sm text-slate-500">Chưa có hợp đồng thuê xe nào.</Card>
       ) : (
         <Card className="overflow-x-auto p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-800">Danh sách hợp đồng thuê xe ({conData.items.length})</span>
+            <ExportButton
+              filename="hop-dong-thue-xe-san"
+              sheetName="Hợp đồng thuê xe"
+              testId="export-platform-rentals"
+              rows={conData.items}
+              columns={[
+                { header: 'Mã HĐ', value: (c) => c.code },
+                { header: 'Garage', value: (c) => c.garage.name },
+                { header: 'Xe thuê', value: (c) => c.vehicle.title },
+                { header: 'Biển số', value: (c) => c.vehicle.plateNo },
+                { header: 'Khách hàng', value: (c) => c.customerName },
+                { header: 'Số điện thoại', value: (c) => c.phone },
+                { header: 'Từ lúc', value: (c) => fmtDateTime(c.startAt) },
+                { header: 'Đến lúc', value: (c) => fmtDateTime(c.endAt) },
+                { header: 'Số ngày', value: (c) => c.rentalDays },
+                { header: 'Chi phí', value: (c) => c.finalTotal ?? c.baseTotal },
+                { header: 'Trạng thái', value: (c) => RENTAL_CONTRACT_UI[c.status].label },
+              ]}
+            />
+          </div>
           <table className="w-full text-left text-sm" data-testid="platform-rental-contracts">
             <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
               <tr>

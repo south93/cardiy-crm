@@ -5,18 +5,22 @@ import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { QUOTE_STATUS } from '@/components/order-quote-card';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
 import { fmtMoney } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 import { fmtDateTime, PAYMENT_STATE, STATUS, type OrderList, type OrderStatus } from '@/lib/orders';
 
 const VIEWS = {
   open: { statuses: ['TIEP_NHAN', 'DANG_SUA', 'HOAN_THANH'] as OrderStatus[], empty: 'Không có đơn đang xử lý.' },
   done: { statuses: ['DA_GIAO', 'HUY'] as OrderStatus[], empty: 'Chưa có đơn đã giao.' },
 };
+
+type OrderRow = OrderList['items'][number];
 
 /** Danh sách đơn có lọc theo trạng thái (đếm số đơn từng trạng thái) và tìm theo biển số / SĐT / tên / mã đơn. */
 export function OrderListView({ view }: { view: 'open' | 'done' }) {
@@ -34,17 +38,25 @@ export function OrderListView({ view }: { view: 'open' | 'done' }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<OrderList | null>(null);
 
+  const buildQuery = useCallback(
+    (pg: number, ps: number) => {
+      const p = new URLSearchParams({ view, page: String(pg), pageSize: String(ps) });
+      if (branch) p.set('branchId', branch);
+      if (status) p.set('status', status);
+      if (q.trim()) p.set('q', q.trim());
+      return `/orders?${p}`;
+    },
+    [view, branch, status, q],
+  );
+
   useEffect(() => {
     if (branch === null) return;
-    const p = new URLSearchParams({ view, page: String(page), pageSize: '20' });
-    if (branch) p.set('branchId', branch);
-    if (status) p.set('status', status);
-    if (q.trim()) p.set('q', q.trim());
-    const t = setTimeout(() => api<OrderList>(`/orders?${p}`).then(setData), q ? 250 : 0);
+    const t = setTimeout(() => api<OrderList>(buildQuery(page, 20)).then(setData), q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [view, branch, status, q, page]);
+  }, [branch, buildQuery, page, q]);
 
   const all = VIEWS[view].statuses.reduce((s, st) => s + (data?.counts[st] ?? 0), 0);
+  const seesMoney = !!data?.items.some((o) => o.total !== null);
   const chip = (value: OrderStatus | '', label: string, n: number) => (
     <button
       key={value || 'all'}
@@ -77,6 +89,33 @@ export function OrderListView({ view }: { view: 'open' | 'done' }) {
           <Input value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} placeholder="Biển số, SĐT, tên, mã đơn…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm đơn" />
         </div>
         <div className="flex-1" />
+        <ExportButton<OrderRow>
+          filename={view === 'done' ? 'don-hoan-thanh' : 'don-dang-xu-ly'}
+          sheetName={view === 'done' ? 'Đơn hoàn thành' : 'Đơn đang xử lý'}
+          testId="export-orders"
+          disabled={branch === null || !data || data.total === 0}
+          fetchRows={() => fetchAllPages<OrderRow>(buildQuery)}
+          columns={() => [
+            { header: 'Mã đơn', value: (o) => o.code },
+            { header: 'Trạng thái', value: (o) => STATUS[o.status].label },
+            { header: 'Báo giá', value: (o) => (o.quote && o.quote.status !== 'HET_HIEU_LUC' ? QUOTE_STATUS[o.quote.status].label : '') },
+            { header: 'Biển số', value: (o) => o.vehicle?.plate ?? 'Bán lẻ' },
+            { header: 'Khách hàng', value: (o) => o.customer.name },
+            { header: 'SĐT', value: (o) => o.customer.phone ?? '' },
+            { header: 'Yêu cầu', value: (o) => o.request ?? '' },
+            { header: 'Số hạng mục', value: (o) => o.itemCount },
+            { header: 'Chi nhánh', value: (o) => o.branch.code },
+            { header: 'KTV', value: (o) => o.technician?.name ?? '' },
+            ...(seesMoney
+              ? [
+                  { header: 'Tổng tiền', value: (o: OrderRow) => o.total },
+                  { header: 'Thanh toán', value: (o: OrderRow) => (o.paymentState && o.status !== 'HUY' ? PAYMENT_STATE[o.paymentState].label : '') },
+                ]
+              : []),
+            { header: view === 'done' ? 'Giao xe' : 'Nhận xe', value: (o) => fmtDateTime(view === 'done' ? (o.deliveredAt ?? o.receivedAt) : o.receivedAt) },
+            ...(view === 'open' ? [{ header: 'Hẹn giao', value: (o: OrderRow) => (o.promisedAt ? fmtDateTime(o.promisedAt) : '') }] : []),
+          ]}
+        />
         {can('ro.manage') && (
           <Link href="/ban-hang">
             <Button>

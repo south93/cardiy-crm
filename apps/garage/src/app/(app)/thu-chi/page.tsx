@@ -5,12 +5,14 @@ import { HandCoins, Minus, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CustomerPicker } from '@/components/customer-picker';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
-import { fmtDate, fmtMoney } from '@/lib/crm';
+import { fmtDate, fmtMoney, type Paged } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 import { fmtDateTime, methodLabel, METHODS, moneyInput, parseMoney, type PaymentMethod } from '@/lib/orders';
 
 interface Row {
@@ -315,6 +317,26 @@ function CashBook({ branchId }: { branchId: string }) {
           ))}
         </Select>
         <div className="flex-1" />
+        <ExportButton<Row>
+          filename={`so-quy-${from}-${to}`}
+          sheetName="Sổ quỹ"
+          testId="export-cash"
+          rows={book?.rows ?? []}
+          columns={[
+            { header: 'Thời gian', value: (r) => fmtDateTime(r.at) },
+            { header: 'Chứng từ', value: (r) => r.code },
+            { header: 'Chi nhánh', value: (r) => r.branch },
+            { header: 'Loại', value: (r) => r.type },
+            { header: 'Khoản mục', value: (r) => r.category },
+            { header: 'Người nộp / nhận', value: (r) => r.party ?? '' },
+            { header: 'Diễn giải', value: (r) => r.note ?? '' },
+            { header: 'Hình thức', value: (r) => methodLabel(r.method) },
+            { header: 'Thu', value: (r) => (r.type === 'THU' ? r.amount : 0) },
+            { header: 'Chi', value: (r) => (r.type === 'CHI' ? r.amount : 0) },
+            { header: 'Người lập', value: (r) => r.by ?? '' },
+            { header: 'Trạng thái', value: (r) => (r.voided ? `Đã huỷ${r.voidReason ? ` (${r.voidReason})` : ''}` : 'Hiệu lực') },
+          ]}
+        />
         {can('finance.manage') && (
           <>
             <Button onClick={() => setEntry('THU')} data-testid="new-receipt">
@@ -341,6 +363,22 @@ function CashBook({ branchId }: { branchId: string }) {
             <Stat label="Tồn cuối kỳ" value={book.closing} tone="text-brand-700" />
           </div>
           <Card className="overflow-x-auto p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng hợp theo hình thức</span>
+              <ExportButton
+                filename={`tong-hop-quy-${from}-${to}`}
+                sheetName="Tổng hợp quỹ"
+                testId="export-cash-methods"
+                rows={METHODS.map((m) => ({ label: m.label, ...book.byMethod[m.value] })).filter((x) => x.opening || x.thu || x.chi)}
+                columns={[
+                  { header: 'Hình thức', value: (x) => x.label },
+                  { header: 'Tồn đầu', value: (x) => x.opening },
+                  { header: 'Thu', value: (x) => x.thu },
+                  { header: 'Chi', value: (x) => x.chi },
+                  { header: 'Tồn cuối', value: (x) => x.closing },
+                ]}
+              />
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-slate-500">
@@ -553,13 +591,19 @@ function Debts({ branchId }: { branchId: string }) {
   const [data, setData] = useState<{ total: number; totalDebt: number; page: number; pageSize: number; items: DebtRow[] } | null>(null);
   const [collect, setCollect] = useState<string | null>(null);
   const seq = useRef(0);
+  const buildQuery = useCallback(
+    (pg: number, ps: number) => {
+      const p = new URLSearchParams({ page: String(pg), pageSize: String(ps) });
+      if (q.trim()) p.set('q', q.trim());
+      return `/finance/debts?${p}`;
+    },
+    [q],
+  );
   const load = useCallback(async () => {
-    const p = new URLSearchParams({ page: String(page), pageSize: '30' });
-    if (q.trim()) p.set('q', q.trim());
     const my = ++seq.current;
-    const res = await api<typeof data>(`/finance/debts?${p}`);
+    const res = await api<Paged<DebtRow> & { totalDebt: number }>(buildQuery(page, 30));
     if (my === seq.current) setData(res); // bỏ kết quả cũ về muộn
-  }, [q, page]);
+  }, [buildQuery, page]);
   useEffect(() => {
     const t = setTimeout(() => void load(), q ? 250 : 0);
     return () => clearTimeout(t);
@@ -576,6 +620,24 @@ function Debts({ branchId }: { branchId: string }) {
             {data.total.toLocaleString('vi-VN')} khách đang nợ · tổng <b className="text-rose-600">{fmtMoney(data.totalDebt)}</b>
           </span>
         )}
+        <div className="flex-1" />
+        <ExportButton<DebtRow>
+          filename="cong-no-khach-hang"
+          sheetName="Công nợ khách"
+          testId="export-debts"
+          disabled={!data || data.total === 0}
+          fetchRows={() => fetchAllPages<DebtRow>(buildQuery)}
+          columns={[
+            { header: 'Mã KH', value: (r) => r.code },
+            { header: 'Khách hàng', value: (r) => r.name },
+            { header: 'Số điện thoại', value: (r) => r.phone ?? '' },
+            { header: 'Số đơn nợ', value: (r) => r.orders },
+            { header: 'Nợ đầu kỳ', value: (r) => r.openingLeft },
+            { header: 'Nợ đơn hàng', value: (r) => r.orderDebt },
+            { header: 'Tổng nợ', value: (r) => r.debt },
+            { header: 'Nợ từ', value: (r) => (r.oldest ? fmtDate(r.oldest) : 'Đầu kỳ') },
+          ]}
+        />
       </div>
       <Card className="overflow-hidden">
         {!data ? (
@@ -715,6 +777,25 @@ function PayDialog({ supplierId, branchId, onDone }: { supplierId: string; branc
           {error && <Alert className="sm:col-span-4">{error}</Alert>}
         </div>
       )}
+      <div className="flex justify-end">
+        <ExportButton
+          filename={`doi-soat-ncc-${d.supplier.code}`}
+          sheetName="Đối soát NCC"
+          testId="export-payable-detail"
+          rows={d.rows}
+          columns={[
+            { header: 'Ngày', value: (r) => fmtDate(r.at) },
+            { header: 'Chứng từ', value: (r) => r.code },
+            { header: 'Loại', value: (r) => (r.kind === 'NHAP' ? 'Nhập hàng' : 'Trả tiền') },
+            { header: 'Chi nhánh', value: (r) => r.branch },
+            { header: 'Số HĐ / Hình thức', value: (r) => (r.ref ? `HĐ ${r.ref}` : r.method ? methodLabel(r.method) : '') },
+            { header: 'Nhập (tăng nợ)', value: (r) => r.increase },
+            { header: 'Trả (giảm nợ)', value: (r) => r.decrease },
+            { header: 'Còn nợ', value: (r) => r.balance },
+            { header: 'Trạng thái', value: (r) => (r.voided ? 'Đã huỷ' : 'Hiệu lực') },
+          ]}
+        />
+      </div>
       <div className="max-h-80 overflow-y-auto">
         <table className="w-full text-sm">
           <thead>
@@ -794,6 +875,24 @@ function Payables({ branchId }: { branchId: string }) {
             Tổng còn nợ nhà cung cấp: <b className="text-rose-600">{fmtMoney(data.totalPayable)}</b>
           </span>
         )}
+        <div className="flex-1" />
+        <ExportButton<PayRow>
+          filename="cong-no-nha-cung-cap"
+          sheetName="Công nợ NCC"
+          testId="export-payables"
+          rows={data?.items ?? []}
+          columns={[
+            { header: 'Mã NCC', value: (r) => r.code },
+            { header: 'Nhà cung cấp', value: (r) => r.name },
+            { header: 'Số điện thoại', value: (r) => r.phone ?? '' },
+            { header: 'Số phiếu nhập', value: (r) => r.receipts },
+            { header: 'Nợ đầu kỳ', value: (r) => r.opening },
+            { header: 'Đã nhập', value: (r) => r.purchased },
+            { header: 'Đã trả', value: (r) => r.paid },
+            { header: 'Còn nợ', value: (r) => r.balance },
+            { header: 'Nhập gần nhất', value: (r) => (r.lastPurchaseAt ? fmtDate(r.lastPurchaseAt) : '') },
+          ]}
+        />
       </div>
       <Card className="overflow-hidden">
         {!data ? (

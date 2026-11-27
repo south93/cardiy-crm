@@ -5,10 +5,12 @@ import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
-import { daysUntil, expiryText, expiryTone, fmtKm, type Paged } from '@/lib/crm';
+import { daysUntil, expiryText, expiryTone, fmtDate, fmtKm, type Paged } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 
 interface Row {
   id: string;
@@ -30,13 +32,20 @@ function VehiclesList() {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Paged<Row> | null>(null);
 
+  const buildQuery = useCallback(
+    (p: number, ps: number) => {
+      const qs = new URLSearchParams({ page: String(p), pageSize: String(ps) });
+      if (q.trim()) qs.set('q', q.trim());
+      if (filter === 'expiring') qs.set('expiringDays', '30');
+      if (filter === 'review') qs.set('needsReview', 'true');
+      return `/vehicles?${qs}`;
+    },
+    [q, filter],
+  );
+
   const load = useCallback(async () => {
-    const qs = new URLSearchParams({ page: String(page), pageSize: '20' });
-    if (q.trim()) qs.set('q', q.trim());
-    if (filter === 'expiring') qs.set('expiringDays', '30');
-    if (filter === 'review') qs.set('needsReview', 'true');
-    setData(await api<Paged<Row>>(`/vehicles?${qs}`));
-  }, [q, filter, page]);
+    setData(await api<Paged<Row>>(buildQuery(page, 20)));
+  }, [buildQuery, page]);
   useEffect(() => {
     const t = setTimeout(() => void load(), 300);
     return () => clearTimeout(t);
@@ -54,6 +63,26 @@ function VehiclesList() {
           <option value="expiring">Sắp hết hạn đăng kiểm / bảo hiểm (30 ngày)</option>
           <option value="review">Biển số cần xem lại</option>
         </Select>
+        <div className="flex-1" />
+        <ExportButton<Row>
+          filename="danh-sach-xe"
+          sheetName="Danh sách xe"
+          testId="export-vehicles"
+          disabled={!data || data.total === 0}
+          fetchRows={() => fetchAllPages<Row>(buildQuery)}
+          columns={[
+            { header: 'Biển số', value: (v) => v.plate },
+            { header: 'Biển số hợp lệ', value: (v) => (v.plateValid ? 'Hợp lệ' : 'Cần xem lại') },
+            { header: 'Hãng xe', value: (v) => v.make ?? '' },
+            { header: 'Dòng xe', value: (v) => v.model ?? '' },
+            { header: 'Năm SX', value: (v) => v.year },
+            { header: 'Chủ xe', value: (v) => v.owner?.name ?? '' },
+            { header: 'SĐT chủ xe', value: (v) => v.owner?.phone ?? '' },
+            { header: 'Số km', value: (v) => v.odometerKm },
+            { header: 'Hạn đăng kiểm', value: (v) => (v.registrationExpiry ? fmtDate(v.registrationExpiry) : '') },
+            { header: 'Hạn bảo hiểm', value: (v) => (v.insuranceExpiry ? fmtDate(v.insuranceExpiry) : '') },
+          ]}
+        />
       </div>
       <Card className="overflow-hidden">
         {!data ? (

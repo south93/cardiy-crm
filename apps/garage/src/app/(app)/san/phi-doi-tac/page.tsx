@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { CalendarPlus, Pencil, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -96,6 +97,23 @@ function Invoices() {
           onChange={setFilter}
         />
         <div className="flex-1" />
+        <ExportButton
+          filename="hoa-don-phi-doi-tac-san"
+          sheetName="Hoá đơn đối tác"
+          testId="export-platform-invoices"
+          rows={data?.items ?? []}
+          columns={[
+            { header: 'Mã hoá đơn', value: (i) => i.code },
+            { header: 'Gói', value: (i) => i.plan },
+            { header: 'Đối tác', value: (i) => i.partner },
+            { header: 'Từ ngày', value: (i) => dmy(i.periodFrom) },
+            { header: 'Đến ngày', value: (i) => dmy(i.periodTo) },
+            { header: 'Số tiền', value: (i) => i.amount },
+            { header: 'Hạn thanh toán', value: (i) => dmy(i.dueDate) },
+            { header: 'Trạng thái', value: (i) => (i.overdueDays ? `Quá hạn ${i.overdueDays} ngày` : INVOICE_STATUS[i.status]!.label) },
+            { header: 'Hình thức thu', value: (i) => (i.status === 'DA_THANH_TOAN' ? (i.paidMethod === 'TM' ? 'Tiền mặt' : 'Chuyển khoản') : '') },
+          ]}
+        />
         <Button variant="outline" onClick={() => void issue()} data-testid="issue-due">
           <CalendarPlus className="h-4 w-4" />
           Phát hành kỳ tới

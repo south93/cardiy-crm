@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -45,6 +46,27 @@ function DocDetail() {
             {d.code}
           </h2>
           <Badge tone={DOC_TYPES[d.type].tone}>{DOC_TYPES[d.type].label}</Badge>
+          <div className="flex-1" />
+          <ExportButton
+            filename={`phieu-kho-${d.code}`}
+            sheetName={d.code}
+            testId="export-doc-lines"
+            rows={d.lines}
+            columns={[
+              { header: 'Mã hàng', value: (l) => l.product.code },
+              { header: 'Tên hàng', value: (l) => l.product.name },
+              { header: 'Nhóm hàng', value: (l) => l.product.category ?? '' },
+              { header: 'Đơn vị', value: (l) => l.product.unit ?? '' },
+              { header: d.type === 'DIEU_CHINH' ? 'Chênh lệch' : 'Số lượng', value: (l) => (d.type === 'DIEU_CHINH' ? l.delta : l.quantity) },
+              ...(d.type === 'NHAP'
+                ? [
+                    { header: 'Giá nhập', value: (l: Doc['lines'][number]) => l.unitCost },
+                    { header: 'Thành tiền', value: (l: Doc['lines'][number]) => (l.unitCost === null ? null : Math.round(l.quantity * l.unitCost)) },
+                  ]
+                : []),
+              { header: d.type === 'CHUYEN' ? 'Tồn kho chuyển sau phiếu' : 'Tồn sau phiếu', value: (l) => l.balance },
+            ]}
+          />
         </div>
         <div className="mt-1 text-sm text-slate-500">
           {d.type === 'CHUYEN' ? `${d.branch?.name} → ${d.toBranch?.name}` : d.branch?.name} · {fmtDateTime(d.createdAt)}

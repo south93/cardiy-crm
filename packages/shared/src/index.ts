@@ -4,3 +4,5 @@ export * from './text';
 export * from './vehicle';
 export * from './money';
 export * from './inspection';
+export * from './export';
+

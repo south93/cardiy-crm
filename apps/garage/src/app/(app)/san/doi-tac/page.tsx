@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { ExternalLink, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtDate, fmtMoney } from '@/lib/crm';
@@ -112,6 +113,22 @@ function Applications() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mã hồ sơ, tên, SĐT, MST…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm hồ sơ" />
         </div>
         <div className="flex-1" />
+        <ExportButton
+          filename="ho-so-dang-ky-doi-tac"
+          sheetName="Hồ sơ đối tác"
+          testId="export-applications"
+          rows={data?.items ?? []}
+          columns={[
+            { header: 'Mã hồ sơ', value: (r) => r.code },
+            { header: 'Tên garage', value: (r) => r.garageName },
+            { header: 'Số điện thoại', value: (r) => r.phone },
+            { header: 'Tỉnh / thành', value: (r) => r.province ?? '' },
+            { header: 'Gói đăng ký', value: (r) => r.plan ?? '' },
+            { header: 'Số giấy tờ', value: (r) => r.documents },
+            { header: 'Trạng thái', value: (r) => APP_STATUS[r.status].label },
+            { header: 'Ngày nộp', value: (r) => fmtDate(r.createdAt) },
+          ]}
+        />
         <a href="/dang-ky-doi-tac" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
           Trang đăng ký công khai <ExternalLink className="h-3.5 w-3.5" />
         </a>
@@ -335,7 +352,28 @@ function Partners() {
   const verb: Record<string, string> = { HOAT_DONG: 'Mở hoạt động', TAM_KHOA: 'Tạm khoá', CHAM_DUT: 'Chấm dứt' };
   return (
     <div className="space-y-4">
-      <Tabs tabs={[{ value: '', label: 'Tất cả' }, ...Object.entries(PARTNER_STATUS).map(([value, s]) => ({ value, label: s.label }))]} value={status} onChange={setStatus} />
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs tabs={[{ value: '', label: 'Tất cả' }, ...Object.entries(PARTNER_STATUS).map(([value, s]) => ({ value, label: s.label }))]} value={status} onChange={setStatus} />
+        <div className="flex-1" />
+        <ExportButton
+          filename="danh-sach-doi-tac"
+          sheetName="Đối tác"
+          testId="export-partners"
+          rows={rows ?? []}
+          columns={[
+            { header: 'Tên đối tác', value: (p) => p.name },
+            { header: 'Mã số thuế', value: (p) => p.taxCode ?? '' },
+            { header: 'Tài khoản', value: (p) => p.account?.fullName ?? '' },
+            { header: 'SĐT tài khoản', value: (p) => p.account?.phone ?? '' },
+            { header: 'Gói', value: (p) => p.plan?.name ?? '' },
+            { header: 'Hoá đơn tới', value: (p) => (p.plan ? dmy(p.plan.paidThrough) : '') },
+            { header: 'Chưa nộp', value: (p) => p.unpaid },
+            { header: 'Quá hạn (ngày)', value: (p) => p.maxOverdueDays },
+            { header: 'Trạng thái', value: (p) => PARTNER_STATUS[p.status]?.label ?? p.status },
+            { header: 'Ngày tham gia', value: (p) => fmtDate(p.createdAt) },
+          ]}
+        />
+      </div>
       <Card className="overflow-x-auto">
         {!rows ? (
           <div className="grid place-items-center p-10">

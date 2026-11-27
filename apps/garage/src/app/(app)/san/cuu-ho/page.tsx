@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Dialog, Input, Spinner, Tabs } from '@cardiy/ui';
 import { ExternalLink, Eye, LifeBuoy, MapPin, Navigation, Phone, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/orders';
@@ -136,14 +137,36 @@ function PlatformSosBody() {
           value={status}
           onChange={(v) => setStatus(v)}
         />
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Mã SOS, SĐT, biển số…"
-            className="rounded-full bg-white/85 pl-10"
-            aria-label="Tìm ca cứu hộ"
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Mã SOS, SĐT, biển số…"
+              className="rounded-full bg-white/85 pl-10"
+              aria-label="Tìm ca cứu hộ"
+            />
+          </div>
+          <ExportButton
+            filename="giam-sat-cuu-ho-sos"
+            sheetName="Ca cứu hộ SOS"
+            testId="export-platform-sos"
+            rows={data?.items ?? []}
+            columns={[
+              { header: 'Mã ca', value: (c) => c.code },
+              { header: 'Thời gian', value: (c) => fmtDateTime(c.createdAt) },
+              { header: 'Khách hàng', value: (c) => c.customerName },
+              { header: 'Số điện thoại', value: (c) => c.phone },
+              { header: 'Biển số', value: (c) => c.plateNo ?? '' },
+              { header: 'Sự cố', value: (c) => c.issueLabel },
+              { header: 'Vị trí', value: (c) => c.addressText || `${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}` },
+              { header: 'Garage thực hiện', value: (c) => c.assignedGarage?.name ?? '' },
+              { header: 'Đội cứu hộ', value: (c) => c.assignedStaff?.name ?? '' },
+              { header: 'Chi phí dự kiến', value: (c) => c.quotedPrice },
+              { header: 'Chi phí chốt', value: (c) => c.finalPrice },
+              { header: 'Trạng thái', value: (c) => SOS_STATUS_UI[c.status].label },
+            ]}
           />
         </div>
       </div>

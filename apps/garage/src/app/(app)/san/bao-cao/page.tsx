@@ -4,6 +4,7 @@ import { Alert, Badge, Card, CardTitle, Input, Spinner } from '@cardiy/ui';
 import { Building2, Car, CarFront, Eye, Flag, Headphones, Inbox, LifeBuoy, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { defaultReportRange, fmtPct, type PlatformReportOverviewResponse } from '@/lib/community';
@@ -233,8 +234,24 @@ function PlatformReportsBody() {
           </Card>
 
           <Card className="overflow-x-auto p-0">
-            <div className="border-b border-slate-100 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
               <CardTitle>Bảng xếp hạng Gian hàng Garage sôi nổi trên sàn</CardTitle>
+              <ExportButton
+                filename={`xep-hang-gian-hang-${from}-${to}`}
+                sheetName="Gian hàng sàn"
+                testId="export-platform-shops"
+                rows={data.topShops}
+                columns={[
+                  { header: 'Gian hàng Garage', value: (s) => s.name },
+                  { header: 'Slug', value: (s) => (s.slug ? `/cho/garage/${s.slug}` : '') },
+                  { header: 'Mô hình', value: (s) => (s.tenantType === 'GARAGE' ? 'Chuỗi PLG' : 'Đối tác') },
+                  { header: 'Lượt xem', value: (s) => s.views },
+                  { header: 'Yêu cầu', value: (s) => s.requests },
+                  { header: 'Hoàn tất', value: (s) => s.completed },
+                  { header: 'Ca SOS xong', value: (s) => s.sosCompleted },
+                  { header: 'GMV kết nối', value: (s) => s.gmv },
+                ]}
+              />
             </div>
             <table className="w-full text-left text-sm" data-testid="platform-top-shops-table">
               <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
