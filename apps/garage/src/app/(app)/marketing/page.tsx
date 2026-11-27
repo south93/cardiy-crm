@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { Award, CheckCircle2, Eye, Filter, Gift, Megaphone, Plus, Search, Send, Settings, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -431,14 +432,31 @@ function GarageMarketingBody() {
           <Card className="overflow-x-auto p-0">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
               <CardTitle>Sổ điểm thưởng & Hạng hội viên khách hàng</CardTitle>
-              <div className="relative w-64">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  value={custQ}
-                  onChange={(e) => setCustQ(e.target.value)}
-                  placeholder="Tìm tên, SĐT, mã KH…"
-                  aria-label="Tìm khách tích điểm"
-                  className="rounded-full pl-9"
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    value={custQ}
+                    onChange={(e) => setCustQ(e.target.value)}
+                    placeholder="Tìm tên, SĐT, mã KH…"
+                    aria-label="Tìm khách tích điểm"
+                    className="rounded-full pl-9"
+                  />
+                </div>
+                <ExportButton
+                  filename="so-diem-thuong-khach-hang"
+                  sheetName="Điểm thưởng"
+                  testId="export-loyalty"
+                  rows={loyaltyCustomers ?? []}
+                  columns={[
+                    { header: 'Mã KH', value: (c) => c.code },
+                    { header: 'Khách hàng', value: (c) => c.name },
+                    { header: 'Số điện thoại', value: (c) => c.phone ?? '' },
+                    { header: 'Hạng thẻ', value: (c) => TIER_UI[c.tier].label },
+                    { header: 'Nhận tin KM', value: (c) => (c.marketingConsent ? 'Đã đồng ý' : 'Chưa đồng ý') },
+                    { header: 'Tổng điểm tích luỹ', value: (c) => c.lifetimeEarned },
+                    { header: 'Số dư khả dụng', value: (c) => c.balance },
+                  ]}
                 />
               </div>
             </div>
@@ -677,9 +695,25 @@ function GarageMarketingBody() {
         title={campaignDetail ? `Kết quả phát hành ${campaignDetail.code}` : 'Kết quả'}
         wide
         footer={
-          <Button variant="outline" onClick={() => setCampaignDetail(null)}>
-            Đóng
-          </Button>
+          <div className="flex w-full items-center justify-between gap-2">
+            {campaignDetail && (
+              <ExportButton
+                filename={`nhat-ky-chien-dich-${campaignDetail.code}`}
+                sheetName={campaignDetail.code}
+                testId="export-campaign-deliveries"
+                rows={campaignDetail.deliveries}
+                columns={[
+                  { header: 'Khách hàng', value: (d) => d.recipientName },
+                  { header: 'Số điện thoại', value: (d) => d.phone ?? '' },
+                  { header: 'Trạng thái', value: (d) => DELIVERY_STATUS_UI[d.status].label },
+                  { header: 'Nội dung / Lý do', value: (d) => d.renderedBody ?? d.reason ?? '' },
+                ]}
+              />
+            )}
+            <Button variant="outline" onClick={() => setCampaignDetail(null)}>
+              Đóng
+            </Button>
+          </div>
         }
       >
         {campaignDetail && (

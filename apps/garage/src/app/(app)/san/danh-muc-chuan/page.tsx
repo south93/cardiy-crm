@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { ImagePlus, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtDate } from '@/lib/crm';
@@ -193,6 +194,21 @@ function Items({ kind }: { kind: CatalogKind }) {
           ))}
         </Select>
         <div className="flex-1" />
+        <ExportButton
+          filename={kind === 'PRODUCT' ? 'danh-muc-chuan-san-pham' : 'danh-muc-chuan-dich-vu'}
+          sheetName={kind === 'PRODUCT' ? 'SKU chuẩn' : 'Dịch vụ chuẩn'}
+          testId="export-catalog"
+          rows={rows ?? []}
+          columns={[
+            { header: 'Mã chuẩn', value: (i) => i.code },
+            { header: kind === 'PRODUCT' ? 'Tên sản phẩm' : 'Tên dịch vụ', value: (i) => i.name },
+            { header: 'Thương hiệu', value: (i) => i.brand ?? '' },
+            { header: 'Đơn vị', value: (i) => i.unit ?? '' },
+            { header: 'Nhóm', value: (i) => i.category ?? '' },
+            { header: 'Thông số', value: (i) => i.specs.map((s) => `${s.label}: ${s.value}`).join(' · ') },
+            { header: 'Trạng thái', value: (i) => (i.active ? 'Đang dùng' : 'Ngừng dùng') },
+          ]}
+        />
         <Button onClick={() => setEdit(emptyItem())} data-testid="add-catalog-item">
           <Plus className="h-4 w-4" />
           {kind === 'PRODUCT' ? 'Thêm SKU' : 'Thêm dịch vụ chuẩn'}
@@ -414,16 +430,35 @@ function Proposals() {
   };
   return (
     <div className="space-y-4">
-      <Tabs
-        tabs={[
-          { value: 'CHO_XU_LY', label: 'Chờ xử lý' },
-          { value: 'DA_TAO', label: 'Đã thêm' },
-          { value: 'TU_CHOI', label: 'Từ chối' },
-          { value: '', label: 'Tất cả' },
-        ]}
-        value={status}
-        onChange={setStatus}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs
+          tabs={[
+            { value: 'CHO_XU_LY', label: 'Chờ xử lý' },
+            { value: 'DA_TAO', label: 'Đã thêm' },
+            { value: 'TU_CHOI', label: 'Từ chối' },
+            { value: '', label: 'Tất cả' },
+          ]}
+          value={status}
+          onChange={setStatus}
+        />
+        <div className="flex-1" />
+        <ExportButton
+          filename="de-xuat-danh-muc-chuan"
+          sheetName="Đề xuất"
+          testId="export-proposals"
+          rows={rows ?? []}
+          columns={[
+            { header: 'Loại', value: (p) => (p.kind === 'PRODUCT' ? 'Sản phẩm' : 'Dịch vụ') },
+            { header: 'Tên đề xuất', value: (p) => p.name },
+            { header: 'Thương hiệu', value: (p) => p.brand ?? '' },
+            { header: 'Ghi chú', value: (p) => p.note ?? '' },
+            { header: 'Garage đề xuất', value: (p) => p.garage },
+            { header: 'Ngày gửi', value: (p) => fmtDate(p.createdAt) },
+            { header: 'Trạng thái', value: (p) => PROPOSAL[p.status].label },
+            { header: 'Ghi chú duyệt', value: (p) => p.reviewNote ?? '' },
+          ]}
+        />
+      </div>
       <Card className="overflow-x-auto">
         {!rows ? (
           <div className="grid place-items-center p-10">

@@ -15,6 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /repo/apps/garage/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/garage/.next/static ./apps/garage/.next/static
+COPY --from=build --chown=node:node /repo/apps/garage/public ./apps/garage/public
 USER node
 EXPOSE 3000
 CMD ["node", "apps/garage/server.js"]

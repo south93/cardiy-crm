@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { CustomerForm, customerPayload, emptyCustomer, vehiclePayload } from '@/components/crm-forms';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { SOURCES, TIERS, fmtDate, initials, sourceLabel, tierOf, type Paged, type Source, type Tier } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 
 interface Row {
   id: string;
@@ -36,13 +38,20 @@ function CustomersList() {
   const [data, setData] = useState<Paged<Row> | null>(null);
   const [open, setOpen] = useState(false);
 
+  const buildQuery = useCallback(
+    (p: number, ps: number) => {
+      const qs = new URLSearchParams({ page: String(p), pageSize: String(ps) });
+      if (q.trim()) qs.set('q', q.trim());
+      if (tier) qs.set('tier', tier);
+      if (source) qs.set('source', source);
+      return `/customers?${qs}`;
+    },
+    [q, tier, source],
+  );
+
   const load = useCallback(async () => {
-    const qs = new URLSearchParams({ page: String(page), pageSize: '20' });
-    if (q.trim()) qs.set('q', q.trim());
-    if (tier) qs.set('tier', tier);
-    if (source) qs.set('source', source);
-    setData(await api<Paged<Row>>(`/customers?${qs}`));
-  }, [q, tier, source, page]);
+    setData(await api<Paged<Row>>(buildQuery(page, 20)));
+  }, [buildQuery, page]);
 
   // Gõ tìm: chờ 300ms rồi mới gọi API
   useEffect(() => {
@@ -75,6 +84,24 @@ function CustomersList() {
           {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </Select>
         <div className="flex-1" />
+        <ExportButton<Row>
+          filename="danh-sach-khach-hang"
+          sheetName="Khách hàng"
+          testId="export-customers"
+          disabled={!data || data.total === 0}
+          fetchRows={() => fetchAllPages<Row>(buildQuery)}
+          columns={[
+            { header: 'Mã KH', value: (r) => r.code },
+            { header: 'Tên khách hàng', value: (r) => r.name },
+            { header: 'Loại', value: (r) => (r.type === 'COMPANY' ? 'Doanh nghiệp' : 'Cá nhân') },
+            { header: 'Số điện thoại', value: (r) => r.phone ?? '' },
+            { header: 'Biển số xe', value: (r) => r.vehicles.map((v) => v.plate).join(', ') },
+            { header: 'Hạng', value: (r) => tierOf(r.tier).label },
+            { header: 'Nguồn', value: (r) => sourceLabel(r.source) },
+            { header: 'Chi nhánh', value: (r) => r.branchName ?? '' },
+            { header: 'Ngày tạo', value: (r) => fmtDate(r.createdAt) },
+          ]}
+        />
         {can('data.import') && (
           <Link href="/khach-hang/nhap">
             <Button variant="outline">

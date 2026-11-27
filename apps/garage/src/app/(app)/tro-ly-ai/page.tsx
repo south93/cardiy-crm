@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { BookOpen, Car, CheckCircle2, Eye, FileSpreadsheet, HelpCircle, Plus, Search, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import {
   AI_DOC_CATEGORIES,
@@ -383,6 +384,23 @@ function GarageAiBody() {
                   </pre>
                 )}
 
+                <div className="flex items-center justify-end">
+                  <ExportButton
+                    filename="ai-de-xuat-bao-gia"
+                    sheetName="Đề xuất AI"
+                    testId="export-ai-suggested"
+                    rows={quoteRes.suggestedItems}
+                    columns={() => [
+                      { header: 'Mã', value: (it) => it.code ?? '' },
+                      { header: 'Hạng mục đề xuất', value: (it) => it.name },
+                      { header: 'Loại', value: (it) => (it.kind === 'PHU_TUNG' ? 'Phụ tùng kho' : 'Nhân công / Dịch vụ') },
+                      { header: 'Số lượng', value: (it) => it.quantity },
+                      { header: 'Đơn vị', value: (it) => it.unit ?? '' },
+                      { header: 'Căn cứ & Tồn chi nhánh', value: (it) => it.reason },
+                      ...(seesMoney ? [{ header: 'Đơn giá', value: (it: (typeof quoteRes.suggestedItems)[number]) => it.unitPrice }] : []),
+                    ]}
+                  />
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm" data-testid="ai-suggested-table">
                     <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
@@ -610,8 +628,21 @@ function GarageAiBody() {
 
           {overview && overview.recentSuggestions.length > 0 && (
             <Card className="overflow-x-auto p-0">
-              <div className="border-b border-slate-100 px-5 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
                 <CardTitle>Nhật ký đề xuất của Trợ lý AI gần đây</CardTitle>
+                <ExportButton
+                  filename="nhat-ky-tro-ly-ai"
+                  sheetName="Nhật ký AI"
+                  testId="export-ai-history"
+                  rows={overview.recentSuggestions}
+                  columns={[
+                    { header: 'Thời gian', value: (s) => fmtDateTime(s.createdAt) },
+                    { header: 'Loại hỗ trợ', value: (s) => AI_KIND_UI[s.kind].label },
+                    { header: 'Nội dung yêu cầu (đã che PII)', value: (s) => s.promptSummary },
+                    { header: 'PII đã che', value: (s) => s.piiMaskedCount },
+                    { header: 'Trạng thái', value: (s) => AI_STATUS_UI[s.status].label },
+                  ]}
+                />
               </div>
               <table className="w-full text-left text-xs" data-testid="ai-history-table">
                 <thead className="border-b border-slate-100 uppercase text-slate-500">

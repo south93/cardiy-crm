@@ -1,0 +1,870 @@
+/* =========================================================================
+   Giao diện Sàn CARDIY (/cho) — kế thừa chuẩn thiết kế CARDIY-HTML
+   Bảng màu chủ đạo: Navy #073477 · Royal #0962ba · Vàng #ffd400 · Chữ #091b3a
+   ========================================================================= */
+
+.cd-market {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #091b3a;
+}
+
+.cd-market-sub {
+  background: #f5f8fc;
+}
+
+.cd-market a:focus-visible,
+.cd-market button:focus-visible,
+.cd-market input:focus-visible {
+  outline: 3px solid #e5ad00;
+  outline-offset: 2px;
+}
+
+.cd-wrap {
+  width: 93.2%;
+  max-width: 1520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- Thanh trên cùng (Navy #073477) ---------- */
+.cd-topbar {
+  background: #073477;
+  color: #ffffff;
+}
+
+.cd-top {
+  min-height: clamp(62px, 4.13vw, 76px);
+  display: flex;
+  align-items: center;
+  gap: 1.4vw;
+  padding: 8px 0 8px 1vw;
+}
+
+.cd-logo {
+  width: clamp(138px, 12.8vw, 198px);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cd-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cd-tagline {
+  font-size: clamp(11px, 0.96vw, 16px);
+  white-space: nowrap;
+  border-left: 1px solid #7191ba;
+  padding-left: 1.25vw;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.cd-tagline span {
+  border-left: 1px solid #7191ba;
+  margin-left: 0.95vw;
+  padding-left: 0.95vw;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.cd-toplinks {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1.25vw;
+  white-space: nowrap;
+  font-size: clamp(12px, 0.96vw, 16px);
+}
+
+.cd-toplink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #ffffff;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.cd-toplink:hover {
+  color: #ffd400;
+}
+
+/* ---------- Nút hành động chuẩn CARDIY ---------- */
+.cd-yellow {
+  background: #ffd400;
+  color: #111111;
+  font-weight: 700;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 22px;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.cd-yellow:hover {
+  filter: brightness(1.06);
+}
+
+.cd-toplinks .cd-yellow {
+  padding: 10px 22px;
+  border-radius: 20px;
+}
+
+.cd-outline {
+  border: 1.5px solid #ffffff;
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 12px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cd-outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Thanh điều hướng nền trắng (Sticky) ---------- */
+.cd-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(7, 52, 119, 0.05);
+}
+
+.cd-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: clamp(48px, 3.1vw, 58px);
+  padding: 0 0.5vw;
+}
+
+.cd-nav-links {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 2px;
+  overflow: visible;
+  flex: 1;
+  min-width: 0;
+  min-height: clamp(48px, 3.1vw, 58px);
+}
+
+.cd-nav-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  font-size: clamp(12.5px, 0.92vw, 15.5px);
+  font-weight: 600;
+  color: #091b3a;
+  white-space: nowrap;
+  border-bottom: 4px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.cd-nav-item:hover {
+  color: #073477;
+}
+
+.cd-nav-item.active {
+  border-bottom-color: #ffd400;
+  color: #073477;
+}
+
+.cd-nav-dropdown {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.cd-nav-dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  min-width: 230px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 14px 34px rgba(7, 52, 119, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+  z-index: 40;
+}
+
+.cd-nav-dropdown:hover .cd-nav-dropdown-menu,
+.cd-nav-dropdown:focus-within .cd-nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.cd-nav-dropdown-menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #091b3a;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.cd-nav-dropdown-menu a:hover {
+  background: #eef4fc;
+  color: #073477;
+}
+
+/* Ô tìm kiếm trên thanh điều hướng */
+.cd-search-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 228px;
+  flex: none;
+}
+
+.cd-search-input {
+  width: 100%;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0 38px 0 14px;
+  font-size: 13.5px;
+  color: #091b3a;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cd-search-input::placeholder {
+  color: #64748b;
+}
+
+.cd-search-input:focus {
+  background: #ffffff;
+  border-color: #073477;
+  box-shadow: 0 0 0 3px rgba(7, 52, 119, 0.12);
+  outline: none;
+}
+
+.cd-search-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #073477;
+  transition: background-color 0.15s ease;
+}
+
+.cd-search-btn:hover {
+  background: #e2e8f0;
+}
+
+/* ---------- Hero Banner tràn viền ---------- */
+.cd-hero {
+  position: relative;
+  background: #073477;
+  min-height: clamp(365px, 26vw, 468px);
+  overflow: hidden;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+}
+
+.cd-hero-art {
+  position: absolute;
+  inset: 0 0 0 42%;
+  background: url('/cho/images/hero-car.webp') center / cover no-repeat;
+}
+
+.cd-hero-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #073477 0%, rgba(7, 52, 119, 0.45) 14%, transparent 26%);
+}
+
+.cd-hero-inner {
+  position: relative;
+  z-index: 2;
+  padding: clamp(24px, 2vw, 36px) 1vw clamp(56px, 3.6vw, 68px);
+}
+
+.cd-hero-copy {
+  width: 50%;
+  max-width: 660px;
+}
+
+.cd-hero-kicker {
+  font-size: clamp(21px, 1.95vw, 34px);
+  font-weight: 700;
+  font-style: italic;
+  margin: 0 0 4px;
+  color: #ffffff;
+}
+
+.cd-hero-title {
+  font-size: clamp(38px, 3.5vw, 62px);
+  line-height: 1.02;
+  font-style: italic;
+  letter-spacing: -1.2px;
+  margin: 0 0 16px;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.cd-quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 610px;
+  margin: 14px 0 22px;
+}
+
+.cd-quick a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  font-size: clamp(13px, 0.98vw, 16.5px);
+  font-weight: 500;
+  color: #ffffff;
+  position: relative;
+  padding: 4px 6px;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.cd-quick a:hover {
+  color: #ffd400;
+  transform: translateY(-2px);
+}
+
+.cd-quick a + a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  height: 56%;
+  border-left: 1px solid #6387b6;
+}
+
+.cd-quick-label {
+  max-width: 116px;
+  line-height: 1.28;
+}
+
+.cd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  font-size: clamp(14px, 1.12vw, 19px);
+}
+
+.cd-actions a {
+  min-height: 52px;
+}
+
+/* ---------- Dải 5 Lợi ích nổi trên nền Hero ---------- */
+.cd-content {
+  position: relative;
+  z-index: 5;
+  margin-top: -34px;
+  padding-bottom: 40px;
+}
+
+.cd-benefits {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.15fr 1.32fr;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 10px 32px rgba(23, 79, 148, 0.14);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  min-height: 82px;
+  padding: 14px 20px;
+}
+
+.cd-benefit-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding: 4px 10px;
+  position: relative;
+}
+
+.cd-benefit-item + .cd-benefit-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  height: 30px;
+  border-left: 1px solid #e1e4ec;
+}
+
+.cd-benefit-icon {
+  color: #073c8a;
+  width: 40px;
+  height: 40px;
+}
+
+.cd-benefit-item strong {
+  font-size: clamp(11.5px, 0.94vw, 15.5px);
+  line-height: 1.42;
+  color: #151515;
+  font-weight: 700;
+}
+
+/* ---------- Tiêu đề phân mục chuẩn CARDIY (vạch vàng nghiêng -30deg) ---------- */
+.cd-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 32px 0 16px;
+}
+
+.cd-section-title {
+  font-size: clamp(22px, 1.95vw, 34px);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #091b3a;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cd-section-title::before {
+  content: '';
+  display: inline-block;
+  background: #ffd400;
+  width: 19px;
+  height: 24px;
+  transform: skew(-30deg);
+  margin: 0 18px 0 6px;
+  flex: none;
+}
+
+.cd-section-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #073477;
+  transition: color 0.15s ease, gap 0.15s ease;
+}
+
+.cd-section-more:hover {
+  color: #0962ba;
+  gap: 7px;
+}
+
+/* ---------- 4 Thẻ Dịch vụ nổi bật ---------- */
+.cd-service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.cd-service-card {
+  background-size: cover;
+  background-position: center;
+  background-color: #073477;
+  border-radius: 18px;
+  min-height: clamp(138px, 9.4vw, 168px);
+  display: flex;
+  align-items: flex-end;
+  text-align: left;
+  gap: 13px;
+  padding: 16px 20px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(7, 52, 119, 0.14);
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cd-service-card:hover {
+  filter: brightness(1.07);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(7, 52, 119, 0.2);
+}
+
+.cd-service-card strong {
+  display: block;
+  font-size: clamp(17px, 1.38vw, 24px);
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+
+.cd-service-card small {
+  display: block;
+  font-size: clamp(11.5px, 0.9vw, 15px);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ---------- Dải Promo Lốp & Thương hiệu ---------- */
+.cd-promo {
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+  min-height: 92px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(110deg, #0962ba, #073477 65%);
+  color: #ffffff;
+  box-shadow: 0 8px 26px rgba(7, 52, 119, 0.16);
+}
+
+.cd-promo-tires {
+  width: 16%;
+  align-self: stretch;
+  object-fit: cover;
+  display: block;
+}
+
+.cd-brand-area {
+  width: 42%;
+  background: #e4f1fc;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 8px 30px 8px 12px;
+}
+
+.cd-brand-area::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: #ffd400;
+  transform: skew(-31deg);
+}
+
+.cd-brand-area img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.cd-promo-copy {
+  flex: 1;
+  text-align: center;
+  font-size: clamp(16px, 1.42vw, 25px);
+  font-weight: 800;
+  line-height: 1.32;
+  padding: 10px 14px;
+}
+
+.cd-promo-btn {
+  margin: 0 2.2%;
+  font-size: 15.5px;
+  border-radius: 24px;
+  padding: 11px 22px;
+}
+
+/* ---------- Khối tiện ích hệ sinh thái mở rộng ---------- */
+.cd-eco-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.cd-eco-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 18px;
+  border-radius: 18px;
+  background: #f6f9fd;
+  border: 1px solid #e2ebf6;
+  transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.cd-eco-card:hover {
+  background: #ffffff;
+  border-color: #073477;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(7, 52, 119, 0.08);
+}
+
+.cd-eco-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #073477;
+  color: #ffd400;
+  flex: none;
+}
+
+.cd-eco-badge.sos {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* ---------- Footer Sàn CARDIY ---------- */
+.cd-footer {
+  margin-top: auto;
+  background: #073477;
+  color: #ffffff;
+}
+
+.cd-footer-cta {
+  background: linear-gradient(105deg, #094ca6 0%, #073477 70%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.cd-footer-cta-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 0;
+}
+
+.cd-footer-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr 1fr 1.15fr;
+  gap: 32px;
+  padding: 42px 0 36px;
+}
+
+.cd-footer-heading {
+  font-size: 16px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.2px;
+  color: #ffffff;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cd-footer-heading::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 16px;
+  background: #ffd400;
+  transform: skew(-28deg);
+  flex: none;
+}
+
+.cd-footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.cd-footer-links a {
+  color: rgba(255, 255, 255, 0.84);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.cd-footer-links a:hover {
+  color: #ffd400;
+  transform: translateX(2px);
+}
+
+.cd-footer-bottom {
+  background: #042252;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1180px) {
+  .cd-tagline {
+    display: none;
+  }
+  .cd-nav-links {
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: none;
+  }
+  .cd-nav-links::-webkit-scrollbar {
+    display: none;
+  }
+  .cd-nav-dropdown-menu {
+    display: none;
+  }
+  .cd-search-form {
+    width: 100%;
+    order: 3;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .cd-top {
+    padding-left: 0;
+  }
+  .cd-logo {
+    width: 156px;
+  }
+  .cd-hero-copy {
+    width: 60%;
+  }
+  .cd-actions {
+    gap: 10px;
+  }
+  .cd-actions a {
+    padding: 10px 14px;
+  }
+  .cd-benefits {
+    padding: 12px 10px;
+  }
+  .cd-benefit-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .cd-benefit-item {
+    gap: 8px;
+  }
+  .cd-eco-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cd-footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+}
+
+@media (max-width: 700px) {
+  .cd-toplinks .cd-toplink {
+    display: none;
+  }
+  .cd-hero {
+    min-height: 0;
+    padding-top: 210px;
+    display: block;
+  }
+  .cd-hero-art {
+    inset: 0 0 auto 0;
+    height: 245px;
+    background-position: center;
+  }
+  .cd-hero-art::after {
+    background: linear-gradient(0deg, #073477 6%, transparent 50%);
+  }
+  .cd-hero-inner {
+    padding: 0 0 46px;
+  }
+  .cd-hero-copy {
+    width: 100%;
+  }
+  .cd-hero-title {
+    font-size: 38px;
+  }
+  .cd-hero-kicker {
+    font-size: 20px;
+  }
+  .cd-actions a {
+    flex: 1;
+    font-size: 13.5px;
+    min-height: 46px;
+  }
+  .cd-content {
+    margin-top: -24px;
+  }
+  .cd-benefits {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+  .cd-benefit-item {
+    justify-content: flex-start;
+    padding: 0;
+  }
+  .cd-benefit-item + .cd-benefit-item::before {
+    display: none;
+  }
+  .cd-service-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .cd-service-card {
+    min-height: 122px;
+    padding: 12px;
+    gap: 8px;
+  }
+  .cd-service-card strong {
+    font-size: 16px;
+  }
+  .cd-promo {
+    flex-wrap: wrap;
+    padding-bottom: 14px;
+    justify-content: center;
+  }
+  .cd-promo-tires {
+    width: 26%;
+    height: 68px;
+  }
+  .cd-brand-area {
+    width: 74%;
+    height: 68px;
+  }
+  .cd-promo-copy {
+    width: 100%;
+    font-size: 17px;
+  }
+  .cd-promo-btn {
+    padding: 10px 18px;
+  }
+  .cd-eco-grid {
+    grid-template-columns: 1fr;
+  }
+  .cd-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 32px 0 28px;
+  }
+}

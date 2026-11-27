@@ -3,6 +3,7 @@
 import { Badge, Card, CardTitle, Spinner, Tabs } from '@cardiy/ui';
 import { Banknote, CheckCircle2, ExternalLink, Eye, Inbox } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { api } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
 import { OFFER_STATUS, type OfferStatus } from '@/lib/marketplace';
@@ -273,8 +274,26 @@ export function SellerStats() {
           </div>
 
           <Card className="overflow-x-auto">
-            <div className="border-b border-slate-100 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
               <CardTitle>Hiệu quả từng tin đăng</CardTitle>
+              <ExportButton
+                filename={`thong-ke-tin-dang-${days}ngay`}
+                sheetName="Hiệu quả tin đăng"
+                testId="export-offer-stats"
+                rows={data.offers}
+                columns={[
+                  { header: 'Mã', value: (o) => o.code },
+                  { header: 'Sản phẩm / dịch vụ', value: (o) => o.name },
+                  { header: 'Loại', value: (o) => (o.kind === 'PRODUCT' ? 'Sản phẩm' : 'Dịch vụ') },
+                  { header: 'Trạng thái', value: (o) => (OFFER_STATUS[o.status]?.label ?? o.status) },
+                  { header: 'Lượt xem', value: (o) => o.views },
+                  { header: 'Yêu cầu', value: (o) => o.requests },
+                  { header: 'Hoàn tất', value: (o) => o.completed },
+                  { header: 'SL bán', value: (o) => o.soldQty },
+                  { header: 'Tỉ lệ chốt (%)', value: (o) => o.closeRate },
+                  { header: 'Giá trị chốt', value: (o) => o.revenue },
+                ]}
+              />
             </div>
             <table className="w-full text-sm" data-testid="offer-stats-table">
               <thead>

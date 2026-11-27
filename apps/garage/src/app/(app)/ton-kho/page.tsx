@@ -4,13 +4,15 @@ import { Badge, Button, Card, Checkbox, Input, Select, Spinner, Tabs } from '@ca
 import { ArrowLeftRight, ClipboardCheck, PackagePlus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
 import { fmtMoney, type Paged } from '@/lib/crm';
+import { fetchAllPages } from '@/lib/export';
 import { DOC_TYPES, fmtMfg, fmtQty, type Category, type DocType, type ProductRow } from '@/lib/inventory';
 import { fmtDateTime } from '@/lib/orders';
 
@@ -40,15 +42,22 @@ function StockList({ branchId }: { branchId: string }) {
   const [low, setLow] = useState(false);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Paged<ProductRow> | null>(null);
+  const buildQuery = useCallback(
+    (pg: number, ps: number) => {
+      const p = new URLSearchParams({ kind: 'PHU_TUNG', branchId, page: String(pg), pageSize: String(ps) });
+      if (q.trim()) p.set('q', q.trim());
+      if (low) p.set('lowStock', 'true');
+      if (cat) p.set('categoryId', cat);
+      return `/products?${p}`;
+    },
+    [branchId, q, low, cat],
+  );
   useEffect(() => {
     if (!branchId) return;
-    const p = new URLSearchParams({ kind: 'PHU_TUNG', branchId, page: String(page), pageSize: '25' });
-    if (q.trim()) p.set('q', q.trim());
-    if (low) p.set('lowStock', 'true');
-    if (cat) p.set('categoryId', cat);
-    const t = setTimeout(() => api<Paged<ProductRow>>(`/products?${p}`).then(setData), q ? 250 : 0);
+    const t = setTimeout(() => api<Paged<ProductRow>>(buildQuery(page, 25)).then(setData), q ? 250 : 0);
     return () => clearTimeout(t);
-  }, [branchId, q, low, cat, page]);
+  }, [branchId, buildQuery, page, q]);
+  const showCost = !!data?.items.some((p) => p.costPrice !== null);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -70,6 +79,32 @@ function StockList({ branchId }: { branchId: string }) {
           ))}
         </Select>
         <Checkbox checked={low} onChange={(e) => (setLow(e.target.checked), setPage(1))} label="Chỉ hàng sắp hết (≤ tồn tối thiểu)" />
+        <div className="flex-1" />
+        <ExportButton<ProductRow>
+          filename="ton-kho-chi-nhanh"
+          sheetName="Tồn kho"
+          testId="export-stock"
+          disabled={!branchId || !data || data.total === 0}
+          fetchRows={() => fetchAllPages<ProductRow>(buildQuery)}
+          columns={() => [
+            { header: 'Mã hàng', value: (p) => p.code },
+            { header: 'Tên hàng', value: (p) => p.name },
+            { header: 'Nhóm hàng', value: (p) => p.category?.name ?? '' },
+            { header: 'Đơn vị', value: (p) => p.unit ?? '' },
+            { header: 'Tồn tối thiểu', value: (p) => p.minStock },
+            { header: 'Tồn hiện tại', value: (p) => p.stock },
+            ...(showCost
+              ? [
+                  { header: 'Giá vốn', value: (p: ProductRow) => p.costPrice },
+                  {
+                    header: 'Giá trị tồn (giá vốn)',
+                    value: (p: ProductRow) => (p.costPrice === null ? null : Math.round(Math.max(0, p.stock ?? 0) * p.costPrice)),
+                  },
+                ]
+              : []),
+            { header: 'SX', value: (p) => fmtMfg(p.mfgMonth, p.mfgYear) ?? '' },
+          ]}
+        />
       </div>
       <Card className="overflow-hidden">
         {!data ? (
@@ -137,22 +172,51 @@ function DocList({ branchId }: { branchId: string }) {
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Paged<DocRow> | null>(null);
+  const buildQuery = useCallback(
+    (pg: number, ps: number) => {
+      const p = new URLSearchParams({ branchId, page: String(pg), pageSize: String(ps) });
+      if (type) p.set('type', type);
+      return `/stock-documents?${p}`;
+    },
+    [branchId, type],
+  );
   useEffect(() => {
     if (!branchId) return;
-    const p = new URLSearchParams({ branchId, page: String(page), pageSize: '20' });
-    if (type) p.set('type', type);
-    api<Paged<DocRow>>(`/stock-documents?${p}`).then(setData);
-  }, [branchId, type, page]);
+    api<Paged<DocRow>>(buildQuery(page, 20)).then(setData);
+  }, [branchId, buildQuery, page]);
   return (
     <div className="space-y-3">
-      <Select value={type} onChange={(e) => (setType(e.target.value), setPage(1))} className="w-auto rounded-full bg-white/80" aria-label="Lọc loại phiếu">
-        <option value="">Mọi loại phiếu</option>
-        {(Object.keys(DOC_TYPES) as DocType[]).map((t) => (
-          <option key={t} value={t}>
-            {DOC_TYPES[t].label}
-          </option>
-        ))}
-      </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={type} onChange={(e) => (setType(e.target.value), setPage(1))} className="w-auto rounded-full bg-white/80" aria-label="Lọc loại phiếu">
+          <option value="">Mọi loại phiếu</option>
+          {(Object.keys(DOC_TYPES) as DocType[]).map((t) => (
+            <option key={t} value={t}>
+              {DOC_TYPES[t].label}
+            </option>
+          ))}
+        </Select>
+        <div className="flex-1" />
+        <ExportButton<DocRow>
+          filename="phieu-kho"
+          sheetName="Phiếu kho"
+          testId="export-stock-docs"
+          disabled={!branchId || !data || data.total === 0}
+          fetchRows={() => fetchAllPages<DocRow>(buildQuery)}
+          columns={[
+            { header: 'Mã phiếu', value: (d) => d.code },
+            { header: 'Loại phiếu', value: (d) => DOC_TYPES[d.type].label },
+            { header: 'Chi nhánh', value: (d) => d.branch?.name ?? d.branch?.code ?? '' },
+            { header: 'Kho nhận', value: (d) => d.toBranch?.name ?? d.toBranch?.code ?? '' },
+            { header: 'Nhà cung cấp', value: (d) => d.supplier ?? '' },
+            { header: 'Số hoá đơn', value: (d) => d.refNo ?? '' },
+            { header: 'Số dòng', value: (d) => d.lines },
+            { header: 'Giá trị nhập', value: (d) => (d.type === 'NHAP' ? d.total : null) },
+            { header: 'Ghi chú', value: (d) => d.note ?? '' },
+            { header: 'Người lập', value: (d) => d.createdBy ?? '' },
+            { header: 'Thời gian', value: (d) => fmtDateTime(d.createdAt) },
+          ]}
+        />
+      </div>
       <Card className="overflow-hidden">
         {!data ? (
           <div className="grid place-items-center p-10">

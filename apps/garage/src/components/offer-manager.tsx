@@ -3,6 +3,7 @@
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Spinner, Tabs } from '@cardiy/ui';
 import { Eye, EyeOff, ImagePlus, Lightbulb, Pencil, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { ProductPicker } from '@/components/product-picker';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -288,6 +289,25 @@ export function OfferManager({ kind, garage, branches = [] }: { kind: CatalogKin
       <div className="flex flex-wrap items-center gap-2">
         <Tabs tabs={tabs} value={status} onChange={setStatus} />
         <div className="flex-1" />
+        <ExportButton
+          filename={isProduct ? 'tin-dang-san-pham' : 'tin-dang-dich-vu'}
+          sheetName={isProduct ? 'Sản phẩm sàn' : 'Dịch vụ sàn'}
+          testId="export-offers"
+          rows={data?.items ?? []}
+          columns={() => [
+            { header: 'Mã chuẩn', value: (o) => o.catalogItem.code },
+            { header: isProduct ? 'Sản phẩm' : 'Dịch vụ', value: (o) => o.catalogItem.name },
+            ...(garage ? [{ header: 'Chi nhánh', value: (o: Offer) => branchName(o.branchIds) }] : []),
+            { header: 'Mã kho', value: (o) => o.product?.code ?? '' },
+            { header: 'Giá bán', value: (o) => o.price },
+            { header: 'Giá niêm yết', value: (o) => o.listPrice },
+            { header: 'Giá từ', value: (o) => (o.priceFrom ? 'Có' : 'Không') },
+            ...(isProduct ? [{ header: 'Còn bán', value: (o: Offer) => o.stock }] : []),
+            { header: 'Gồm lắp đặt', value: (o) => (o.installIncluded ? 'Có' : 'Không') },
+            { header: 'Trạng thái', value: (o) => OFFER_STATUS[o.status].label },
+            { header: 'Ghi chú duyệt', value: (o) => o.reviewNote ?? '' },
+          ]}
+        />
         <Button onClick={() => (setD(blank()), setPicking(true), setError(null))} data-testid="add-offer">
           <Plus className="h-4 w-4" />
           Đăng {word}

@@ -2,6 +2,7 @@
 
 import { Alert, Badge, Card, CardTitle, Spinner } from '@cardiy/ui';
 import { useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -76,6 +77,24 @@ function MyBilling() {
         </Card>
       </div>
       <Card className="overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
+          <CardTitle>Lịch sử hoá đơn phí</CardTitle>
+          <ExportButton
+            filename="hoa-don-phi-doi-tac"
+            sheetName="Hoá đơn phí"
+            testId="export-my-invoices"
+            rows={b.invoices}
+            columns={[
+              { header: 'Mã hoá đơn', value: (i) => i.code },
+              { header: 'Gói', value: (i) => i.plan },
+              { header: 'Từ ngày', value: (i) => dmy(i.periodFrom) },
+              { header: 'Đến ngày', value: (i) => dmy(i.periodTo) },
+              { header: 'Số tiền', value: (i) => i.amount },
+              { header: 'Hạn thanh toán', value: (i) => dmy(i.dueDate) },
+              { header: 'Trạng thái', value: (i) => (i.overdueDays ? `Quá hạn ${i.overdueDays} ngày` : INVOICE_STATUS[i.status]!.label) },
+            ]}
+          />
+        </div>
         <table className="w-full text-sm" data-testid="my-invoices">
           <thead>
             <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">

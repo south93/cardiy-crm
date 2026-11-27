@@ -3,6 +3,7 @@
 import { Alert, Button, Card, Dialog, Field, Input, Spinner } from '@cardiy/ui';
 import { Pencil, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
@@ -58,6 +59,25 @@ function Suppliers() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên, SĐT, mã số thuế…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm nhà cung cấp" />
         </div>
         <div className="flex-1" />
+        <ExportButton<Supplier>
+          filename="nha-cung-cap"
+          sheetName="Nhà cung cấp"
+          testId="export-suppliers"
+          rows={rows ?? []}
+          columns={[
+            { header: 'Mã NCC', value: (s) => s.code },
+            { header: 'Tên nhà cung cấp', value: (s) => s.name },
+            { header: 'Số điện thoại', value: (s) => s.phone ?? '' },
+            { header: 'Mã số thuế', value: (s) => s.taxCode ?? '' },
+            { header: 'Địa chỉ', value: (s) => s.address ?? '' },
+            { header: 'Số phiếu nhập', value: (s) => s.receipts },
+            { header: 'Đã nhập', value: (s) => s.purchased },
+            { header: 'Nợ đầu kỳ', value: (s) => s.openingPayable },
+            { header: 'Đã trả', value: (s) => s.paid },
+            { header: 'Còn nợ', value: (s) => s.balance },
+            { header: 'Ghi chú', value: (s) => s.note ?? '' },
+          ]}
+        />
         <Button onClick={() => (setEdit({ id: null, v: empty }), setError(null))} data-testid="add-supplier">
           <Plus className="h-4 w-4" />
           Thêm nhà cung cấp

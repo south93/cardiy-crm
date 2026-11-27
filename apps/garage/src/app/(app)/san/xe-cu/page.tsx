@@ -4,6 +4,7 @@ import { Alert, Badge, Button, Card, Dialog, Field, Input, Spinner, Tabs } from 
 import { Ban, CheckCircle2, FileText, Search, ShieldCheck, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AppraisalReportCard } from '@/components/appraisal-report-card';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/orders';
@@ -233,6 +234,25 @@ function PlatformUsedCarsBody() {
         <Card className="p-10 text-center text-sm text-slate-500">Chưa có phiếu kiểm định xe cũ nào.</Card>
       ) : (
         <Card className="overflow-x-auto p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-800">Phiếu kiểm định xe cũ ({appData.items.length})</span>
+            <ExportButton
+              filename="kiem-dinh-xe-cu-san"
+              sheetName="Kiểm định xe cũ"
+              testId="export-platform-appraisals"
+              rows={appData.items}
+              columns={[
+                { header: 'Mã KD', value: (a) => a.code },
+                { header: 'Garage kiểm định', value: (a) => a.garage.name },
+                { header: 'Tin xe', value: (a) => a.listing?.title ?? '' },
+                { header: 'Mã tin', value: (a) => a.listing?.code ?? '' },
+                { header: 'Ngày hẹn', value: (a) => fmtDateTime(a.scheduledAt) },
+                { header: 'Điểm', value: (a) => a.score },
+                { header: 'Xếp loại', value: (a) => (a.grade ? APPRAISAL_GRADE_UI[a.grade].label : '') },
+                { header: 'Trạng thái', value: (a) => APPRAISAL_STATUS_UI[a.status].label },
+              ]}
+            />
+          </div>
           <table className="w-full text-left text-sm" data-testid="platform-appraisal-table">
             <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
               <tr>

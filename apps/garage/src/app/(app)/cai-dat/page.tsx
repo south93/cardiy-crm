@@ -4,9 +4,11 @@ import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spi
 import { ZaloSettingsTab } from '@/components/zalo-settings';
 import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { fetchAllCursor } from '@/lib/export';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
 type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky' | 'zalo';
@@ -378,10 +380,26 @@ function RolesTab() {
   };
 
   if (!roles) return <Spinner className="text-brand-600" />;
+  const roleMatrixRows = perms.map((p) => ({ group: p.group, code: p.code, label: p.label }));
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <p className="flex-1 text-sm text-slate-500">Vai trò hệ thống theo ma trận quyền chuẩn và không sửa được. Chủ garage có thể tạo thêm vai trò tuỳ chỉnh.</p>
+        <ExportButton
+          filename="ma-tran-phan-quyen"
+          sheetName="Ma trận quyền"
+          testId="export-role-matrix"
+          rows={roleMatrixRows}
+          columns={() => [
+            { header: 'Nhóm quyền', value: (p) => p.group },
+            { header: 'Mã quyền', value: (p) => p.code },
+            { header: 'Tên quyền', value: (p) => p.label },
+            ...roles.map((r) => ({
+              header: r.name,
+              value: (p: (typeof roleMatrixRows)[number]) => (r.permissions.includes(p.code) ? 'Có' : 'Không'),
+            })),
+          ]}
+        />
         {can('role.manage') && (
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -579,6 +597,28 @@ function AuditTab() {
           </button>
         ))}
         <span className="ml-auto text-xs text-slate-500">Nhật ký chỉ được thêm, không ai sửa hay xoá được.</span>
+        <ExportButton<AuditItem>
+          filename="nhat-ky-thao-tac"
+          sheetName="Nhật ký thao tác"
+          testId="export-audit"
+          disabled={!items || items.length === 0}
+          fetchRows={() =>
+            fetchAllCursor<AuditItem>((before) => {
+              const qs = new URLSearchParams({ limit: '100', ...(filter ? { action: filter } : {}), ...(before ? { before: String(before) } : {}) });
+              return api<{ items: AuditItem[]; nextBefore: number | null }>(`/audit-logs?${qs}`);
+            })
+          }
+          columns={[
+            { header: 'Thời gian', value: (i) => new Date(i.createdAt).toLocaleString('vi-VN') },
+            { header: 'Người thực hiện', value: (i) => i.actorName ?? '' },
+            { header: 'Thao tác', value: (i) => ACTION_LABEL[i.action] ?? i.action },
+            { header: 'Mã thao tác', value: (i) => i.action },
+            { header: 'Đối tượng', value: (i) => i.entity },
+            { header: 'ID đối tượng', value: (i) => i.entityId ?? '' },
+            { header: 'Chi tiết', value: (i) => (i.after ? JSON.stringify(i.after) : '') },
+            { header: 'IP', value: (i) => i.ip ?? '' },
+          ]}
+        />
       </div>
       <Card className="overflow-x-auto">
         {!items ? (

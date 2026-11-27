@@ -3,6 +3,7 @@
 import { Alert, Badge, Card, CardTitle, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { AlertTriangle, Award, Banknote, Building2, CheckCircle2, Star, TrendingUp, Users, Warehouse, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { defaultReportRange, fmtPct, type GarageReportResponse } from '@/lib/community';
@@ -190,6 +191,30 @@ function GarageReportsBody() {
               </Card>
 
               <Card className="overflow-x-auto p-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
+                  <CardTitle>Chi tiết KPI & SLA theo chi nhánh</CardTitle>
+                  <ExportButton
+                    filename={`bao-cao-chi-nhanh-${from}-${to}`}
+                    sheetName="KPI Chi nhánh"
+                    testId="export-branch-kpi"
+                    rows={data.branchComparison}
+                    columns={[
+                      { header: 'Hạng', value: (b) => b.rank },
+                      { header: 'Mã CN', value: (b) => b.code },
+                      { header: 'Chi nhánh', value: (b) => b.name },
+                      { header: 'Xe giao', value: (b) => b.ordersDelivered },
+                      { header: 'Doanh thu RO', value: (b) => b.roRevenue },
+                      { header: 'Lãi gộp', value: (b) => b.grossProfit },
+                      { header: 'Biên lãi (%)', value: (b) => b.marginPct },
+                      { header: 'Thực thu', value: (b) => b.collected },
+                      { header: 'Thực chi', value: (b) => b.expense },
+                      { header: 'SLA đúng hẹn (%)', value: (b) => b.slaOnTimePct },
+                      { header: 'Xe đang trễ', value: (b) => b.overdueOpen },
+                      { header: 'Đánh giá TB', value: (b) => b.avgRating },
+                      { header: 'Doanh thu thuê xe & KĐ', value: (b) => b.rentalRevenue + b.appraisalRevenue },
+                    ]}
+                  />
+                </div>
                 <table className="w-full text-left text-sm" data-testid="branch-kpi-table">
                   <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
                     <tr>
@@ -257,9 +282,26 @@ function GarageReportsBody() {
 
           {tab === 'technicians' && (
             <Card className="overflow-x-auto p-0">
-              <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-                <Wrench className="h-4 w-4 text-brand-600" />
-                <CardTitle>Hiệu suất Kỹ thuật viên trong kỳ</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-brand-600" />
+                  <CardTitle>Hiệu suất Kỹ thuật viên trong kỳ</CardTitle>
+                </div>
+                <ExportButton
+                  filename={`nang-suat-ktv-${from}-${to}`}
+                  sheetName="Năng suất KTV"
+                  testId="export-tech-kpi"
+                  rows={data.technicians}
+                  columns={[
+                    { header: 'Kỹ thuật viên', value: (t) => t.fullName },
+                    { header: 'Số điện thoại', value: (t) => t.phone },
+                    { header: 'Đơn phụ trách', value: (t) => t.ordersAssigned },
+                    { header: 'Đơn hoàn tất', value: (t) => t.ordersCompleted },
+                    { header: 'SLA đúng hẹn (%)', value: (t) => t.slaOnTimePct },
+                    { header: 'Xe cũ đã kiểm định', value: (t) => t.appraisalsCompleted },
+                    { header: 'Doanh thu đơn tham gia', value: (t) => t.revenueContributed },
+                  ]}
+                />
               </div>
               <table className="w-full text-left text-sm" data-testid="tech-kpi-table">
                 <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
@@ -320,8 +362,22 @@ function GarageReportsBody() {
               </div>
 
               <Card className="overflow-x-auto p-0">
-                <div className="border-b border-slate-100 px-5 py-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
                   <CardTitle>Danh sách phụ tùng cần nhập bổ sung</CardTitle>
+                  <ExportButton
+                    filename="phu-tung-can-nhap"
+                    sheetName="Phụ tùng sắp hết"
+                    testId="export-low-stock"
+                    rows={data.inventory.lowStockItems}
+                    columns={[
+                      { header: 'Chi nhánh', value: (it) => it.branchCode },
+                      { header: 'Mã phụ tùng', value: (it) => it.code },
+                      { header: 'Tên phụ tùng', value: (it) => it.name },
+                      { header: 'Tồn hiện tại', value: (it) => it.onHand },
+                      { header: 'Đơn vị', value: (it) => it.unit ?? '' },
+                      { header: 'Định mức tối thiểu', value: (it) => it.minStock },
+                    ]}
+                  />
                 </div>
                 <table className="w-full text-left text-sm" data-testid="low-stock-table">
                   <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
