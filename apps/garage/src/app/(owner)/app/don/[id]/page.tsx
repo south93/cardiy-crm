@@ -1,10 +1,12 @@
 'use client';
 
+import type { OrderIntakeData, OrderPhotoItem } from '@cardiy/shared';
 import { Button, Card, CardTitle, Input, Spinner } from '@cardiy/ui';
 import { ArrowLeft, Check, ClipboardCheck, MapPin, Phone, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { OwnerOrderMediaCard } from '@/components/order-media';
 import { ApiError } from '@/lib/api';
 import { fmtMoney } from '@/lib/crm';
 import { ownerApi } from '@/lib/owner';
@@ -23,6 +25,8 @@ interface Order {
   promisedAt: string | null;
   completedAt: string | null;
   deliveredAt: string | null;
+  intake?: OrderIntakeData | null;
+  photos?: OrderPhotoItem[];
   items: { kind: string; name: string; unit: string | null; quantity: number; unitPrice: number; discount: number; amount: number; vatRate: number }[];
   subtotal: number;
   orderDiscount: number;
@@ -334,6 +338,8 @@ export default function OwnerOrderPage() {
           {o.inspection.suggestions && <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{o.inspection.suggestions}</p>}
         </Card>
       )}
+
+      <OwnerOrderMediaCard intake={o.intake} photos={o.photos} />
 
       <Card className="p-4">
         <CardTitle className="mb-2 text-base">Hạng mục</CardTitle>

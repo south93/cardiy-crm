@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { CurrentAuth, RequirePermissions } from '../common/auth.decorators';
 import { clientIp, type RequestAuth } from '../common/request-auth';
 import { ZodPipe } from '../common/zod.pipe';
+import { intakeInputSchema, photoInputItemSchema } from '../orders/media';
 import { OrdersModule } from '../orders/orders.module';
 import { BookingsService } from './bookings.service';
 
@@ -23,6 +24,11 @@ const createSchema = z.object({
   technicianId: z.string().uuid().optional().nullable(),
 });
 const updateSchema = createSchema.omit({ branchId: true, customerId: true }).partial();
+const checkInSchema = z.object({
+  odometerKm: z.coerce.number().int().min(0).max(5_000_000).optional().nullable(),
+  intake: intakeInputSchema.optional().nullable(),
+  intakePhotos: z.array(photoInputItemSchema).max(30).optional().nullable(),
+});
 const listSchema = z.object({
   from: when,
   to: when,
@@ -70,7 +76,7 @@ export class BookingsController {
   /** Nhận xe: cần cả quyền lịch hẹn và tạo đơn */
   @RequirePermissions('booking.manage', 'ro.manage')
   @Post(':id/check-in')
-  checkIn(@CurrentAuth() auth: RequestAuth, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(z.object({ odometerKm: z.coerce.number().int().min(0).max(5_000_000).optional().nullable() }))) dto: { odometerKm?: number | null }, @Req() req: Request) {
+  checkIn(@CurrentAuth() auth: RequestAuth, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(checkInSchema)) dto: z.infer<typeof checkInSchema>, @Req() req: Request) {
     return this.bookings.checkIn(auth.access, id, dto, clientIp(req));
   }
 }

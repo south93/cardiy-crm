@@ -1,5 +1,6 @@
 'use client';
 
+import { FUEL_LEVEL_LABEL, FUEL_LEVELS, type FuelLevel } from '@cardiy/shared';
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
 import { AlarmClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -36,6 +37,8 @@ function BookingDetail({ b, onChanged }: { b: Booking; onChanged: () => void }) 
   const [mode, setMode] = useState<null | 'reschedule' | 'checkin' | 'KHACH_HUY' | 'TU_CHOI'>(null);
   const [at, setAt] = useState(toLocalInput(new Date(b.scheduledAt)));
   const [km, setKm] = useState('');
+  const [fuelLevel, setFuelLevel] = useState<FuelLevel | ''>('');
+  const [exteriorNote, setExteriorNote] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -100,25 +103,59 @@ function BookingDetail({ b, onChanged }: { b: Booking; onChanged: () => void }) 
         </div>
       )}
       {mode === 'checkin' && (
-        <div className="flex flex-wrap items-end gap-2">
-          <Field label="Số km lúc nhận xe">{(id) => <Input id={id} inputMode="numeric" value={km} onChange={(e) => setKm(e.target.value.replace(/\D/g, ''))} />}</Field>
-          <Button
-            disabled={busy}
-            data-testid="confirm-checkin"
-            onClick={async () => {
-              setBusy(true);
-              setError(null);
-              try {
-                const o = await api<{ id: string }>(`/bookings/${b.id}/check-in`, { body: { odometerKm: km ? Number(km) : null } });
-                router.push(`/don-hang/${o.id}`);
-              } catch (e) {
-                setError(errMsg(e, 'Không nhận xe được'));
-                setBusy(false);
-              }
-            }}
-          >
-            Tạo đơn tiếp nhận
-          </Button>
+        <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Số km lúc nhận xe">{(id) => <Input id={id} inputMode="numeric" value={km} onChange={(e) => setKm(e.target.value.replace(/\D/g, ''))} />}</Field>
+            <Field label="Mức nhiên liệu">
+              {(id) => (
+                <Select id={id} value={fuelLevel} onChange={(e) => setFuelLevel(e.target.value as FuelLevel | '')}>
+                  <option value="">— Chưa ghi —</option>
+                  {FUEL_LEVELS.map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      {FUEL_LEVEL_LABEL[lvl]}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+          <Field label="Hiện trạng ngoại thất ban đầu (tuỳ chọn)">
+            {(id) => (
+              <Input
+                id={id}
+                value={exteriorNote}
+                onChange={(e) => setExteriorNote(e.target.value)}
+                placeholder="VD: Xước nhẹ cản trước phải (sẽ chụp ảnh tiếp ở màn hình đơn)"
+              />
+            )}
+          </Field>
+          <div className="flex justify-end">
+            <Button
+              disabled={busy}
+              data-testid="confirm-checkin"
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  const hasIntake = !!fuelLevel || !!exteriorNote.trim();
+                  const o = await api<{ id: string }>(`/bookings/${b.id}/check-in`, {
+                    body: {
+                      odometerKm: km ? Number(km) : null,
+                      intake: hasIntake
+                        ? { fuelLevel: fuelLevel || null, exteriorNote: exteriorNote.trim() || null }
+                        : null,
+                    },
+                  });
+                  router.push(`/don-hang/${o.id}`);
+                } catch (e) {
+                  setError(errMsg(e, 'Không nhận xe được'));
+                  setBusy(false);
+                }
+              }}
+            >
+              Tạo đơn tiếp nhận
+            </Button>
+          </div>
         </div>
       )}
       {(mode === 'KHACH_HUY' || mode === 'TU_CHOI') && (

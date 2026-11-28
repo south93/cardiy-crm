@@ -6,6 +6,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import { CustomerForm, customerPayload, emptyCustomer, vehiclePayload } from '@/components/crm-forms';
 import { OrderItemsEditor } from '@/components/order-items';
+import {
+  emptyIntakeDraft,
+  IntakeDraftCard,
+  intakeDraftToPayload,
+  type DraftPhoto,
+  type IntakeDraft,
+} from '@/components/order-media';
 import { CustomerPicker } from '@/components/customer-picker';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
@@ -52,6 +59,8 @@ function NewOrder() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [rows, setRows] = useState<ItemDraft[]>([newItem('DICH_VU')]);
   const [discount, setDiscount] = useState('');
+  const [intake, setIntake] = useState<IntakeDraft>(() => emptyIntakeDraft());
+  const [intakePhotos, setIntakePhotos] = useState<DraftPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -96,6 +105,11 @@ function NewOrder() {
           technicianId: technicianId || null,
           orderDiscount: parseMoney(discount),
           items: draftsToPayload(rows),
+          intake: vehicle ? intakeDraftToPayload(intake) : null,
+          intakePhotos:
+            vehicle && intakePhotos.length
+              ? intakePhotos.map((p) => ({ fileId: p.fileId, tag: p.tag, caption: p.caption }))
+              : null,
         },
       });
       router.push(`/don-hang/${r.id}`);
@@ -231,6 +245,15 @@ function NewOrder() {
           {(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: Mai khách lấy" />}
         </Field>
         </Card>
+
+        {vehicle && (
+          <IntakeDraftCard
+            intake={intake}
+            onIntakeChange={setIntake}
+            photos={intakePhotos}
+            onPhotosChange={setIntakePhotos}
+          />
+        )}
 
         <Card className="p-4 lg:p-5">
           <CardTitle>Hạng mục</CardTitle>

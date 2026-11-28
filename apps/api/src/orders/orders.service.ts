@@ -7,6 +7,7 @@ import { reserveNumbers } from '../crm/counters';
 import { applyMovement } from '../inventory/stock';
 import { awardOrderLoyaltyPoints } from '../marketing/loyalty-helper';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrderMediaService, type IntakeInput, type PhotoInputItem } from './media';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
 import { expirePendingQuotes } from './quotes';
 import { ZaloService } from '../zalo/zalo';
@@ -37,6 +38,8 @@ export interface OrderCreateInput {
   technicianId?: string | null;
   orderDiscount?: number;
   items?: OrderItemInput[];
+  intake?: IntakeInput | null;
+  intakePhotos?: PhotoInputItem[] | null;
 }
 
 export type OrderUpdateInput = Partial<Pick<OrderCreateInput, 'request' | 'note' | 'promisedAt' | 'advisorId' | 'technicianId' | 'orderDiscount'>> & { insuranceAmount?: number };
@@ -62,6 +65,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly zalo: ZaloService,
+    private readonly media: OrderMediaService,
   ) {}
 
   /** Người không có quyền về tiền (vd. KTV) không thấy giá. */
@@ -215,12 +219,17 @@ export class OrdersService {
         items: { orderBy: { sortOrder: 'asc' } },
         payments: { orderBy: { paidAt: 'asc' } },
         history: { orderBy: { createdAt: 'asc' } },
+        intake: true,
+        photos: { orderBy: { createdAt: 'asc' } },
         review: true,
       },
     });
     if (!o) throw new NotFoundException('Không tìm thấy đơn hàng');
     const money = this.seesMoney(a);
-    const people = await this.staffNamesByUserOrMembership(o);
+    const [people, media] = await Promise.all([
+      this.staffNamesByUserOrMembership(o),
+      this.media.serialize(a.tenantId, o.intake, o.photos),
+    ]);
     return {
       id: o.id,
       code: o.code,
@@ -242,6 +251,8 @@ export class OrdersService {
       cancelledAt: o.cancelledAt,
       cancelReason: o.cancelReason,
       editable: EDITABLE_STATUSES.includes(o.status),
+      intake: media.intake,
+      photos: media.photos,
       review: o.review ? { rating: o.review.rating, comment: o.review.comment, reply: o.review.reply, repliedAt: o.review.repliedAt, createdAt: o.review.createdAt } : null,
       items: o.items.map((i) => ({
         id: i.id,
@@ -365,6 +376,13 @@ export class OrdersService {
           items: { create: items.map((it, i) => this.itemRow(it, i)) },
           history: { create: { toStatus: 'TIEP_NHAN', actorId: a.userId } },
         },
+      });
+      await this.media.attachOnCreate(tx, {
+        tenantId: a.tenantId,
+        orderId: o.id,
+        userId: a.userId,
+        intake: dto.intake,
+        intakePhotos: dto.intakePhotos,
       });
       await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'order.created', entity: 'order', entityId: o.id, after: { code, customer: customer.name, plate: vehicle?.plateNo ?? null, total }, ip }, tx);
       return o;

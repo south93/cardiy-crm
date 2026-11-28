@@ -1,4 +1,4 @@
-import { lineAmount, orderTotals, paymentState, quantityHundredths, transitionError } from './order-rules';
+import { intakeUpdateError, lineAmount, orderTotals, paymentState, photoDeleteError, photoUploadError, quantityHundredths, transitionError } from './order-rules';
 
 describe('Luật đơn hàng', () => {
   it('số lượng: tối đa 2 số lẻ, dấu phẩy hoặc chấm, phải > 0', () => {
@@ -60,4 +60,34 @@ describe('Luật đơn hàng', () => {
     expect(paymentState(100, 100)).toBe('DA_THU_DU');
     expect(paymentState(0, 0)).toBe('DA_THU_DU');
   });
+
+  it('hiện trạng tiếp nhận & hình ảnh 2 đầu: CVDV quản lý ảnh tiếp nhận, KTV chỉ tải/xoá ảnh kiểm tra & hoàn tất trên xe mình làm', () => {
+    const bh = new Set(['ro.view', 'ro.manage', 'file.upload']);
+    const ktv = new Set(['ro.view', 'ro.task.update', 'file.upload']);
+    const cs = new Set(['ro.view', 'file.upload']);
+
+    // Hiện trạng tiếp nhận
+    expect(intakeUpdateError('TIEP_NHAN', bh)).toBeNull();
+    expect(intakeUpdateError('TIEP_NHAN', ktv)?.kind).toBe('forbidden');
+    expect(intakeUpdateError('DA_GIAO', bh)?.kind).toBe('conflict');
+
+    // Tải ảnh tiếp nhận: chỉ CVDV/QL (ro.manage)
+    expect(photoUploadError({ status: 'TIEP_NHAN', stage: 'TIEP_NHAN', permissions: bh, technicianId: null, membershipId: 'm-bh' })).toBeNull();
+    expect(photoUploadError({ status: 'TIEP_NHAN', stage: 'TIEP_NHAN', permissions: ktv, technicianId: 'm-ktv1', membershipId: 'm-ktv1' })?.kind).toBe('forbidden');
+
+    // Tải ảnh kiểm tra & hoàn tất dịch vụ: KTV phụ trách (hoặc chưa giao KTV) và CVDV đều được tải
+    expect(photoUploadError({ status: 'DANG_SUA', stage: 'KIEM_TRA', permissions: ktv, technicianId: null, membershipId: 'm-ktv1' })).toBeNull();
+    expect(photoUploadError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: ktv, technicianId: 'm-ktv1', membershipId: 'm-ktv1' })).toBeNull();
+    expect(photoUploadError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: ktv, technicianId: 'm-ktv2', membershipId: 'm-ktv1' })?.kind).toBe('forbidden');
+    expect(photoUploadError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: cs, technicianId: null, membershipId: 'm-cs' })?.kind).toBe('forbidden');
+    expect(photoUploadError({ status: 'DA_GIAO', stage: 'HOAN_TAT', permissions: bh, technicianId: 'm-ktv1', membershipId: 'm-bh' })?.kind).toBe('conflict');
+
+    // Xoá ảnh: KTV không xoá được ảnh tiếp nhận của CVDV và không xoá được ảnh của người khác
+    expect(photoDeleteError({ status: 'DANG_SUA', stage: 'TIEP_NHAN', permissions: ktv, technicianId: 'm-ktv1', membershipId: 'm-ktv1', uploadedBy: 'u-bh', userId: 'u-ktv1' })?.kind).toBe('forbidden');
+    expect(photoDeleteError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: ktv, technicianId: 'm-ktv1', membershipId: 'm-ktv1', uploadedBy: 'u-bh', userId: 'u-ktv1' })?.kind).toBe('forbidden');
+    expect(photoDeleteError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: ktv, technicianId: 'm-ktv1', membershipId: 'm-ktv1', uploadedBy: 'u-ktv1', userId: 'u-ktv1' })).toBeNull();
+    expect(photoDeleteError({ status: 'DANG_SUA', stage: 'HOAN_TAT', permissions: bh, technicianId: 'm-ktv1', membershipId: 'm-bh', uploadedBy: 'u-ktv1', userId: 'u-bh' })).toBeNull();
+    expect(photoDeleteError({ status: 'HUY', stage: 'TIEP_NHAN', permissions: bh, technicianId: null, membershipId: 'm-bh', uploadedBy: 'u-bh', userId: 'u-bh' })?.kind).toBe('conflict');
+  });
 });
+

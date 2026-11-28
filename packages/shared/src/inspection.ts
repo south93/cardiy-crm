@@ -115,3 +115,83 @@ export function inspectionSummary(d: InspectionData | null | undefined) {
   }
   return out;
 }
+
+// ---------------- Hiện trạng tiếp nhận & Hình ảnh 2 đầu của Lệnh sửa chữa ----------------
+
+export const ORDER_PHOTO_STAGES = ['TIEP_NHAN', 'KIEM_TRA', 'HOAN_TAT'] as const;
+export type OrderPhotoStage = (typeof ORDER_PHOTO_STAGES)[number];
+
+export const ORDER_PHOTO_STAGE_LABEL: Record<OrderPhotoStage, string> = {
+  TIEP_NHAN: 'Hiện trạng lúc nhận xe',
+  KIEM_TRA: 'Kiểm tra & phát sinh',
+  HOAN_TAT: 'Sau khi hoàn tất dịch vụ',
+};
+
+export const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'] as const;
+export type FuelLevel = (typeof FUEL_LEVELS)[number];
+
+export const FUEL_LEVEL_LABEL: Record<FuelLevel, string> = {
+  E: 'Gần cạn (E)',
+  '1/4': '1/4 bình',
+  '1/2': '1/2 bình',
+  '3/4': '3/4 bình',
+  F: 'Đầy bình (F)',
+};
+
+export const DASHBOARD_WARNINGS = [
+  'Check Engine (Cá vàng)',
+  'Áp suất lốp (TPMS)',
+  'ABS / Phanh',
+  'Ắc quy / Sạc',
+  'Túi khí',
+  'Nhiệt độ nước mát',
+] as const;
+
+export const PHOTO_TAGS_BY_STAGE: Record<OrderPhotoStage, readonly string[]> = {
+  TIEP_NHAN: [
+    'Đầu xe',
+    'Đuôi xe',
+    'Hông trái',
+    'Hông phải',
+    'Đồng hồ ODO / Xăng',
+    'Vết trầy / móp cũ',
+    'Khoang máy',
+    'Nội thất / Tư trang',
+  ],
+  KIEM_TRA: [
+    'Phụ tùng mòn / hỏng',
+    'Rò rỉ dầu / dung dịch',
+    'Gầm / hệ thống treo',
+    'Lốp / má phanh',
+    'Hạng mục phát sinh',
+  ],
+  HOAN_TAT: [
+    'Phụ tùng mới đã lắp',
+    'Khoang máy hoàn thiện',
+    'Đồng hồ sau reset',
+    'Ngoại thất bàn giao',
+    'Phụ tùng cũ trả khách',
+  ],
+};
+
+export interface OrderIntakeData {
+  fuelLevel: FuelLevel | null;
+  warningLights: string[];
+  exteriorNote: string | null;
+  belongings: string | null;
+  hasSpareAndTool: boolean | null;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
+export interface OrderPhotoItem {
+  id: string;
+  fileId: string;
+  url: string;
+  stage: OrderPhotoStage;
+  tag: string | null;
+  caption: string | null;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
