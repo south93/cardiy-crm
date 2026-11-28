@@ -22,7 +22,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { searchKey } from '@cardiy/shared';
+import {
+  extractEmbeddedFileIds,
+  injectResolvedFileUrls,
+  sanitizeCommunityHtml,
+  searchKey,
+  stripHtmlToText,
+} from '@cardiy/shared';
 import { Prisma } from '@prisma/client';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -59,6 +65,7 @@ const optText = (max: number) =>
 
 const POST_TYPES = ['BLOG', 'AUDIO', 'PLAYLIST', 'QA'] as const;
 const TOPIC_CODES = COMMUNITY_TOPICS.map((t) => t.code);
+const MAX_EMBEDDED_IMAGES = 40;
 
 const playlistItemSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -67,25 +74,39 @@ const playlistItemSchema = z.object({
   url: optText(500),
 });
 
-export const communityPostSchema = z.object({
-  type: z.enum(POST_TYPES).default('QA'),
-  title: z.string().trim().min(5, 'Nhập tiêu đề tối thiểu 5 ký tự').max(200),
-  summary: optText(300),
-  content: z.string().trim().min(10, 'Nhập nội dung tối thiểu 10 ký tự').max(15_000),
-  topic: z
-    .string()
-    .trim()
-    .refine((v) => TOPIC_CODES.includes(v), 'Chủ đề không hợp lệ')
-    .default('KINH_NGHIEM'),
-  coverFileId: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().uuid().nullable().optional()),
-  mediaUrl: optText(500),
-  durationMinutes: z.preprocess(
-    (v) => (v === undefined || v === null || v === '' ? null : Number(v)),
-    z.number().int().min(1).max(600).nullable().optional(),
-  ),
-  playlistItems: z.array(playlistItemSchema).max(30).default([]),
-  pinned: z.boolean().optional(),
-});
+export const communityPostSchema = z
+  .object({
+    type: z.enum(POST_TYPES).default('QA'),
+    title: z.string().trim().min(2, 'Nhập tiêu đề tối thiểu 2 ký tự').max(200),
+    summary: optText(300),
+    content: z.string().trim().max(100_000).default(''),
+    topic: z
+      .string()
+      .trim()
+      .refine((v) => TOPIC_CODES.includes(v), 'Chủ đề không hợp lệ')
+      .default('KINH_NGHIEM'),
+    coverFileId: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().uuid().nullable().optional()),
+    mediaUrl: optText(500),
+    durationMinutes: z.preprocess(
+      (v) => (v === undefined || v === null || v === '' ? null : Number(v)),
+      z.number().int().min(1).max(600).nullable().optional(),
+    ),
+    playlistItems: z.array(playlistItemSchema).max(30).default([]),
+    pinned: z.boolean().optional(),
+    saveAsDraft: z.boolean().optional().default(false),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.saveAsDraft) {
+      if (val.title.length < 5) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['title'], message: 'Nhập tiêu đề tối thiểu 5 ký tự' });
+      }
+      const plain = stripHtmlToText(val.content);
+      const hasEmbeddedImages = extractEmbeddedFileIds(val.content).length > 0;
+      if (plain.length < 10 && !hasEmbeddedImages) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['content'], message: 'Nhập nội dung tối thiểu 10 ký tự' });
+      }
+    }
+  });
 type CommunityPostDto = z.infer<typeof communityPostSchema>;
 
 const commentBodySchema = z.object({
@@ -159,6 +180,40 @@ export class CommunityService {
     }
   }
 
+  /** Làm sạch HTML WYSIWYG, kiểm tra quyền sở hữu ảnh bìa + ảnh chèn trong bài (trên R2/Storage) và trích xuất tóm tắt văn bản thuần */
+  private async preparePostContent(
+    dto: CommunityPostDto,
+    storageTenantId: string,
+    existing?: { coverFileId: string | null; content: string },
+  ): Promise<{ cleanContent: string; plainSummary: string | null; plainExcerpt: string }> {
+    const cleanContent = sanitizeCommunityHtml(dto.content);
+    const embeddedIds = extractEmbeddedFileIds(cleanContent);
+    if (embeddedIds.length > MAX_EMBEDDED_IMAGES) {
+      throw new BadRequestException(`Mỗi bài viết chèn tối đa ${MAX_EMBEDDED_IMAGES} hình ảnh`);
+    }
+
+    const allowedExisting = new Set<string>(
+      existing
+        ? [...extractEmbeddedFileIds(existing.content), ...(existing.coverFileId ? [existing.coverFileId.toLowerCase()] : [])]
+        : [],
+    );
+
+    const toVerify = new Set<string>();
+    if (dto.coverFileId && !allowedExisting.has(dto.coverFileId.toLowerCase())) {
+      toVerify.add(dto.coverFileId);
+    }
+    for (const fid of embeddedIds) {
+      if (!allowedExisting.has(fid)) toVerify.add(fid);
+    }
+    if (toVerify.size > 0) {
+      await Promise.all([...toVerify].map((fid) => this.files.assertOwnedImage(fid, storageTenantId)));
+    }
+
+    const plainText = stripHtmlToText(cleanContent);
+    const plainSummary = dto.summary?.trim() ? stripHtmlToText(dto.summary) : plainText ? plainText.slice(0, 180) : null;
+    return { cleanContent, plainSummary, plainExcerpt: plainText.slice(0, 500) };
+  }
+
   private async bannerView(b: Prisma.PlatformBannerGetPayload<object>) {
     return {
       id: b.id,
@@ -177,6 +232,25 @@ export class CommunityService {
 
   private async postSummaryView(p: Prisma.CommunityPostGetPayload<object>, likedIds?: Set<string>) {
     const topicLabel = COMMUNITY_TOPICS.find((t) => t.code === p.topic)?.label ?? p.topic;
+    const embeddedIds = extractEmbeddedFileIds(p.content);
+    const [coverUrl, embeddedPairs] = await Promise.all([
+      this.url(p.coverFileId),
+      embeddedIds.length
+        ? Promise.all(
+            embeddedIds.map(async (fid) => {
+              const u = await this.url(fid);
+              return u ? ([fid, u] as const) : null;
+            }),
+          )
+        : Promise.resolve([]),
+    ]);
+
+    const urlMap = new Map<string, string>();
+    for (const pair of embeddedPairs) {
+      if (pair) urlMap.set(pair[0], pair[1]);
+    }
+    const resolvedContent = urlMap.size > 0 ? injectResolvedFileUrls(p.content, urlMap) : p.content;
+
     return {
       id: p.id,
       code: p.code,
@@ -185,12 +259,12 @@ export class CommunityService {
       authorKind: p.authorKind as CommunityAuthorKind,
       authorName: p.authorName,
       title: p.title,
-      summary: p.summary,
-      content: p.content,
+      summary: p.summary ? stripHtmlToText(p.summary) : null,
+      content: resolvedContent,
       topic: p.topic,
       topicLabel,
       coverFileId: p.coverFileId,
-      coverUrl: await this.url(p.coverFileId),
+      coverUrl,
       mediaUrl: p.mediaUrl,
       durationMinutes: p.durationMinutes,
       playlistItems: Array.isArray(p.playlistItems) ? p.playlistItems : [],
@@ -253,9 +327,12 @@ export class CommunityService {
         comments: { where: { hidden: false }, orderBy: { createdAt: 'asc' } },
       },
     });
-    if (!row || row.status !== 'DA_DANG') throw new NotFoundException('Không tìm thấy bài viết cộng đồng');
+    const isAuthorPreview = Boolean(viewerUserId && row && row.authorUserId === viewerUserId && row.status !== 'BI_GO');
+    if (!row || (row.status !== 'DA_DANG' && !isAuthorPreview)) {
+      throw new NotFoundException('Không tìm thấy bài viết cộng đồng');
+    }
 
-    if (ip) {
+    if (ip && row.status === 'DA_DANG') {
       const key = `community:view:${id}:${ip}`;
       const added = await this.redis.client.set(key, '1', 'EX', 1800, 'NX');
       if (added === 'OK') {
@@ -314,9 +391,9 @@ export class CommunityService {
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { fullName: true } }),
       this.platformTenantId(),
     ]);
-    if (dto.coverFileId) await this.files.assertOwnedImage(dto.coverFileId, platformId);
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, platformId);
 
-    const status = initialPostStatus('OWNER');
+    const status = initialPostStatus('OWNER', dto.saveAsDraft);
     const created = await this.prisma.$transaction(async (tx) => {
       const code = communityPostCode(await reserveNumbers(tx, platformId, 'community_post'));
       const row = await tx.communityPost.create({
@@ -327,12 +404,12 @@ export class CommunityService {
           authorUserId: userId,
           authorName: user.fullName,
           title: dto.title,
-          summary: dto.summary ?? dto.content.slice(0, 180),
-          content: dto.content,
+          summary: plainSummary,
+          content: cleanContent,
           topic: dto.topic,
           coverFileId: dto.coverFileId ?? null,
           status,
-          searchText: searchKey(code, dto.title, dto.summary, dto.topic, user.fullName),
+          searchText: searchKey(code, dto.title, plainSummary, plainExcerpt, dto.topic, user.fullName),
         },
       });
       await this.audit.log(
@@ -345,24 +422,28 @@ export class CommunityService {
   }
 
   async ownerUpdatePost(userId: string, id: string, dto: CommunityPostDto, ip?: string) {
+    if (dto.type !== 'QA' && dto.type !== 'BLOG') {
+      throw new BadRequestException('Chủ xe có thể đăng câu hỏi Hỏi đáp hoặc bài Blog chia sẻ kinh nghiệm');
+    }
     const cur = await this.prisma.communityPost.findFirst({ where: { id, authorUserId: userId, authorKind: 'OWNER' } });
     if (!cur) throw new NotFoundException('Không tìm thấy bài viết của bạn');
     if (cur.status === 'BI_GO') throw new ConflictException('Bài viết đã bị gỡ do vi phạm');
     const platformId = await this.platformTenantId();
-    if (dto.coverFileId) await this.files.assertOwnedImage(dto.coverFileId, platformId);
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, platformId, cur);
 
-    const nextStatus = postStatusAfterEdit(cur.status as CommunityPostStatus, 'OWNER');
+    const nextStatus = postStatusAfterEdit(cur.status as CommunityPostStatus, 'OWNER', dto.saveAsDraft);
     const saved = await this.prisma.communityPost.update({
       where: { id },
       data: {
+        type: dto.type,
         title: dto.title,
-        summary: dto.summary ?? dto.content.slice(0, 180),
-        content: dto.content,
+        summary: plainSummary,
+        content: cleanContent,
         topic: dto.topic,
         coverFileId: dto.coverFileId ?? null,
         status: nextStatus,
-        reviewNote: null,
-        searchText: searchKey(cur.code, dto.title, dto.summary, dto.topic, cur.authorName),
+        reviewNote: nextStatus === 'CHO_DUYET' ? null : cur.reviewNote,
+        searchText: searchKey(cur.code, dto.title, plainSummary, plainExcerpt, dto.topic, cur.authorName),
       },
     });
     await this.audit.log({
@@ -480,10 +561,10 @@ export class CommunityService {
       this.prisma.shop.findUnique({ where: { tenantId: a.tenantId } }),
       this.platformTenantId(),
     ]);
-    if (dto.coverFileId) await this.files.assertOwnedImage(dto.coverFileId, a.tenantId);
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, a.tenantId);
 
     const authorName = shop?.name ?? tenant.name;
-    const status = initialPostStatus('GARAGE');
+    const status = initialPostStatus('GARAGE', dto.saveAsDraft);
     const created = await this.prisma.$transaction(async (tx) => {
       const code = communityPostCode(await reserveNumbers(tx, platformId, 'community_post'));
       const row = await tx.communityPost.create({
@@ -495,12 +576,12 @@ export class CommunityService {
           authorTenantId: a.tenantId,
           authorName,
           title: dto.title,
-          summary: dto.summary ?? dto.content.slice(0, 180),
-          content: dto.content,
+          summary: plainSummary,
+          content: cleanContent,
           topic: dto.topic,
           coverFileId: dto.coverFileId ?? null,
           status,
-          searchText: searchKey(code, dto.title, dto.summary, dto.topic, authorName),
+          searchText: searchKey(code, dto.title, plainSummary, plainExcerpt, dto.topic, authorName),
         },
       });
       await this.audit.log(
@@ -510,6 +591,45 @@ export class CommunityService {
       return row;
     });
     return this.postSummaryView(created);
+  }
+
+  /** Chuyên gia Garage cập nhật bản nháp hoặc sửa bài đã đăng mà không thay đổi đường dẫn công khai (/cho/cong-dong/:id) */
+  async garageUpdatePost(a: Access, id: string, dto: CommunityPostDto, ip?: string) {
+    if (a.tenantType !== 'GARAGE') throw new ForbiddenException('Chỉ dành cho không gian Garage PLG');
+    const cur = await this.prisma.communityPost.findFirst({
+      where: { id, authorTenantId: a.tenantId, authorKind: 'GARAGE' },
+    });
+    if (!cur) throw new NotFoundException('Không tìm thấy bài viết của garage');
+    if (cur.status === 'BI_GO') throw new ConflictException('Bài viết đã bị gỡ do vi phạm');
+
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, a.tenantId, cur);
+    const nextStatus = postStatusAfterEdit(cur.status as CommunityPostStatus, 'GARAGE', dto.saveAsDraft);
+
+    const saved = await this.prisma.communityPost.update({
+      where: { id },
+      data: {
+        type: dto.type === 'QA' ? 'QA' : 'BLOG',
+        title: dto.title,
+        summary: plainSummary,
+        content: cleanContent,
+        topic: dto.topic,
+        coverFileId: dto.coverFileId ?? null,
+        status: nextStatus,
+        reviewNote: nextStatus === 'CHO_DUYET' ? null : cur.reviewNote,
+        searchText: searchKey(cur.code, dto.title, plainSummary, plainExcerpt, dto.topic, cur.authorName),
+      },
+    });
+    await this.audit.log({
+      tenantId: a.tenantId,
+      actorId: a.userId,
+      action: 'community_post.garage_updated',
+      entity: 'community_post',
+      entityId: id,
+      before: { status: cur.status },
+      after: { status: nextStatus },
+      ip,
+    });
+    return this.postSummaryView(saved);
   }
 
   async garageAddComment(a: Access, postId: string, content: string) {
@@ -572,7 +692,10 @@ export class CommunityService {
     assertPlatformModeration(a);
     const p = await this.prisma.communityPost.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Không tìm thấy bài cộng đồng');
-    if ((to === 'DA_DANG' || to === 'BI_TU_CHOI') && p.status !== 'CHO_DUYET') {
+    if (to === 'DA_DANG' && p.status !== 'CHO_DUYET' && p.status !== 'NHAP') {
+      throw new ConflictException('Bài viết không ở trạng thái chờ duyệt hoặc bản nháp');
+    }
+    if (to === 'BI_TU_CHOI' && p.status !== 'CHO_DUYET') {
       throw new ConflictException('Bài viết không ở trạng thái chờ duyệt');
     }
     if (to === 'BI_GO' && p.status !== 'DA_DANG' && p.status !== 'TAM_AN') {
@@ -646,12 +769,13 @@ export class CommunityService {
     return { hidden: dto.hidden };
   }
 
-  /** A6.62 Xuất bản trực tiếp Blog, Sách nói (AUDIO) hoặc Playlist của Ban biên tập sàn */
+  /** A6.62 Xuất bản trực tiếp hoặc lưu nháp Blog, Sách nói (AUDIO), Playlist của Ban biên tập sàn */
   async platformCreateEditorial(a: Access, dto: CommunityPostDto, ip?: string) {
     assertPlatformContent(a);
-    if (dto.coverFileId) await this.files.assertOwnedImage(dto.coverFileId, a.tenantId);
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, a.tenantId);
 
     const now = new Date();
+    const status = initialPostStatus('PLATFORM', dto.saveAsDraft);
     const authorName = dto.type === 'AUDIO' ? 'Tủ sách nói CARDIY' : 'Ban biên tập CARDIY';
     const created = await this.prisma.$transaction(async (tx) => {
       const code = communityPostCode(await reserveNumbers(tx, a.tenantId, 'community_post'));
@@ -664,26 +788,83 @@ export class CommunityService {
           authorTenantId: a.tenantId,
           authorName,
           title: dto.title,
-          summary: dto.summary ?? dto.content.slice(0, 180),
-          content: dto.content,
+          summary: plainSummary,
+          content: cleanContent,
           topic: dto.topic,
           coverFileId: dto.coverFileId ?? null,
           mediaUrl: dto.mediaUrl ?? null,
           durationMinutes: dto.durationMinutes ?? null,
           playlistItems: dto.playlistItems as unknown as Prisma.InputJsonValue,
           pinned: dto.pinned ?? false,
-          status: initialPostStatus('PLATFORM'),
-          publishedAt: now,
-          searchText: searchKey(code, dto.title, dto.summary, dto.topic, authorName),
+          status,
+          publishedAt: status === 'DA_DANG' ? now : null,
+          searchText: searchKey(code, dto.title, plainSummary, plainExcerpt, dto.topic, authorName),
         },
       });
       await this.audit.log(
-        { tenantId: a.tenantId, actorId: a.userId, action: 'community_post.editorial_published', entity: 'community_post', entityId: row.id, after: { code, type: dto.type }, ip },
+        {
+          tenantId: a.tenantId,
+          actorId: a.userId,
+          action: status === 'NHAP' ? 'community_post.editorial_drafted' : 'community_post.editorial_published',
+          entity: 'community_post',
+          entityId: row.id,
+          after: { code, type: dto.type, status },
+          ip,
+        },
         tx,
       );
       return row;
     });
     return this.postSummaryView(created);
+  }
+
+  /** A6.62 Chỉnh sửa bài viết / sách nói / bản nháp trực tiếp mà giữ nguyên ID, mã bài và đường dẫn /cho/cong-dong/:id */
+  async platformUpdatePost(a: Access, id: string, dto: CommunityPostDto, ip?: string) {
+    assertPlatformContent(a);
+    const cur = await this.prisma.communityPost.findUnique({ where: { id } });
+    if (!cur) throw new NotFoundException('Không tìm thấy bài cộng đồng');
+
+    const { cleanContent, plainSummary, plainExcerpt } = await this.preparePostContent(dto, a.tenantId, cur);
+    const now = new Date();
+    const nextStatus = postStatusAfterEdit(cur.status as CommunityPostStatus, 'PLATFORM', dto.saveAsDraft);
+    const authorName =
+      cur.authorKind === 'PLATFORM'
+        ? dto.type === 'AUDIO'
+          ? 'Tủ sách nói CARDIY'
+          : 'Ban biên tập CARDIY'
+        : cur.authorName;
+
+    const saved = await this.prisma.communityPost.update({
+      where: { id },
+      data: {
+        type: dto.type,
+        authorName,
+        title: dto.title,
+        summary: plainSummary,
+        content: cleanContent,
+        topic: dto.topic,
+        coverFileId: dto.coverFileId ?? null,
+        mediaUrl: dto.mediaUrl ?? null,
+        durationMinutes: dto.durationMinutes ?? null,
+        playlistItems: dto.playlistItems as unknown as Prisma.InputJsonValue,
+        pinned: dto.pinned ?? cur.pinned,
+        status: nextStatus,
+        publishedAt: nextStatus === 'DA_DANG' && !cur.publishedAt ? now : cur.publishedAt,
+        searchText: searchKey(cur.code, dto.title, plainSummary, plainExcerpt, dto.topic, authorName),
+      },
+    });
+
+    await this.audit.log({
+      tenantId: a.tenantId,
+      actorId: a.userId,
+      action: 'community_post.platform_updated',
+      entity: 'community_post',
+      entityId: id,
+      before: { status: cur.status, title: cur.title },
+      after: { status: nextStatus, title: dto.title },
+      ip,
+    });
+    return this.postSummaryView(saved);
   }
 
   async platformListBanners(a: Access) {
@@ -857,6 +1038,16 @@ export class GarageCommunityController {
     return this.svc.garageCreatePost(auth.access, dto, clientIp(req));
   }
 
+  @Put('posts/:id')
+  update(
+    @CurrentAuth() auth: RequestAuth,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(communityPostSchema)) dto: CommunityPostDto,
+    @Req() req: Request,
+  ) {
+    return this.svc.garageUpdatePost(auth.access, id, dto, clientIp(req));
+  }
+
   @Post('posts/:id/comments')
   comment(@CurrentAuth() auth: RequestAuth, @Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(commentBodySchema)) dto: { content: string }) {
     return this.svc.garageAddComment(auth.access, id, dto.content);
@@ -920,6 +1111,16 @@ export class PlatformCommunityController {
   @Post('editorial')
   createEditorial(@CurrentAuth() auth: RequestAuth, @Body(new ZodPipe(communityPostSchema)) dto: CommunityPostDto, @Req() req: Request) {
     return this.svc.platformCreateEditorial(auth.access, dto, clientIp(req));
+  }
+
+  @Put('posts/:id')
+  updatePost(
+    @CurrentAuth() auth: RequestAuth,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(communityPostSchema)) dto: CommunityPostDto,
+    @Req() req: Request,
+  ) {
+    return this.svc.platformUpdatePost(auth.access, id, dto, clientIp(req));
   }
 
   @Get('banners')

@@ -19,6 +19,59 @@
     background: #cdd5e6;
     border-radius: 3px;
   }
+
+  .cd-wysiwyg-surface:empty::before {
+    content: attr(data-placeholder);
+    color: #94a3b8;
+    pointer-events: none;
+  }
+
+  .cd-article-prose {
+    @apply text-[15px] leading-7 text-slate-800 sm:text-base sm:leading-relaxed;
+    overflow-wrap: anywhere;
+  }
+  .cd-article-prose h2 {
+    @apply mt-5 mb-2.5 text-lg font-bold leading-snug text-slate-900 sm:text-xl;
+  }
+  .cd-article-prose h3 {
+    @apply mt-4 mb-2 text-base font-semibold leading-snug text-slate-900 sm:text-lg;
+  }
+  .cd-article-prose h4 {
+    @apply mt-3 mb-1.5 text-sm font-semibold text-slate-900 sm:text-base;
+  }
+  .cd-article-prose p {
+    @apply my-2.5;
+  }
+  .cd-article-prose ul {
+    @apply my-2.5 list-disc space-y-1 pl-5;
+  }
+  .cd-article-prose ol {
+    @apply my-2.5 list-decimal space-y-1 pl-5;
+  }
+  .cd-article-prose blockquote {
+    @apply my-3 rounded-r-xl border-l-4 border-brand-500 bg-sky-50/70 px-4 py-2.5 italic text-slate-700;
+  }
+  .cd-article-prose a {
+    @apply font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700;
+  }
+  .cd-article-prose hr {
+    @apply my-5 border-slate-200;
+  }
+  .cd-article-prose figure {
+    @apply my-4 space-y-1.5;
+  }
+  .cd-article-prose img {
+    @apply mx-auto block max-h-[480px] w-full rounded-2xl border border-slate-100 bg-slate-50 object-contain sm:w-auto sm:max-w-full;
+  }
+  .cd-article-prose figcaption {
+    @apply text-center text-xs text-slate-500;
+  }
+  .cd-article-prose > :first-child {
+    margin-top: 0;
+  }
+  .cd-article-prose > :last-child {
+    margin-bottom: 0;
+  }
 }
 
 /* ---------- Phiếu in (A4) ---------- */

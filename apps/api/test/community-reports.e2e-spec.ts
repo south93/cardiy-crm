@@ -254,4 +254,116 @@ describe('Vòng 4.4: Cộng đồng chủ xe & Báo cáo chuỗi KPI/SLA (M34, M
     expect(audioList.body.items).toHaveLength(1);
     expect(audioList.body.items[0].title).toBe(audioTitle);
   });
+
+  it('bài viết Cộng đồng: Lưu nháp (NHAP), WYSIWYG chèn ảnh R2 (lọc XSS + ký lại link), và Sửa bài đã đăng giữ nguyên ID/đường dẫn', async () => {
+    const coverImg = await request(http).post('/api/files').set(bearer(sa)).attach('file', TINY_PNG, 'cover.png').expect(201);
+    const inlineImg = await request(http).post('/api/files').set(bearer(sa)).attach('file', TINY_PNG, 'inline.png').expect(201);
+
+    // 1. Ban biên tập lưu nháp bài viết Blog -> trạng thái NHAP, chưa lộ ra trang công khai
+    const draft = await request(http)
+      .post('/api/platform/community/editorial')
+      .set(bearer(sa))
+      .send({
+        type: 'BLOG',
+        topic: 'BAO_DUONG',
+        title: `Nháp cẩm nang thay dầu hộp số ${tag}`,
+        content: `<p>Bản nháp đang viết dở</p>`,
+        coverFileId: coverImg.body.id,
+        saveAsDraft: true,
+      })
+      .expect(201);
+
+    const postId = draft.body.id as string;
+    const postCode = draft.body.code as string;
+    expect(draft.body.status).toBe('NHAP');
+    expect(draft.body.coverUrl).toBeTruthy();
+    await request(http).get(`/api/public/community/posts/${postId}`).expect(404);
+
+    // 2. Mở lại bản nháp, chèn ảnh WYSIWYG (kèm thử mã độc XSS) và xuất bản chính thức -> giữ nguyên ID/link
+    const publishedTitle = `Cẩm nang thay dầu hộp số tự động chuẩn hãng ${tag}`;
+    const published = await request(http)
+      .put(`/api/platform/community/posts/${postId}`)
+      .set(bearer(sa))
+      .send({
+        type: 'BLOG',
+        topic: 'BAO_DUONG',
+        title: publishedTitle,
+        summary: 'Quy trình tuần hoàn dầu hộp số giúp sang số êm',
+        content: `<h2>Quy trình kiểm tra</h2><script>alert(1)</script><p>Kiểm tra màu dầu ở <strong>40.000 km</strong>.</p><figure><img data-file-id="${inlineImg.body.id}" src="https://expired.example/old.webp" onerror="evil()" alt="Dầu hộp số" /></figure>`,
+        coverFileId: coverImg.body.id,
+        saveAsDraft: false,
+      })
+      .expect(200);
+
+    expect(published.body.id).toBe(postId);
+    expect(published.body.code).toBe(postCode);
+    expect(published.body.status).toBe('DA_DANG');
+    expect(published.body.content).not.toContain('<script');
+    expect(published.body.content).not.toContain('onerror');
+    expect(published.body.content).not.toContain('expired.example');
+    expect(published.body.content).toContain(`data-file-id="${inlineImg.body.id}"`);
+
+    // 3. Sửa bài đã đăng (cập nhật tiêu đề & nội dung) -> đường dẫn /cho/cong-dong/:id giữ nguyên tuyệt đối
+    const updatedTitle = `${publishedTitle} (Đã cập nhật 2026)`;
+    const edited = await request(http)
+      .put(`/api/platform/community/posts/${postId}`)
+      .set(bearer(sa))
+      .send({
+        type: 'BLOG',
+        topic: 'BAO_DUONG',
+        title: updatedTitle,
+        summary: 'Quy trình tuần hoàn dầu hộp số giúp sang số êm',
+        content: `<h2>Quy trình cập nhật 2026</h2><p>Bổ sung định mức dầu cho hộp số CVT.</p><figure><img data-file-id="${inlineImg.body.id}" src="https://expired.example/old.webp" alt="Dầu hộp số CVT" /></figure>`,
+        coverFileId: coverImg.body.id,
+        saveAsDraft: false,
+      })
+      .expect(200);
+
+    expect(edited.body.id).toBe(postId);
+    expect(edited.body.code).toBe(postCode);
+    expect(edited.body.status).toBe('DA_DANG');
+
+    const pubDetail = await request(http).get(`/api/public/community/posts/${postId}`).expect(200);
+    expect(pubDetail.body.title).toBe(updatedTitle);
+    expect(pubDetail.body.coverUrl).toBeTruthy();
+    expect(pubDetail.body.content).toContain('Bổ sung định mức dầu cho hộp số CVT');
+    expect(pubDetail.body.content).not.toContain('expired.example');
+
+    // 4. Garage PLG lưu nháp -> gửi duyệt -> Sàn duyệt -> Garage sửa bài đã đăng vẫn giữ nguyên trạng thái DA_DANG & ID
+    const gDraft = await request(http)
+      .post('/api/community/posts')
+      .set(bearer(plgOwner))
+      .send({ type: 'BLOG', topic: 'KINH_NGHIEM', title: `Nháp Garage ${tag}`, content: '', saveAsDraft: true })
+      .expect(201);
+    expect(gDraft.body.status).toBe('NHAP');
+
+    const gSubmitted = await request(http)
+      .put(`/api/community/posts/${gDraft.body.id}`)
+      .set(bearer(plgOwner))
+      .send({
+        type: 'BLOG',
+        topic: 'KINH_NGHIEM',
+        title: `Chia sẻ bảo dưỡng điều hoà mùa nắng ${tag}`,
+        content: '<p>Vệ sinh dàn lạnh nội soi định kỳ mỗi năm một lần.</p>',
+        saveAsDraft: false,
+      })
+      .expect(200);
+    expect(gSubmitted.body.status).toBe('CHO_DUYET');
+
+    await request(http).post(`/api/platform/community/posts/${gDraft.body.id}/approve`).set(bearer(sa)).send({}).expect(200);
+
+    const gEditedLive = await request(http)
+      .put(`/api/community/posts/${gDraft.body.id}`)
+      .set(bearer(plgOwner))
+      .send({
+        type: 'BLOG',
+        topic: 'KINH_NGHIEM',
+        title: `Chia sẻ bảo dưỡng điều hoà mùa nắng ${tag} - Bản đầy đủ`,
+        content: '<p>Vệ sinh dàn lạnh nội soi định kỳ và thay lọc gió cabin mỗi 10.000 km.</p>',
+        saveAsDraft: false,
+      })
+      .expect(200);
+    expect(gEditedLive.body.id).toBe(gDraft.body.id);
+    expect(gEditedLive.body.status).toBe('DA_DANG');
+  });
 });

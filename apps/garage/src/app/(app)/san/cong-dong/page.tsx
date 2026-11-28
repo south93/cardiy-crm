@@ -1,8 +1,33 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
-import { Ban, CheckCircle2, EyeOff, Headphones, Megaphone, Pin, Plus, RotateCcw, Search, Trash2, XCircle } from 'lucide-react';
+import {
+  Ban,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Headphones,
+  Megaphone,
+  Pencil,
+  Pin,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import {
+  CommunityPreviewDialog,
+  CoverImageField,
+  WysiwygEditor,
+  type CommunityPreviewDraft,
+} from '@/components/community-editor';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -11,6 +36,7 @@ import {
   COMMUNITY_STATUS_UI,
   COMMUNITY_TOPICS,
   COMMUNITY_TYPE_UI,
+  plainPostExcerpt,
   type BannerPosition,
   type CommunityPostItem,
   type CommunityPostStatus,
@@ -29,30 +55,41 @@ export default function PlatformCommunityPage() {
   );
 }
 
+const DEFAULT_CHAPTERS: PlaylistItem[] = [
+  { title: 'Chương 1: Mở đầu hành trình an toàn', host: 'Ban biên tập CARDIY', duration: '12:00' },
+];
+
 function PlatformCommunityBody() {
   const { can } = useAuth();
   const canModerate = can('platform.partner.review') || can('platform.report.handle') || can('platform.content.manage');
   const canContent = can('platform.content.manage');
 
   const [section, setSection] = useState<'moderation' | 'editorial' | 'banners'>('moderation');
-  const [status, setStatus] = useState<'CHO_DUYET' | 'DA_DANG' | 'BI_TU_CHOI' | 'BI_GO' | 'ALL'>('CHO_DUYET');
+  const [status, setStatus] = useState<'CHO_DUYET' | 'NHAP' | 'DA_DANG' | 'BI_TU_CHOI' | 'BI_GO' | 'ALL'>('CHO_DUYET');
   const [q, setQ] = useState('');
   const [postsData, setPostsData] = useState<{ counts: Record<string, number>; items: CommunityPostItem[] } | null>(null);
+  const [allPlatformPosts, setAllPlatformPosts] = useState<CommunityPostItem[]>([]);
   const [banners, setBanners] = useState<PlatformBannerItem[] | null>(null);
   const [noteModal, setNoteModal] = useState<{ item: CommunityPostItem; action: 'reject' | 'takedown' } | null>(null);
   const [modNote, setModNote] = useState('');
 
-  // Form xuất bản nội dung chính thức (A6.62)
+  // Form xuất bản / sửa bài & lưu nháp nội dung chính thức (A6.62)
   const [openEditorial, setOpenEditorial] = useState(false);
+  const [editingPost, setEditingPost] = useState<CommunityPostItem | null>(null);
   const [edType, setEdType] = useState<CommunityPostType>('AUDIO');
   const [edTopic, setEdTopic] = useState('HANH_TRINH');
   const [edTitle, setEdTitle] = useState('');
   const [edSummary, setEdSummary] = useState('');
   const [edContent, setEdContent] = useState('');
+  const [edCoverFileId, setEdCoverFileId] = useState<string | null>(null);
+  const [edCoverUrl, setEdCoverUrl] = useState<string | null>(null);
   const [edMediaUrl, setEdMediaUrl] = useState('');
   const [edDuration, setEdDuration] = useState('35');
   const [edPinned, setEdPinned] = useState(true);
-  const [chapters, setChapters] = useState<PlaylistItem[]>([{ title: 'Chương 1: Mở đầu hành trình an toàn', host: 'Ban biên tập CARDIY', duration: '12:00' }]);
+  const [chapters, setChapters] = useState<PlaylistItem[]>(DEFAULT_CHAPTERS);
+
+  // Hộp thoại Xem trước (Điện thoại / Máy tính)
+  const [previewDraft, setPreviewDraft] = useState<CommunityPreviewDraft | null>(null);
 
   // Form tạo Banner (A6.62)
   const [openBanner, setOpenBanner] = useState(false);
@@ -61,6 +98,8 @@ function PlatformCommunityBody() {
   const [bnLink, setBnLink] = useState('/cho/cong-dong');
   const [bnCta, setBnCta] = useState('Nghe ngay');
   const [bnPosition, setBnPosition] = useState<BannerPosition>('COMMUNITY');
+  const [bnImageFileId, setBnImageFileId] = useState<string | null>(null);
+  const [bnImageUrl, setBnImageUrl] = useState<string | null>(null);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +109,13 @@ function PlatformCommunityBody() {
     try {
       const qs = new URLSearchParams({ status });
       if (q.trim()) qs.set('q', q.trim());
-      const [p, b] = await Promise.all([
+      const [p, allRes, b] = await Promise.all([
         api<{ counts: Record<string, number>; items: CommunityPostItem[] }>(`/platform/community/posts?${qs}`),
+        api<{ counts: Record<string, number>; items: CommunityPostItem[] }>('/platform/community/posts?status=ALL'),
         api<PlatformBannerItem[]>('/platform/community/banners'),
       ]);
       setPostsData(p);
+      setAllPlatformPosts(allRes.items.filter((it) => it.authorKind === 'PLATFORM'));
       setBanners(b);
       setError(null);
     } catch (e) {
@@ -86,6 +127,78 @@ function PlatformCommunityBody() {
     const t = setTimeout(() => void load(), q ? 250 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+
+  function openNewEditorial(defaultType: CommunityPostType = 'AUDIO') {
+    setEditingPost(null);
+    setEdType(defaultType);
+    setEdTopic(defaultType === 'BLOG' ? 'BAO_DUONG' : 'HANH_TRINH');
+    setEdTitle('');
+    setEdSummary('');
+    setEdContent('');
+    setEdCoverFileId(null);
+    setEdCoverUrl(null);
+    setEdMediaUrl('');
+    setEdDuration('35');
+    setEdPinned(true);
+    setChapters(DEFAULT_CHAPTERS);
+    setError(null);
+    setOpenEditorial(true);
+  }
+
+  function openEditEditorial(p: CommunityPostItem) {
+    setEditingPost(p);
+    setEdType(p.type);
+    setEdTopic(p.topic);
+    setEdTitle(p.title);
+    setEdSummary(p.summary ?? '');
+    setEdContent(p.content);
+    setEdCoverFileId(p.coverFileId);
+    setEdCoverUrl(p.coverUrl);
+    setEdMediaUrl(p.mediaUrl ?? '');
+    setEdDuration(p.durationMinutes ? String(p.durationMinutes) : '35');
+    setEdPinned(p.pinned);
+    setChapters(p.playlistItems.length > 0 ? p.playlistItems : DEFAULT_CHAPTERS);
+    setError(null);
+    setOpenEditorial(true);
+  }
+
+  function openPreviewFromForm() {
+    const cleanChapters = edType === 'AUDIO' || edType === 'PLAYLIST' ? chapters.filter((c) => c.title.trim().length > 0) : [];
+    setPreviewDraft({
+      title: edTitle,
+      summary: edSummary || null,
+      content: edContent,
+      coverUrl: edCoverUrl,
+      type: edType,
+      topic: edTopic,
+      authorKind: editingPost?.authorKind ?? 'PLATFORM',
+      authorName:
+        editingPost?.authorName ?? (edType === 'AUDIO' ? 'Tủ sách nói CARDIY' : 'Ban biên tập CARDIY'),
+      durationMinutes: edType === 'AUDIO' || edType === 'PLAYLIST' ? Number(edDuration) || null : null,
+      mediaUrl: edMediaUrl || null,
+      playlistItems: cleanChapters,
+      permanentUrl: editingPost ? `/cho/cong-dong/${editingPost.id}` : null,
+      isDraft: true,
+    });
+  }
+
+  function openPreviewFromItem(p: CommunityPostItem) {
+    setPreviewDraft({
+      title: p.title,
+      summary: p.summary,
+      content: p.content,
+      coverUrl: p.coverUrl,
+      type: p.type,
+      topic: p.topic,
+      authorKind: p.authorKind,
+      authorName: p.authorName,
+      durationMinutes: p.durationMinutes,
+      mediaUrl: p.mediaUrl,
+      playlistItems: p.playlistItems,
+      permanentUrl: `/cho/cong-dong/${p.id}`,
+      isDraft: p.status !== 'DA_DANG',
+    });
+  }
 
   async function approvePost(id: string) {
     setBusy(id);
@@ -138,34 +251,49 @@ function PlatformCommunityBody() {
     }
   }
 
-  async function publishEditorial() {
-    setBusy('editorial');
+  async function saveEditorial(saveAsDraft: boolean) {
+    setBusy(saveAsDraft ? 'editorial-draft' : 'editorial');
     setError(null);
     try {
       const cleanChapters =
         edType === 'AUDIO' || edType === 'PLAYLIST' ? chapters.filter((c) => c.title.trim().length > 0) : [];
-      await api('/platform/community/editorial', {
-        body: {
-          type: edType,
-          topic: edTopic,
-          title: edTitle,
-          summary: edSummary || null,
-          content: edContent,
-          mediaUrl: edMediaUrl || null,
-          durationMinutes: edType === 'AUDIO' || edType === 'PLAYLIST' ? Number(edDuration) || null : null,
-          playlistItems: cleanChapters,
-          pinned: edPinned,
-        },
-      });
+      const payload = {
+        type: edType,
+        topic: edTopic,
+        title: edTitle,
+        summary: edSummary || null,
+        content: edContent,
+        coverFileId: edCoverFileId,
+        mediaUrl: edMediaUrl || null,
+        durationMinutes: edType === 'AUDIO' || edType === 'PLAYLIST' ? Number(edDuration) || null : null,
+        playlistItems: cleanChapters,
+        pinned: edPinned,
+        saveAsDraft,
+      };
+
+      if (editingPost) {
+        await api(`/platform/community/posts/${editingPost.id}`, {
+          method: 'PUT',
+          body: payload,
+        });
+      } else {
+        await api('/platform/community/editorial', {
+          body: payload,
+        });
+      }
+
       setOpenEditorial(false);
+      setEditingPost(null);
       setEdTitle('');
       setEdSummary('');
       setEdContent('');
-      setStatus('DA_DANG');
+      setEdCoverFileId(null);
+      setEdCoverUrl(null);
+      setStatus(saveAsDraft ? 'NHAP' : 'DA_DANG');
       setSection('moderation');
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Xuất bản nội dung thất bại');
+      setError(e instanceof ApiError ? e.message : saveAsDraft ? 'Lưu nháp thất bại' : 'Xuất bản nội dung thất bại');
     } finally {
       setBusy(null);
     }
@@ -181,6 +309,7 @@ function PlatformCommunityBody() {
           subtitle: bnSubtitle || null,
           linkUrl: bnLink || null,
           ctaLabel: bnCta || null,
+          imageFileId: bnImageFileId,
           position: bnPosition,
           sortOrder: 1,
           active: true,
@@ -189,6 +318,8 @@ function PlatformCommunityBody() {
       setOpenBanner(false);
       setBnTitle('');
       setBnSubtitle('');
+      setBnImageFileId(null);
+      setBnImageUrl(null);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Tạo banner thất bại');
@@ -207,6 +338,7 @@ function PlatformCommunityBody() {
           subtitle: b.subtitle,
           linkUrl: b.linkUrl,
           ctaLabel: b.ctaLabel,
+          imageFileId: b.imageFileId,
           position: b.position,
           sortOrder: b.sortOrder,
           active: !b.active,
@@ -258,7 +390,7 @@ function PlatformCommunityBody() {
               <Button variant="outline" onClick={() => setOpenBanner(true)} data-testid="platform-add-banner-btn">
                 <Megaphone className="h-4 w-4" /> Tạo banner
               </Button>
-              <Button onClick={() => setOpenEditorial(true)} data-testid="platform-publish-editorial-btn">
+              <Button onClick={() => openNewEditorial('AUDIO')} data-testid="platform-publish-editorial-btn">
                 <Headphones className="h-4 w-4" /> Xuất bản Blog / Sách nói
               </Button>
             </>
@@ -274,6 +406,7 @@ function PlatformCommunityBody() {
             <Tabs
               tabs={[
                 { value: 'CHO_DUYET', label: `Chờ duyệt (${postsData?.counts.CHO_DUYET ?? 0})` },
+                { value: 'NHAP', label: `Bản nháp (${postsData?.counts.NHAP ?? 0})` },
                 { value: 'DA_DANG', label: `Đang hiển thị (${postsData?.counts.DA_DANG ?? 0})` },
                 { value: 'BI_TU_CHOI', label: `Từ chối (${postsData?.counts.BI_TU_CHOI ?? 0})` },
                 { value: 'BI_GO', label: `Đã gỡ (${postsData?.counts.BI_GO ?? 0})` },
@@ -282,7 +415,7 @@ function PlatformCommunityBody() {
               value={status}
               onChange={setStatus}
             />
-            <div className="relative w-64">
+            <div className="relative w-full sm:w-64">
               <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <Input
                 value={q}
@@ -304,27 +437,70 @@ function PlatformCommunityBody() {
                 const st = COMMUNITY_STATUS_UI[p.status as CommunityPostStatus];
                 const tp = COMMUNITY_TYPE_UI[p.type];
                 const au = COMMUNITY_AUTHOR_UI[p.authorKind];
+                const excerpt = plainPostExcerpt(p, 200);
                 return (
                   <li key={p.id}>
                     <Card className="space-y-3 p-5" data-testid="platform-community-card">
                       <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="space-y-1.5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs text-slate-500">{p.code}</span>
-                            <Badge tone={st.tone}>{st.label}</Badge>
-                            <Badge tone={tp.tone}>{tp.label}</Badge>
-                            <Badge tone={au.tone}>{p.authorName}</Badge>
-                            {p.pinned && <Badge tone="brand">Đang ghim</Badge>}
+                        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
+                          {p.coverUrl && (
+                            <img
+                              src={p.coverUrl}
+                              alt={p.title}
+                              className="aspect-[16/9] w-full shrink-0 rounded-xl border border-slate-100 object-cover sm:w-36"
+                            />
+                          )}
+                          <div className="min-w-0 space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-xs text-slate-500">{p.code}</span>
+                              <Badge tone={st.tone}>{st.label}</Badge>
+                              <Badge tone={tp.tone}>{tp.label}</Badge>
+                              <Badge tone={au.tone}>{p.authorName}</Badge>
+                              {p.pinned && <Badge tone="brand">Đang ghim</Badge>}
+                            </div>
+                            <h3 className="text-base font-semibold text-slate-900">{p.title}</h3>
+                            {excerpt && <p className="line-clamp-2 text-sm text-slate-600">{excerpt}</p>}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <span>
+                                Chủ đề: {p.topicLabel} · {fmtDateTime(p.createdAt)} · {p.viewsCount} xem · {p.likesCount} thích ·{' '}
+                                {p.commentsCount} bình luận
+                              </span>
+                              {p.status === 'DA_DANG' && (
+                                <Link
+                                  href={`/cho/cong-dong/${p.id}`}
+                                  target="_blank"
+                                  className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> /cho/cong-dong/{p.id.slice(0, 8)}…
+                                </Link>
+                              )}
+                            </div>
+                            {p.reviewNote && <p className="text-xs text-rose-600">Lý do kiểm duyệt: {p.reviewNote}</p>}
                           </div>
-                          <h3 className="text-base font-semibold text-slate-900">{p.title}</h3>
-                          <p className="line-clamp-2 text-sm text-slate-600">{p.content}</p>
-                          <div className="text-xs text-slate-500">
-                            Chủ đề: {p.topicLabel} · {fmtDateTime(p.createdAt)} · {p.viewsCount} xem · {p.likesCount} thích · {p.commentsCount} bình luận
-                          </div>
-                          {p.reviewNote && <p className="text-xs text-rose-600">Lý do kiểm duyệt: {p.reviewNote}</p>}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => openPreviewFromItem(p)}
+                            data-testid="platform-community-preview"
+                          >
+                            <Eye className="h-4 w-4" /> Xem trước
+                          </Button>
+                          {canContent && p.status !== 'BI_GO' && (
+                            <Button
+                              variant="outline"
+                              onClick={() => openEditEditorial(p)}
+                              data-testid="platform-community-edit"
+                            >
+                              <Pencil className="h-4 w-4" /> Sửa bài
+                            </Button>
+                          )}
+                          {p.status === 'NHAP' && (
+                            <Button onClick={() => approvePost(p.id)} disabled={busy === p.id} data-testid="platform-community-publish-draft">
+                              <CheckCircle2 className="h-4 w-4" /> Xuất bản ngay
+                            </Button>
+                          )}
                           {p.status === 'CHO_DUYET' && (
                             <>
                               <Button onClick={() => approvePost(p.id)} disabled={busy === p.id} data-testid="platform-community-approve">
@@ -408,31 +584,53 @@ function PlatformCommunityBody() {
             <div>
               <h2 className="text-base font-semibold text-slate-900">Tủ nội dung chính thức của Ban biên tập CARDIY</h2>
               <p className="text-xs text-slate-500">
-                Xuất bản cẩm nang bảo dưỡng, sách nói ô tô hoặc playlist âm thanh phục vụ chủ xe nghe trên hành trình dài.
+                Soạn thảo WYSIWYG, gắn ảnh bìa 16:9 (Cloudflare R2 WebP), lưu nháp, xem trước và sửa bài đã đăng mà không đổi link.
               </p>
             </div>
             {canContent && (
-              <Button onClick={() => setOpenEditorial(true)}>
-                <Plus className="h-4 w-4" /> Xuất bản bài mới
+              <Button onClick={() => openNewEditorial('BLOG')}>
+                <Plus className="h-4 w-4" /> Viết bài mới
               </Button>
             )}
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {(postsData?.items ?? [])
-              .filter((p) => p.authorKind === 'PLATFORM')
-              .map((p) => (
-                <div key={p.id} className="rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center gap-2">
-                    <Badge tone={COMMUNITY_TYPE_UI[p.type].tone}>{COMMUNITY_TYPE_UI[p.type].label}</Badge>
-                    <span className="font-mono text-xs text-slate-400">{p.code}</span>
+            {allPlatformPosts.map((p) => {
+              const st = COMMUNITY_STATUS_UI[p.status];
+              return (
+                <div key={p.id} className="flex flex-col justify-between gap-3 overflow-hidden rounded-2xl border border-slate-200 p-4">
+                  <div className="space-y-2">
+                    {p.coverUrl && (
+                      <img src={p.coverUrl} alt={p.title} className="aspect-[16/9] w-full rounded-xl object-cover" />
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                      <Badge tone={COMMUNITY_TYPE_UI[p.type].tone}>{COMMUNITY_TYPE_UI[p.type].label}</Badge>
+                      <span className="font-mono text-xs text-slate-400">{p.code}</span>
+                    </div>
+                    <div className="font-semibold text-slate-900">{p.title}</div>
+                    <div className="text-xs text-slate-500">
+                      {p.playlistItems.length > 0 ? `${p.playlistItems.length} chương · ` : ''}
+                      {p.viewsCount} lượt xem · {p.likesCount} thích
+                    </div>
                   </div>
-                  <div className="mt-1.5 font-semibold text-slate-900">{p.title}</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {p.playlistItems.length > 0 ? `${p.playlistItems.length} chương · ` : ''}
-                    {p.viewsCount} lượt xem · {p.likesCount} thích
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2.5">
+                    <Button variant="outline" className="px-3 py-1 text-xs" onClick={() => openPreviewFromItem(p)}>
+                      <Eye className="h-3.5 w-3.5" /> Xem trước
+                    </Button>
+                    {canContent && (
+                      <Button variant="outline" className="px-3 py-1 text-xs" onClick={() => openEditEditorial(p)}>
+                        <Pencil className="h-3.5 w-3.5" /> Sửa bài
+                      </Button>
+                    )}
+                    {p.status === 'DA_DANG' && (
+                      <Link href={`/cho/cong-dong/${p.id}`} target="_blank" className="ml-auto text-xs font-medium text-brand-700 hover:underline">
+                        Mở trang công khai →
+                      </Link>
+                    )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
           </div>
         </Card>
       )}
@@ -446,14 +644,17 @@ function PlatformCommunityBody() {
           ) : (
             banners.map((b) => (
               <Card key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5" data-testid="platform-banner-row">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge tone={b.active ? 'mint' : 'slate'}>{b.active ? 'Đang bật' : 'Tạm tắt'}</Badge>
-                    <Badge tone="sky">{b.position === 'HOME' ? 'Trang chủ sàn (/cho)' : 'Trang Cộng đồng (/cho/cong-dong)'}</Badge>
+                <div className="flex items-center gap-3">
+                  {b.imageUrl && <img src={b.imageUrl} alt={b.title} className="h-14 w-24 rounded-xl object-cover" />}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge tone={b.active ? 'mint' : 'slate'}>{b.active ? 'Đang bật' : 'Tạm tắt'}</Badge>
+                      <Badge tone="sky">{b.position === 'HOME' ? 'Trang chủ sàn (/cho)' : 'Trang Cộng đồng (/cho/cong-dong)'}</Badge>
+                    </div>
+                    <div className="font-semibold text-slate-900">{b.title}</div>
+                    {b.subtitle && <div className="text-xs text-slate-600">{b.subtitle}</div>}
+                    {b.linkUrl && <div className="font-mono text-xs text-brand-700">{b.linkUrl}</div>}
                   </div>
-                  <div className="font-semibold text-slate-900">{b.title}</div>
-                  {b.subtitle && <div className="text-xs text-slate-600">{b.subtitle}</div>}
-                  {b.linkUrl && <div className="font-mono text-xs text-brand-700">{b.linkUrl}</div>}
                 </div>
                 {canContent && (
                   <div className="flex gap-2">
@@ -492,24 +693,59 @@ function PlatformCommunityBody() {
         </Field>
       </Dialog>
 
-      {/* Hộp thoại xuất bản Blog / Sách nói / Playlist (A6.62) */}
+      {/* Hộp thoại xuất bản / sửa bài & lưu nháp Blog / Sách nói / Playlist (A6.62) */}
       <Dialog
         open={openEditorial}
         onClose={() => setOpenEditorial(false)}
-        title="Xuất bản nội dung chính thức (Blog / Sách nói / Playlist)"
+        title={
+          editingPost
+            ? `Chỉnh sửa bài viết ${editingPost.code} (giữ nguyên đường dẫn)`
+            : 'Xuất bản nội dung chính thức (Blog / Sách nói / Playlist)'
+        }
         wide
         footer={
-          <>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" onClick={() => setOpenEditorial(false)}>
               Huỷ
             </Button>
-            <Button onClick={publishEditorial} disabled={busy === 'editorial'} data-testid="platform-editorial-submit">
-              Xuất bản ngay
+            <Button
+              variant="outline"
+              onClick={openPreviewFromForm}
+              data-testid="platform-editorial-preview-btn"
+            >
+              <Eye className="h-4 w-4" /> Xem trước
             </Button>
-          </>
+            <Button
+              variant="outline"
+              onClick={() => void saveEditorial(true)}
+              disabled={busy === 'editorial' || busy === 'editorial-draft'}
+              data-testid="platform-editorial-draft-btn"
+            >
+              <FileText className="h-4 w-4" /> Lưu nháp
+            </Button>
+            <Button
+              onClick={() => void saveEditorial(false)}
+              disabled={busy === 'editorial' || busy === 'editorial-draft'}
+              data-testid="platform-editorial-submit"
+            >
+              {editingPost && editingPost.status === 'DA_DANG' ? 'Lưu cập nhật (giữ link)' : 'Xuất bản ngay'}
+            </Button>
+          </div>
         }
       >
-        <div className="space-y-3">
+        <div className="space-y-3.5">
+          {editingPost && (
+            <div
+              className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-2.5 text-xs text-emerald-900"
+              data-testid="platform-editorial-permanent-link-banner"
+            >
+              Đang sửa bài <b>{editingPost.code}</b> — Đường dẫn bài viết giữ nguyên không đổi:{' '}
+              <code className="rounded bg-white px-1.5 py-0.5 font-mono text-emerald-800">/cho/cong-dong/{editingPost.id}</code>
+            </div>
+          )}
+
+          {error && <Alert>{error}</Alert>}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Định dạng nội dung *">
               {(id) => (
@@ -517,6 +753,7 @@ function PlatformCommunityBody() {
                   <option value="AUDIO">Sách nói ô tô (AUDIO)</option>
                   <option value="PLAYLIST">Playlist đường dài (PLAYLIST)</option>
                   <option value="BLOG">Bài viết chuyên gia (BLOG)</option>
+                  {editingPost?.type === 'QA' && <option value="QA">Hỏi đáp chủ xe (QA)</option>}
                 </Select>
               )}
             </Field>
@@ -532,12 +769,24 @@ function PlatformCommunityBody() {
               )}
             </Field>
           </div>
+
           <Field label="Tiêu đề xuất bản *">
             {(id) => <Input id={id} value={edTitle} onChange={(e) => setEdTitle(e.target.value)} placeholder="VD: Sách nói: 15 quy tắc vàng lái xe đường đèo" />}
           </Field>
+
           <Field label="Tóm tắt ngắn">
             {(id) => <Input id={id} value={edSummary} onChange={(e) => setEdSummary(e.target.value)} placeholder="Hiển thị trên thẻ danh sách cộng đồng" />}
           </Field>
+
+          <CoverImageField
+            coverUrl={edCoverUrl}
+            onChange={({ id, url }) => {
+              setEdCoverFileId(id);
+              setEdCoverUrl(url);
+            }}
+            testIdPrefix="platform-editorial-cover"
+          />
+
           {(edType === 'AUDIO' || edType === 'PLAYLIST') && (
             <div className="space-y-2 rounded-xl bg-slate-50 p-3">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -588,24 +837,24 @@ function PlatformCommunityBody() {
               </Button>
             </div>
           )}
-          <Field label="Nội dung chi tiết / Lời giới thiệu *">
-            {(id) => (
-              <textarea
-                id={id}
-                rows={5}
-                value={edContent}
-                onChange={(e) => setEdContent(e.target.value)}
-                placeholder="Nhập nội dung bài viết hoặc tóm tắt chi tiết các chương sách nói…"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-            )}
-          </Field>
+
+          <WysiwygEditor
+            label="Nội dung chi tiết / Lời giới thiệu *"
+            value={edContent}
+            onChange={setEdContent}
+            placeholder="Nhập nội dung bài viết, định dạng tiêu đề, danh sách hoặc chèn hình ảnh minh hoạ (tự nén WebP lên Cloudflare R2)…"
+            testId="platform-editorial-wysiwyg"
+          />
+
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={edPinned} onChange={(e) => setEdPinned(e.target.checked)} />
             Ghim nổi bật trên đầu trang Cộng đồng
           </label>
         </div>
       </Dialog>
+
+      {/* Hộp thoại Xem trước Điện thoại / Máy tính */}
+      <CommunityPreviewDialog open={!!previewDraft} onClose={() => setPreviewDraft(null)} draft={previewDraft} />
 
       {/* Hộp thoại tạo Banner (A6.62) */}
       <Dialog
@@ -638,6 +887,15 @@ function PlatformCommunityBody() {
           <Field label="Mô tả phụ">
             {(id) => <Input id={id} value={bnSubtitle} onChange={(e) => setBnSubtitle(e.target.value)} placeholder="Ưu đãi từ 50+ garage đối tác trên sàn CARDIY" />}
           </Field>
+          <CoverImageField
+            label="Ảnh banner (tuỳ chọn — WebP lưu Cloudflare R2)"
+            coverUrl={bnImageUrl}
+            onChange={({ id, url }) => {
+              setBnImageFileId(id);
+              setBnImageUrl(url);
+            }}
+            testIdPrefix="platform-banner-cover"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Đường dẫn đích">
               {(id) => <Input id={id} value={bnLink} onChange={(e) => setBnLink(e.target.value)} />}

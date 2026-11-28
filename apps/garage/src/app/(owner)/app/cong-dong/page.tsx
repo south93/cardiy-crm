@@ -1,15 +1,24 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
-import { CheckCircle2, Headphones, Heart, MessageCircle, Plus } from 'lucide-react';
+import { CheckCircle2, Eye, FileText, Headphones, Heart, MessageCircle, Pencil, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import {
+  CommunityPreviewDialog,
+  CoverImageField,
+  WysiwygEditor,
+  type CommunityPreviewDraft,
+} from '@/components/community-editor';
 import { ApiError } from '@/lib/api';
 import {
   COMMUNITY_STATUS_UI,
   COMMUNITY_TOPICS,
   COMMUNITY_TYPE_UI,
   ownerUploadCommunityPhoto,
+  plainPostExcerpt,
   publicCommunityGet,
   type CommunityPostItem,
   type CommunityPostType,
@@ -23,12 +32,17 @@ export default function OwnerCommunityPage() {
   const [filterType, setFilterType] = useState<'ALL' | CommunityPostType>('ALL');
   const [publicPosts, setPublicPosts] = useState<CommunityPostItem[] | null>(null);
   const [myPosts, setMyPosts] = useState<CommunityPostItem[] | null>(null);
+
   const [openForm, setOpenForm] = useState(false);
+  const [editingPost, setEditingPost] = useState<CommunityPostItem | null>(null);
   const [postType, setPostType] = useState<'QA' | 'BLOG'>('QA');
   const [topic, setTopic] = useState('BAO_DUONG');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [coverFileId, setCoverFileId] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [previewDraft, setPreviewDraft] = useState<CommunityPreviewDraft | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,27 +65,57 @@ export default function OwnerCommunityPage() {
     void load();
   }, [load]);
 
-  async function submitPost() {
+  function openNewPost() {
+    setEditingPost(null);
+    setPostType('QA');
+    setTopic('BAO_DUONG');
+    setTitle('');
+    setContent('');
+    setCoverFileId(null);
+    setCoverUrl(null);
+    setError(null);
+    setOpenForm(true);
+  }
+
+  function openEditPost(p: CommunityPostItem) {
+    setEditingPost(p);
+    setPostType(p.type === 'BLOG' ? 'BLOG' : 'QA');
+    setTopic(p.topic);
+    setTitle(p.title);
+    setContent(p.content);
+    setCoverFileId(p.coverFileId);
+    setCoverUrl(p.coverUrl);
+    setError(null);
+    setOpenForm(true);
+  }
+
+  async function submitPost(saveAsDraft: boolean) {
     setBusy(true);
     setError(null);
     try {
-      await ownerApi('/community/posts', {
-        body: {
-          type: postType,
-          topic,
-          title,
-          content,
-          coverFileId,
-        },
-      });
+      const payload = {
+        type: postType,
+        topic,
+        title,
+        content,
+        coverFileId,
+        saveAsDraft,
+      };
+      if (editingPost) {
+        await ownerApi(`/community/posts/${editingPost.id}`, { method: 'PUT', body: payload });
+      } else {
+        await ownerApi('/community/posts', { body: payload });
+      }
       setOpenForm(false);
+      setEditingPost(null);
       setTitle('');
       setContent('');
       setCoverFileId(null);
+      setCoverUrl(null);
       setTab('mine');
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Gửi bài thất bại');
+      setError(e instanceof ApiError ? e.message : saveAsDraft ? 'Lưu nháp thất bại' : 'Gửi bài thất bại');
     } finally {
       setBusy(false);
     }
@@ -84,7 +128,7 @@ export default function OwnerCommunityPage() {
           <h1 className="text-xl font-semibold">Cộng đồng chủ xe</h1>
           <p className="text-xs text-slate-500">Hỏi đáp kỹ thuật, blog & sách nói trên xe</p>
         </div>
-        <Button onClick={() => setOpenForm(true)} data-testid="owner-new-post-btn">
+        <Button onClick={openNewPost} data-testid="owner-new-post-btn">
           <Plus className="h-4 w-4" /> Đăng bài
         </Button>
       </header>
@@ -133,34 +177,43 @@ export default function OwnerCommunityPage() {
             <ul className="space-y-2.5" data-testid="owner-community-list">
               {publicPosts.map((p) => {
                 const tp = COMMUNITY_TYPE_UI[p.type];
+                const excerpt = plainPostExcerpt(p, 130);
                 return (
                   <li key={p.id}>
                     <Link href={`/app/cong-dong/${p.id}`} className="block" data-testid="owner-community-card">
-                      <Card className="space-y-1.5 p-4">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge tone={tp.tone}>{tp.label}</Badge>
-                          {p.type === 'QA' && p.isSolved && (
-                            <Badge tone="mint">
-                              <CheckCircle2 className="h-3 w-3" /> Đã giải đáp
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="font-semibold text-slate-900">{p.title}</div>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span>{p.authorName}</span>
-                          <span className="flex items-center gap-2.5">
-                            {p.durationMinutes && (
-                              <span className="inline-flex items-center gap-0.5 text-indigo-600">
-                                <Headphones className="h-3 w-3" /> {p.durationMinutes}p
-                              </span>
+                      <Card className="overflow-hidden p-0">
+                        {p.coverUrl && (
+                          <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
+                            <img src={p.coverUrl} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
+                          </div>
+                        )}
+                        <div className="space-y-1.5 p-4">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge tone={tp.tone}>{tp.label}</Badge>
+                            {p.type === 'QA' && p.isSolved && (
+                              <Badge tone="mint">
+                                <CheckCircle2 className="h-3 w-3" /> Đã giải đáp
+                              </Badge>
                             )}
-                            <span className="inline-flex items-center gap-0.5">
-                              <Heart className="h-3 w-3" /> {p.likesCount}
+                          </div>
+                          <div className="font-semibold text-slate-900">{p.title}</div>
+                          {excerpt && <p className="line-clamp-2 text-xs text-slate-600">{excerpt}</p>}
+                          <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
+                            <span>{p.authorName}</span>
+                            <span className="flex items-center gap-2.5">
+                              {p.durationMinutes && (
+                                <span className="inline-flex items-center gap-0.5 text-indigo-600">
+                                  <Headphones className="h-3 w-3" /> {p.durationMinutes}p
+                                </span>
+                              )}
+                              <span className="inline-flex items-center gap-0.5">
+                                <Heart className="h-3 w-3" /> {p.likesCount}
+                              </span>
+                              <span className="inline-flex items-center gap-0.5">
+                                <MessageCircle className="h-3 w-3" /> {p.commentsCount}
+                              </span>
                             </span>
-                            <span className="inline-flex items-center gap-0.5">
-                              <MessageCircle className="h-3 w-3" /> {p.commentsCount}
-                            </span>
-                          </span>
+                          </div>
                         </div>
                       </Card>
                     </Link>
@@ -180,13 +233,16 @@ export default function OwnerCommunityPage() {
             const st = COMMUNITY_STATUS_UI[p.status];
             return (
               <li key={p.id}>
-                <Card className="space-y-1.5 p-4" data-testid="owner-my-post-card">
+                <Card className="space-y-2 p-4" data-testid="owner-my-post-card">
+                  {p.coverUrl && (
+                    <img src={p.coverUrl} alt={p.title} className="aspect-[16/9] w-full rounded-xl object-cover" />
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-mono text-xs text-slate-500">{p.code}</span>
                     <Badge tone={st.tone}>{st.label}</Badge>
                   </div>
                   <div className="font-semibold text-slate-900">
-                    {p.status === 'DA_DANG' ? (
+                    {p.status !== 'BI_GO' ? (
                       <Link href={`/app/cong-dong/${p.id}`} className="hover:underline">
                         {p.title}
                       </Link>
@@ -194,7 +250,41 @@ export default function OwnerCommunityPage() {
                       p.title
                     )}
                   </div>
-                  <div className="text-xs text-slate-500">{fmtDateTime(p.createdAt)}</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span>{fmtDateTime(p.createdAt)}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="px-2.5 py-1 text-xs"
+                        onClick={() =>
+                          setPreviewDraft({
+                            title: p.title,
+                            summary: p.summary,
+                            content: p.content,
+                            coverUrl: p.coverUrl,
+                            type: p.type,
+                            topic: p.topic,
+                            authorKind: 'OWNER',
+                            authorName: p.authorName,
+                            permanentUrl: `/cho/cong-dong/${p.id}`,
+                            isDraft: p.status !== 'DA_DANG',
+                          })
+                        }
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Xem trước
+                      </Button>
+                      {p.status !== 'BI_GO' && (
+                        <Button
+                          variant="outline"
+                          className="px-2.5 py-1 text-xs"
+                          onClick={() => openEditPost(p)}
+                          data-testid="owner-edit-post-btn"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Sửa bài
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   {p.reviewNote && <p className="text-xs text-rose-600">Ghi chú kiểm duyệt: {p.reviewNote}</p>}
                 </Card>
               </li>
@@ -206,75 +296,101 @@ export default function OwnerCommunityPage() {
       <Dialog
         open={openForm}
         onClose={() => setOpenForm(false)}
-        title="Đặt câu hỏi / Chia sẻ kinh nghiệm"
+        title={editingPost ? `Sửa bài ${editingPost.code} (giữ nguyên link)` : 'Đặt câu hỏi / Chia sẻ kinh nghiệm'}
+        wide
         footer={
-          <>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" onClick={() => setOpenForm(false)}>
               Huỷ
             </Button>
-            <Button onClick={submitPost} disabled={busy} data-testid="owner-submit-post-btn">
-              Gửi kiểm duyệt
+            <Button
+              variant="outline"
+              onClick={() =>
+                setPreviewDraft({
+                  title,
+                  content,
+                  coverUrl,
+                  type: postType,
+                  topic,
+                  authorKind: 'OWNER',
+                  authorName: editingPost?.authorName ?? 'Chủ xe',
+                  permanentUrl: editingPost ? `/cho/cong-dong/${editingPost.id}` : null,
+                  isDraft: true,
+                })
+              }
+              data-testid="owner-preview-post-btn"
+            >
+              <Eye className="h-4 w-4" /> Xem trước
             </Button>
-          </>
+            <Button
+              variant="outline"
+              onClick={() => void submitPost(true)}
+              disabled={busy}
+              data-testid="owner-draft-post-btn"
+            >
+              <FileText className="h-4 w-4" /> Lưu nháp
+            </Button>
+            <Button onClick={() => void submitPost(false)} disabled={busy} data-testid="owner-submit-post-btn">
+              {editingPost ? 'Cập nhật & Gửi duyệt' : 'Gửi kiểm duyệt'}
+            </Button>
+          </div>
         }
       >
         <div className="space-y-3">
-          <Field label="Loại bài đăng">
-            {(id) => (
-              <Select id={id} value={postType} onChange={(e) => setPostType(e.target.value as 'QA' | 'BLOG')}>
-                <option value="QA">Hỏi đáp kỹ thuật & sửa xe</option>
-                <option value="BLOG">Chia sẻ kinh nghiệm lái xe</option>
-              </Select>
-            )}
-          </Field>
-          <Field label="Chủ đề *">
-            {(id) => (
-              <Select id={id} value={topic} onChange={(e) => setTopic(e.target.value)}>
-                {COMMUNITY_TOPICS.map((t) => (
-                  <option key={t.code} value={t.code}>
-                    {t.label}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+          {editingPost && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
+              Đường dẫn bài viết giữ nguyên không đổi: <code className="font-mono">/cho/cong-dong/{editingPost.id}</code>
+            </div>
+          )}
+          {error && <Alert>{error}</Alert>}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Loại bài đăng">
+              {(id) => (
+                <Select id={id} value={postType} onChange={(e) => setPostType(e.target.value as 'QA' | 'BLOG')}>
+                  <option value="QA">Hỏi đáp kỹ thuật & sửa xe</option>
+                  <option value="BLOG">Chia sẻ kinh nghiệm lái xe</option>
+                </Select>
+              )}
+            </Field>
+            <Field label="Chủ đề *">
+              {(id) => (
+                <Select id={id} value={topic} onChange={(e) => setTopic(e.target.value)}>
+                  {COMMUNITY_TOPICS.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
           <Field label="Tiêu đề câu hỏi / bài viết *">
             {(id) => <Input id={id} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Xe đi 4 vạn cần thay những gì?" />}
           </Field>
-          <Field label="Nội dung chi tiết *">
-            {(id) => (
-              <textarea
-                id={id}
-                rows={4}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Mô tả dòng xe, tình trạng gặp phải hoặc kinh nghiệm thực tế…"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-            )}
-          </Field>
-          <Field label="Ảnh minh hoạ (tuỳ chọn)">
-            {(id) => (
-              <input
-                id={id}
-                type="file"
-                accept="image/*"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  try {
-                    const up = await ownerUploadCommunityPhoto(f);
-                    setCoverFileId(up.id);
-                  } catch (err) {
-                    setError(err instanceof ApiError ? err.message : 'Tải ảnh thất bại');
-                  }
-                }}
-                className="text-xs text-slate-600"
-              />
-            )}
-          </Field>
+          <CoverImageField
+            label="Ảnh bìa / ảnh minh hoạ chính (tuỳ chọn)"
+            coverUrl={coverUrl}
+            uploadFn={ownerUploadCommunityPhoto}
+            onChange={({ id, url }) => {
+              setCoverFileId(id);
+              setCoverUrl(url);
+            }}
+            testIdPrefix="owner-post-cover"
+          />
+          <WysiwygEditor
+            label="Nội dung chi tiết *"
+            value={content}
+            onChange={setContent}
+            uploadFn={ownerUploadCommunityPhoto}
+            minHeightClass="min-h-[160px]"
+            placeholder="Mô tả dòng xe, tình trạng gặp phải hoặc chèn hình ảnh chụp thực tế…"
+            testId="owner-post-wysiwyg"
+          />
         </div>
       </Dialog>
+
+      <CommunityPreviewDialog open={!!previewDraft} onClose={() => setPreviewDraft(null)} draft={previewDraft} />
     </div>
   );
 }

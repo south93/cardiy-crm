@@ -1,13 +1,17 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import { Alert, Badge, Button, Card, Input, Spinner } from '@cardiy/ui';
 import { ArrowLeft, CheckCircle2, Headphones, Heart, ListMusic, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { CommunityRichContent } from '@/components/community-editor';
 import { ApiError } from '@/lib/api';
 import {
   COMMUNITY_AUTHOR_UI,
+  COMMUNITY_STATUS_UI,
   COMMUNITY_TYPE_UI,
   type CommunityPostDetail,
 } from '@/lib/community';
@@ -80,6 +84,7 @@ export default function OwnerCommunityDetailPage() {
 
   const tp = COMMUNITY_TYPE_UI[post.type];
   const au = COMMUNITY_AUTHOR_UI[post.authorKind];
+  const st = COMMUNITY_STATUS_UI[post.status];
 
   return (
     <div className="space-y-4" data-testid="owner-community-detail">
@@ -89,94 +94,106 @@ export default function OwnerCommunityDetailPage() {
 
       {error && <Alert>{error}</Alert>}
 
-      <Card className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={tp.tone}>{tp.label}</Badge>
-          <Badge tone={au.tone}>{post.authorName}</Badge>
-          {post.type === 'QA' && post.isSolved && (
-            <Badge tone="mint">
-              <CheckCircle2 className="h-3 w-3" /> Đã giải đáp
-            </Badge>
-          )}
-        </div>
-        <h1 className="text-lg font-bold text-slate-900">{post.title}</h1>
-
-        {(post.type === 'AUDIO' || post.type === 'PLAYLIST') && post.playlistItems.length > 0 && (
-          <div className="space-y-1.5 rounded-xl bg-indigo-50 p-3 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-indigo-900">
-              {post.type === 'AUDIO' ? <Headphones className="h-4 w-4" /> : <ListMusic className="h-4 w-4" />}
-              <span>Danh sách chương ({post.playlistItems.length})</span>
-            </div>
-            <ul className="space-y-1 text-slate-700">
-              {post.playlistItems.map((it, idx) => (
-                <li key={idx} className="flex justify-between gap-2">
-                  <span>
-                    {idx + 1}. {it.title}
-                  </span>
-                  {it.duration && <span className="font-mono text-slate-500">{it.duration}</span>}
-                </li>
-              ))}
-            </ul>
+      <Card className="overflow-hidden p-0">
+        {post.coverUrl && (
+          <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
+            <img src={post.coverUrl} alt={post.title} className="h-full w-full object-cover" />
           </div>
         )}
+        <div className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {post.status !== 'DA_DANG' && <Badge tone={st.tone}>{st.label}</Badge>}
+            <Badge tone={tp.tone}>{tp.label}</Badge>
+            <Badge tone={au.tone}>{post.authorName}</Badge>
+            {post.type === 'QA' && post.isSolved && (
+              <Badge tone="mint">
+                <CheckCircle2 className="h-3 w-3" /> Đã giải đáp
+              </Badge>
+            )}
+          </div>
+          <h1 className="text-lg font-bold leading-snug text-slate-900">{post.title}</h1>
 
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{post.content}</p>
+          {(post.type === 'AUDIO' || post.type === 'PLAYLIST') && post.playlistItems.length > 0 && (
+            <div className="space-y-1.5 rounded-xl bg-indigo-50 p-3 text-xs">
+              <div className="flex items-center gap-1.5 font-semibold text-indigo-900">
+                {post.type === 'AUDIO' ? <Headphones className="h-4 w-4" /> : <ListMusic className="h-4 w-4" />}
+                <span>Danh sách chương ({post.playlistItems.length})</span>
+              </div>
+              <ul className="space-y-1 text-slate-700">
+                {post.playlistItems.map((it, idx) => (
+                  <li key={idx} className="flex justify-between gap-2">
+                    <span>
+                      {idx + 1}. {it.title}
+                    </span>
+                    {it.duration && <span className="font-mono text-slate-500">{it.duration}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-          <Button variant={post.liked ? 'primary' : 'outline'} onClick={toggleLike} data-testid="owner-like-btn">
-            <Heart className="h-4 w-4" /> Hữu ích ({post.likesCount})
-          </Button>
-          <span className="text-xs text-slate-400">{fmtDateTime(post.publishedAt ?? post.createdAt)}</span>
+          <CommunityRichContent content={post.content} />
+
+          {post.status === 'DA_DANG' && (
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+              <Button variant={post.liked ? 'primary' : 'outline'} onClick={toggleLike} data-testid="owner-like-btn">
+                <Heart className="h-4 w-4" /> Hữu ích ({post.likesCount})
+              </Button>
+              <span className="text-xs text-slate-400">{fmtDateTime(post.publishedAt ?? post.createdAt)}</span>
+            </div>
+          )}
         </div>
       </Card>
 
-      <Card className="space-y-3 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">Bình luận & Tư vấn ({post.comments.length})</h2>
-        <div className="flex gap-2">
-          <Input
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            placeholder="Nhập bình luận hoặc câu trả lời…"
-            aria-label="Viết bình luận hoặc câu trả lời"
-          />
-          <Button onClick={sendComment} disabled={busy || !reply.trim()} data-testid="owner-comment-submit">
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
+      {post.status === 'DA_DANG' && (
+        <Card className="space-y-3 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Bình luận & Tư vấn ({post.comments.length})</h2>
+          <div className="flex gap-2">
+            <Input
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder="Nhập bình luận hoặc câu trả lời…"
+              aria-label="Viết bình luận hoặc câu trả lời"
+            />
+            <Button onClick={sendComment} disabled={busy || !reply.trim()} data-testid="owner-comment-submit">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
 
-        <ul className="space-y-2.5" data-testid="owner-comments-list">
-          {post.comments.map((c) => {
-            const cau = COMMUNITY_AUTHOR_UI[c.authorKind];
-            return (
-              <li
-                key={c.id}
-                className={`rounded-xl border p-3 text-sm ${c.isAccepted ? 'border-emerald-300 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'}`}
-                data-testid="owner-comment-card"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <b className="text-xs">{c.authorName}</b>
-                    <Badge tone={cau.tone}>{cau.label}</Badge>
-                    {c.isAccepted && <Badge tone="mint">Lời giải</Badge>}
+          <ul className="space-y-2.5" data-testid="owner-comments-list">
+            {post.comments.map((c) => {
+              const cau = COMMUNITY_AUTHOR_UI[c.authorKind];
+              return (
+                <li
+                  key={c.id}
+                  className={`rounded-xl border p-3 text-sm ${c.isAccepted ? 'border-emerald-300 bg-emerald-50/70' : 'border-slate-100 bg-slate-50'}`}
+                  data-testid="owner-comment-card"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <b className="text-xs">{c.authorName}</b>
+                      <Badge tone={cau.tone}>{cau.label}</Badge>
+                      {c.isAccepted && <Badge tone="mint">Lời giải</Badge>}
+                    </div>
+                    {post.isMine && post.type === 'QA' && !c.isAccepted && (
+                      <button
+                        type="button"
+                        onClick={() => acceptAnswer(c.id)}
+                        disabled={busy}
+                        className="text-xs font-semibold text-emerald-700 hover:underline"
+                        data-testid="owner-accept-answer-btn"
+                      >
+                        Chọn làm lời giải
+                      </button>
+                    )}
                   </div>
-                  {post.isMine && post.type === 'QA' && !c.isAccepted && (
-                    <button
-                      type="button"
-                      onClick={() => acceptAnswer(c.id)}
-                      disabled={busy}
-                      className="text-xs font-semibold text-emerald-700 hover:underline"
-                      data-testid="owner-accept-answer-btn"
-                    >
-                      Chọn làm lời giải
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1.5 whitespace-pre-line text-slate-700">{c.content}</p>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+                  <p className="mt-1.5 whitespace-pre-line text-slate-700">{c.content}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

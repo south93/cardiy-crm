@@ -3,7 +3,12 @@ import { loginUI, PHONES } from './helpers';
 
 const tag = `CDUI${Date.now().toString(36).toUpperCase()}`;
 
-test('chủ garage xem Báo cáo chuỗi KPI/SLA (A3.80) -> chuyển sang Quản trị sàn xem Dashboard báo cáo (A6.01), xuất bản Sách nói & Banner (A6.62) -> khách xem trên /cho/cong-dong (A1.10)', async ({
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test('chủ garage xem Báo cáo chuỗi KPI/SLA (A3.80) -> chuyển sang Quản trị sàn xem Dashboard báo cáo (A6.01), xuất bản Sách nói, Banner & bài viết WYSIWYG (ảnh bìa, chèn ảnh, lưu nháp, xem trước, sửa bài giữ link) -> khách xem trên /cho/cong-dong (A1.10)', async ({
   page,
   isMobile,
 }) => {
@@ -11,6 +16,9 @@ test('chủ garage xem Báo cáo chuỗi KPI/SLA (A3.80) -> chuyển sang Quản
 
   const audioTitle = `Sách nói: Bí quyết đi cao tốc ban đêm ${tag}`;
   const bannerTitle = `Tuần lễ an toàn giao thông ${tag}`;
+  const draftBlogTitle = `Nháp bảo dưỡng phanh ABS ${tag}`;
+  const liveBlogTitle = `Cẩm nang bảo dưỡng phanh ABS thực chiến ${tag}`;
+  const editedBlogTitle = `${liveBlogTitle} (Đã cập nhật)`;
 
   // 1. Chủ garage PLG vào Báo cáo (/bao-cao, A3.80): thấy bảng so sánh 3 chi nhánh CN1, CN2, CN3 & các tab năng suất KTV, tồn kho
   await loginUI(page, PHONES.owner, 'Cardiy2026', '/bao-cao');
@@ -59,14 +67,76 @@ test('chủ garage xem Báo cáo chuỗi KPI/SLA (A3.80) -> chuyển sang Quản
   const publishedCard = page.getByTestId('platform-community-card').filter({ hasText: audioTitle });
   await expect(publishedCard).toBeVisible();
 
+  // 3b. Soạn bài Blog với Ảnh bìa + WYSIWYG chèn ảnh (nén WebP) -> Xem trước điện thoại -> Lưu nháp -> Xuất bản -> Sửa bài giữ nguyên link
+  await page.getByTestId('platform-publish-editorial-btn').click();
+  await page.getByLabel('Định dạng nội dung *').selectOption('BLOG');
+  await page.getByLabel('Tiêu đề xuất bản *').fill(draftBlogTitle);
+  await page.getByLabel('Tóm tắt ngắn').fill('Hướng dẫn kiểm tra má phanh và dầu phanh DOT4');
+
+  await page.getByTestId('platform-editorial-cover-input').setInputFiles({
+    name: 'anh-bia.png',
+    mimeType: 'image/png',
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByTestId('platform-editorial-cover-preview')).toBeVisible();
+
+  await page.getByLabel('Nội dung chi tiết / Lời giới thiệu *').fill('Kiểm tra độ dày má phanh định kỳ mỗi 10.000 km.');
+  await page.getByTestId('platform-editorial-wysiwyg-image-input').setInputFiles({
+    name: 'anh-trong-bai.png',
+    mimeType: 'image/png',
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByTestId('platform-editorial-wysiwyg-editor').locator('img')).toBeVisible();
+
+  await page.getByTestId('platform-editorial-preview-btn').click();
+  await expect(page.getByTestId('community-preview-dialog')).toBeVisible();
+  await expect(page.getByTestId('community-preview-frame-mobile')).toContainText(draftBlogTitle);
+  await page.getByTestId('community-preview-close').click();
+
+  await page.getByTestId('platform-editorial-draft-btn').click();
+  const draftCard = page.getByTestId('platform-community-card').filter({ hasText: draftBlogTitle });
+  await expect(draftCard).toBeVisible();
+
+  await draftCard.getByTestId('platform-community-edit').click();
+  await page.getByLabel('Tiêu đề xuất bản *').fill(liveBlogTitle);
+  await page.getByTestId('platform-editorial-submit').click();
+
+  const liveBlogCard = page.getByTestId('platform-community-card').filter({ hasText: liveBlogTitle });
+  await expect(liveBlogCard).toBeVisible();
+  const originalHref = await liveBlogCard.getByRole('link').getAttribute('href');
+  expect(originalHref).toMatch(/^\/cho\/cong-dong\/[0-9a-f-]{36}$/);
+
+  await liveBlogCard.getByTestId('platform-community-edit').click();
+  await expect(page.getByTestId('platform-editorial-permanent-link-banner')).toContainText(originalHref!);
+  await page.getByLabel('Tiêu đề xuất bản *').fill(editedBlogTitle);
+  await page.getByTestId('platform-editorial-submit').click();
+  await expect(page.getByTestId('platform-community-card').filter({ hasText: editedBlogTitle })).toBeVisible();
+
   await page.getByTestId('user-menu').click();
   await page.getByTestId('logout').click();
   await expect(page).toHaveURL(/\/dang-nhap/);
 
-  // 4. Khách truy cập công khai /cho/cong-dong (A1.10): thấy Banner mới, lọc Sách nói, mở chi tiết nghe danh sách chương
+  // 4. Khách truy cập công khai /cho/cong-dong (A1.10): thấy Banner, bài Blog có ảnh bìa & giữ nguyên link sau khi sửa, và nghe Sách nói
   await page.goto('/cho/cong-dong');
   await expect(page.getByTestId('community-banners')).toContainText(bannerTitle);
 
+  const pubBlogCard = page.getByTestId('public-community-card').filter({ hasText: editedBlogTitle });
+  await expect(pubBlogCard).toBeVisible();
+  await expect(pubBlogCard.getByTestId('public-community-card-cover')).toBeVisible();
+  await pubBlogCard.click();
+
+  await expect(page).toHaveURL(new RegExp(`${originalHref!.replace(/\//g, '\\/')}$`));
+  await expect(page.getByTestId('community-detail-title')).toHaveText(editedBlogTitle);
+  await expect(page.getByTestId('community-detail-cover')).toBeVisible();
+  await expect(page.getByTestId('community-detail-content').locator('img')).toBeVisible();
+
+  // Kiểm tra hiển thị đẹp trên kích thước màn hình điện thoại (390x844) không tràn ngang
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('community-detail-cover')).toBeVisible();
+  await expect(page.getByTestId('community-detail-content').locator('img')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.goto('/cho/cong-dong');
   await page.getByRole('tab', { name: 'Sách nói' }).click();
   const pubAudioCard = page.getByTestId('public-community-card').filter({ hasText: audioTitle });
   await expect(pubAudioCard).toBeVisible();
