@@ -160,3 +160,24 @@ test('export XLSX: tạo file ZIP OOXML hợp lệ với header và nội dung t
   assert.ok(text.includes('Danh sách xe'));
 });
 
+test('HTML cộng đồng: lọc XSS, giữ định dạng WYSIWYG và làm mới link R2 cho ảnh chèn trong bài', async () => {
+  const { sanitizeCommunityHtml, extractEmbeddedFileIds, injectResolvedFileUrls, stripHtmlToText } = await import('./html');
+  const fid = '11111111-2222-3333-4444-555555555555';
+  const raw =
+    `<div><h1>Tiêu đề chính</h1><script>evil()</script>` +
+    `<p onmouseover="x()">Đoạn <b>in đậm</b> và <a href="java\nscript:alert(1)">độc</a> <a href="/cho/cong-dong">Cộng đồng</a></p>` +
+    `<img data-file-id="${fid}" src="https://expired/a.webp" onerror="bad()" alt="Ảnh phanh" /></div>`;
+  const clean = sanitizeCommunityHtml(raw);
+  assert.ok(!clean.includes('<script'));
+  assert.ok(!clean.includes('onmouseover'));
+  assert.ok(!clean.includes('onerror'));
+  assert.ok(!clean.includes('javascript:'));
+  assert.ok(clean.includes('<h2>Tiêu đề chính</h2>'));
+  assert.ok(clean.includes('href="/cho/cong-dong"'));
+  assert.deepEqual(extractEmbeddedFileIds(clean), [fid]);
+
+  const injected = injectResolvedFileUrls(clean, new Map([[fid, 'https://r2.cardiy.vn/fresh.webp']]));
+  assert.ok(injected.includes('src="https://r2.cardiy.vn/fresh.webp"'));
+  assert.ok(stripHtmlToText(injected).includes('Tiêu đề chính'));
+});
+

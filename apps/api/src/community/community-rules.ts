@@ -30,13 +30,20 @@ export const COMMUNITY_TOPICS: readonly { code: string; label: string }[] = [
   { code: 'DANH_GIA_XE', label: 'Đánh giá xe' },
 ];
 
-/** Nội dung chính thức của Ban biên tập sàn lên thẳng DA_DANG; bài của Chủ xe / Garage qua kiểm duyệt A6.32 */
-export function initialPostStatus(authorKind: CommunityAuthorKind): CommunityPostStatus {
+/** Nội dung chính thức của Ban biên tập sàn lên thẳng DA_DANG; bài của Chủ xe / Garage qua kiểm duyệt A6.32; nếu chọn lưu nháp thì ở NHAP */
+export function initialPostStatus(authorKind: CommunityAuthorKind, saveAsDraft = false): CommunityPostStatus {
+  if (saveAsDraft) return 'NHAP';
   return authorKind === 'PLATFORM' ? 'DA_DANG' : 'CHO_DUYET';
 }
 
-export function postStatusAfterEdit(current: CommunityPostStatus, authorKind: CommunityAuthorKind): CommunityPostStatus {
+export function postStatusAfterEdit(
+  current: CommunityPostStatus,
+  authorKind: CommunityAuthorKind,
+  saveAsDraft = false,
+): CommunityPostStatus {
+  if (saveAsDraft) return 'NHAP';
   if (authorKind === 'PLATFORM') return current === 'TAM_AN' ? 'TAM_AN' : 'DA_DANG';
+  if (authorKind === 'GARAGE' && current === 'DA_DANG') return 'DA_DANG';
   return 'CHO_DUYET';
 }
 

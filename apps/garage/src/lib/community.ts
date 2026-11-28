@@ -1,5 +1,6 @@
+import { stripHtmlToText } from '@cardiy/shared';
 import type { Tone } from '@cardiy/ui';
-import { API_URL, ApiError } from './api';
+import { api, API_URL, ApiError } from './api';
 import { convertImageToWebp } from './image-webp';
 import { ownerApi } from './owner';
 
@@ -274,9 +275,25 @@ export async function publicCommunityGet<T>(path: string): Promise<T> {
   return data as T;
 }
 
-export async function ownerUploadCommunityPhoto(file: File): Promise<{ id: string }> {
-  const webpFile = await convertImageToWebp(file);
+/** Tải ảnh bài viết / ảnh bìa / banner lên Cloudflare R2 (tự nén WebP trước khi upload) cho Quản trị sàn & Garage */
+export async function uploadCommunityPhoto(file: File): Promise<{ id: string; url: string }> {
+  const webpFile = await convertImageToWebp(file, { maxDimension: 1920, quality: 0.84 });
   const form = new FormData();
   form.append('file', webpFile);
-  return ownerApi<{ id: string }>('/community/upload', { form });
+  return api<{ id: string; url: string }>('/files', { form });
+}
+
+/** Tải ảnh bài viết / ảnh bìa lên Cloudflare R2 (tự nén WebP trước khi upload) cho Chủ xe */
+export async function ownerUploadCommunityPhoto(file: File): Promise<{ id: string; url: string }> {
+  const webpFile = await convertImageToWebp(file, { maxDimension: 1920, quality: 0.84 });
+  const form = new FormData();
+  form.append('file', webpFile);
+  return ownerApi<{ id: string; url: string }>('/community/upload', { form });
+}
+
+/** Rút trích đoạn tóm tắt văn bản thuần sạch sẽ (không dính thẻ HTML) để hiển thị trên thẻ danh sách */
+export function plainPostExcerpt(post: { summary?: string | null; content: string }, maxLen = 180): string {
+  const base = post.summary?.trim() ? stripHtmlToText(post.summary) : stripHtmlToText(post.content);
+  if (base.length <= maxLen) return base;
+  return `${base.slice(0, maxLen).trimEnd()}…`;
 }
