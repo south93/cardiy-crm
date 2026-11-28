@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { CurrentAuth, RequirePermissions } from '../common/auth.decorators';
 import { clientIp, type RequestAuth } from '../common/request-auth';
 import { ZodPipe } from '../common/zod.pipe';
+import { intakeInputSchema, photoInputItemSchema } from './media';
 import { OrdersService } from './orders.service';
 
 const STATUSES = ['TIEP_NHAN', 'DANG_SUA', 'HOAN_THANH', 'DA_GIAO', 'HUY'] as const;
@@ -41,6 +42,8 @@ const createSchema = z.object({
   technicianId: z.string().uuid().optional().nullable(),
   orderDiscount: money.optional(),
   items: items.optional(),
+  intake: intakeInputSchema.optional().nullable(),
+  intakePhotos: z.array(photoInputItemSchema).max(30).optional().nullable(),
 });
 const updateSchema = createSchema.pick({ request: true, note: true, promisedAt: true, advisorId: true, technicianId: true, orderDiscount: true }).partial().extend({ insuranceAmount: money.optional() });
 const listSchema = z.object({

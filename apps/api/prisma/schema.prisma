@@ -503,6 +503,8 @@ model RepairOrder {
   history    OrderStatusHistory[]
   booking    Booking?
   inspection Inspection?
+  intake     OrderIntake?
+  photos     OrderPhoto[]
   quotes     OrderQuote[]
   review     OrderReview?
 
@@ -2537,3 +2539,59 @@ model ChatbotBookingProposal {
   @@index([tenantId, status, createdAt])
   @@map("chatbot_booking_proposals")
 }
+
+// ======================= Hiện trạng tiếp nhận & Hình ảnh 2 đầu của Lệnh sửa chữa =======================
+
+enum OrderPhotoStage {
+  /// Ảnh hiện trạng xe ban đầu khi tiếp nhận (4 góc xe, ODO, vết trầy xước cũ…)
+  TIEP_NHAN
+  /// Ảnh kiểm tra phát sinh / hư hỏng phụ tùng trong lúc KTV chẩn đoán
+  KIEM_TRA
+  /// Ảnh nghiệm thu của KTV sau khi hoàn tất dịch vụ / thay thế phụ tùng
+  HOAN_TAT
+}
+
+/// Hiện trạng xe ban đầu lúc tiếp nhận (1-1 với lệnh sửa chữa)
+model OrderIntake {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  orderId         String   @unique @map("order_id") @db.Uuid
+  /// Mức xăng / pin: E, 1/4, 1/2, 3/4, F
+  fuelLevel       String?  @map("fuel_level")
+  /// Đèn báo lỗi trên táp-lô lúc nhận xe
+  warningLights   String[] @default([]) @map("warning_lights")
+  /// Ghi nhận ngoại thất ban đầu (trầy xước, móp lõm, kính, đèn…)
+  exteriorNote    String?  @map("exterior_note")
+  /// Tư trang / giấy tờ khách để lại trên xe
+  belongings      String?
+  /// Có đủ lốp dự phòng & bộ đồ nghề theo xe
+  hasSpareAndTool Boolean? @map("has_spare_and_tool")
+  updatedBy       String?  @map("updated_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("order_intakes")
+}
+
+/// Hình ảnh theo từng giai đoạn của lệnh sửa chữa (tiếp nhận ban đầu, kiểm tra phát sinh, hoàn tất dịch vụ)
+model OrderPhoto {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String          @map("tenant_id") @db.Uuid
+  orderId    String          @map("order_id") @db.Uuid
+  fileId     String          @map("file_id") @db.Uuid
+  stage      OrderPhotoStage
+  tag        String?
+  caption    String?
+  uploadedBy String?         @map("uploaded_by") @db.Uuid
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  order RepairOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, stage, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("order_photos")
+}
+

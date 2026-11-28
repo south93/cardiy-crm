@@ -21,6 +21,7 @@ import { ArrowLeft, CheckCheck, Printer, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
+import { TechInspectionMedia } from '@/components/order-media';
 import { api, ApiError } from '@/lib/api';
 import { fmtDateTime } from '@/lib/orders';
 
@@ -373,6 +374,8 @@ export default function InspectionPage() {
         })}
         <Input value={d.finalOther ?? ''} disabled={ro} onChange={(e) => set({ finalOther: e.target.value || null })} placeholder="Khác…" className="mt-2" />
       </Section>
+
+      <TechInspectionMedia orderId={id} readOnly={ro} />
 
       {/* Thanh lưu cố định dưới màn hình */}
       <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-card backdrop-blur">

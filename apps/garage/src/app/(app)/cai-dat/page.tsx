@@ -9,6 +9,7 @@ import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { fetchAllCursor } from '@/lib/export';
+import { convertImageToWebp } from '@/lib/image-webp';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
 type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky' | 'zalo';
@@ -112,9 +113,10 @@ function PrintSettingsTab() {
     });
   }, []);
   const uploadLogo = async (file: File) => {
-    const form = new FormData();
-    form.append('file', file);
     try {
+      const webpFile = await convertImageToWebp(file, { maxDimension: 800, quality: 0.88 });
+      const form = new FormData();
+      form.append('file', webpFile);
       const f = await api<{ id: string; url: string }>('/files', { form });
       setV((x) => (x ? { ...x, logoFileId: f.id } : x));
       setLogoUrl(f.url);

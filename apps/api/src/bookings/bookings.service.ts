@@ -195,13 +195,28 @@ export class BookingsService {
   }
 
   /** Khách đến: tạo đơn tiếp nhận từ lịch hẹn, lịch chuyển "Đã đến" */
-  async checkIn(a: Access, id: string, dto: { odometerKm?: number | null }, ip?: string) {
+  async checkIn(
+    a: Access,
+    id: string,
+    dto: { odometerKm?: number | null; intake?: Parameters<OrdersService['create']>[1]['intake']; intakePhotos?: Parameters<OrdersService['create']>[1]['intakePhotos'] },
+    ip?: string,
+  ) {
     const b = await this.load(a, id);
     const err = bookingTransitionError(b.status, 'DA_DEN');
     if (err) throw new ConflictException(err);
     const order = await this.orders.create(
       a,
-      { branchId: b.branchId, customerId: b.customerId, vehicleId: b.vehicleId, odometerKm: dto.odometerKm ?? null, request: b.service, note: b.note, technicianId: b.technicianId },
+      {
+        branchId: b.branchId,
+        customerId: b.customerId,
+        vehicleId: b.vehicleId,
+        odometerKm: dto.odometerKm ?? null,
+        request: b.service,
+        note: b.note,
+        technicianId: b.technicianId,
+        intake: dto.intake,
+        intakePhotos: dto.intakePhotos,
+      },
       ip,
     );
     // Đơn đã tạo; nếu có người bấm nhận xe cùng lúc thì lần sau bị chặn bởi điều kiện trạng thái

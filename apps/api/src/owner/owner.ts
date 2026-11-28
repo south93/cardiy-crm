@@ -5,6 +5,8 @@ import { Public } from '../common/auth.decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import * as QRCode from 'qrcode';
 import { DEFAULT_CARE } from '../care/care-rules';
+import { OrderMediaService } from '../orders/media';
+import { OrdersModule } from '../orders/orders.module';
 import { STATUS_LABEL, paymentState } from '../orders/order-rules';
 import { BANKS, vietQrPayload } from '../orders/vietqr';
 import { applyQuoteResponse, quoteView, type QuoteLine } from '../orders/quotes';
@@ -33,6 +35,7 @@ export class OwnerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly media: OrderMediaService,
   ) {}
 
   private async links(userId: string) {
@@ -163,6 +166,8 @@ export class OwnerService {
         payments: { where: { voidedAt: null }, orderBy: { paidAt: 'asc' } },
         history: { orderBy: { createdAt: 'asc' }, select: { toStatus: true, createdAt: true } },
         inspection: { select: { data: true, completedAt: true } },
+        intake: true,
+        photos: { orderBy: { createdAt: 'asc' } },
         quotes: { orderBy: { sentAt: 'desc' }, take: 1 },
         review: true,
       },
@@ -170,7 +175,10 @@ export class OwnerService {
     if (!o) throw new NotFoundException('Không tìm thấy đơn');
     const q = o.quotes[0];
     const due = Math.max(0, n(o.total) - n(o.paid));
-    const payInfo = o.status !== 'HUY' && due > 0 ? await this.payInfo(o.tenantId, due, o.code, o.vehicle?.plateNo) : null;
+    const [payInfo, media] = await Promise.all([
+      o.status !== 'HUY' && due > 0 ? this.payInfo(o.tenantId, due, o.code, o.vehicle?.plateNo) : Promise.resolve(null),
+      this.media.serialize(o.tenantId, o.intake, o.photos),
+    ]);
     const reviewOpen = o.status === 'DA_GIAO' && !!o.deliveredAt && Date.now() - o.deliveredAt.getTime() <= REVIEW_DAYS * 86_400_000;
     const d = (o.inspection?.data ?? null) as InspectionData | null;
     const total = n(o.total);
@@ -188,6 +196,8 @@ export class OwnerService {
       promisedAt: o.promisedAt,
       completedAt: o.completedAt,
       deliveredAt: o.deliveredAt,
+      intake: media.intake,
+      photos: media.photos,
       items: o.items.map((i) => ({
         kind: i.kind,
         name: i.name,
@@ -341,6 +351,7 @@ export class OwnerController {
 }
 
 @Module({
+  imports: [OrdersModule],
   controllers: [OwnerAuthController, OwnerController, OwnerBookingController, CustomerAppController],
   providers: [OwnerAuthService, OwnerService, OwnerBookingService, OwnerGuard],
   exports: [OwnerGuard, OwnerBookingService],

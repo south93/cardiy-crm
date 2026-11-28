@@ -2,7 +2,7 @@
  * Luật nghiệp vụ thuần của đơn hàng (không đụng database) để test riêng.
  * Tiền tính bằng đồng (số nguyên); số lượng tối đa 2 chữ số thập phân.
  */
-import type { PermissionCode } from '@cardiy/shared';
+import type { OrderPhotoStage, PermissionCode } from '@cardiy/shared';
 
 export type OrderStatus = 'TIEP_NHAN' | 'DANG_SUA' | 'HOAN_THANH' | 'DA_GIAO' | 'HUY';
 
@@ -90,3 +90,74 @@ export function paymentState(total: number, paid: number): 'CHUA_THU' | 'THU_MOT
   if (paid <= 0) return total === 0 ? 'DA_THU_DU' : 'CHUA_THU';
   return paid >= total ? 'DA_THU_DU' : 'THU_MOT_PHAN';
 }
+
+/** Kiểm tra quyền cập nhật thông tin hiện trạng xe lúc tiếp nhận */
+export function intakeUpdateError(status: OrderStatus, permissions: ReadonlySet<string>): { kind: 'conflict' | 'forbidden'; message: string } | null {
+  if (!OPEN_STATUSES.includes(status)) {
+    return { kind: 'conflict', message: 'Đơn đã giao hoặc đã huỷ, không sửa được hiện trạng tiếp nhận' };
+  }
+  if (!permissions.has('ro.manage')) {
+    return { kind: 'forbidden', message: 'Chỉ Cố vấn dịch vụ hoặc Quản lý mới được cập nhật hiện trạng tiếp nhận' };
+  }
+  return null;
+}
+
+/** Kiểm tra quyền tải ảnh theo từng giai đoạn (TIEP_NHAN cho CVDV/Quản lý; KIEM_TRA & HOAN_TAT cho KTV phụ trách hoặc CVDV/Quản lý) */
+export function photoUploadError(p: {
+  status: OrderStatus;
+  stage: OrderPhotoStage;
+  permissions: ReadonlySet<string>;
+  technicianId: string | null;
+  membershipId: string | null;
+}): { kind: 'conflict' | 'forbidden'; message: string } | null {
+  if (!OPEN_STATUSES.includes(p.status)) {
+    return { kind: 'conflict', message: 'Đơn đã giao hoặc đã huỷ, không thêm được hình ảnh' };
+  }
+  if (!p.permissions.has('file.upload')) {
+    return { kind: 'forbidden', message: 'Bạn không có quyền tải ảnh lên' };
+  }
+  if (p.stage === 'TIEP_NHAN') {
+    if (!p.permissions.has('ro.manage')) {
+      return { kind: 'forbidden', message: 'Chỉ Cố vấn dịch vụ hoặc Quản lý mới được tải ảnh hiện trạng tiếp nhận' };
+    }
+    return null;
+  }
+  if (p.permissions.has('ro.manage')) return null;
+  if (!p.permissions.has('ro.task.update')) {
+    return { kind: 'forbidden', message: 'Bạn không có quyền tải ảnh kiểm tra / hoàn tất dịch vụ' };
+  }
+  if (p.technicianId && p.technicianId !== p.membershipId) {
+    return { kind: 'forbidden', message: 'Đơn này đang do kỹ thuật viên khác phụ trách' };
+  }
+  return null;
+}
+
+/** Kiểm tra quyền xoá ảnh trên lệnh sửa chữa */
+export function photoDeleteError(p: {
+  status: OrderStatus;
+  stage: OrderPhotoStage;
+  permissions: ReadonlySet<string>;
+  technicianId: string | null;
+  membershipId: string | null;
+  uploadedBy: string | null;
+  userId: string;
+}): { kind: 'conflict' | 'forbidden'; message: string } | null {
+  if (!OPEN_STATUSES.includes(p.status)) {
+    return { kind: 'conflict', message: 'Đơn đã giao hoặc đã huỷ, không xoá được hình ảnh' };
+  }
+  if (p.permissions.has('ro.manage')) return null;
+  if (p.stage === 'TIEP_NHAN') {
+    return { kind: 'forbidden', message: 'Chỉ Cố vấn dịch vụ hoặc Quản lý mới được xoá ảnh hiện trạng tiếp nhận' };
+  }
+  if (!p.permissions.has('ro.task.update')) {
+    return { kind: 'forbidden', message: 'Bạn không có quyền xoá hình ảnh này' };
+  }
+  if (p.technicianId && p.technicianId !== p.membershipId) {
+    return { kind: 'forbidden', message: 'Đơn này đang do kỹ thuật viên khác phụ trách' };
+  }
+  if (p.uploadedBy !== p.userId) {
+    return { kind: 'forbidden', message: 'Bạn chỉ xoá được hình ảnh do chính mình tải lên' };
+  }
+  return null;
+}
+

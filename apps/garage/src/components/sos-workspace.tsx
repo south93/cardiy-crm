@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { convertImageToWebp } from '@/lib/image-webp';
 import { fmtDateTime } from '@/lib/orders';
 import { fmtMoney, mapsDirectionUrl, SOS_STATUS_UI, type SosDetail } from '@/lib/sos';
 
@@ -315,8 +316,9 @@ export function SosWorkspace({ mode }: { mode: 'PARTNER' | 'DISPATCH' | 'CREW' }
     e.target.value = '';
     if (!file) return;
     await runCaseAction(c.id, async () => {
+      const webpFile = await convertImageToWebp(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', webpFile);
       const uploaded = await api<{ id: string }>('/files', { form });
       const nextIds = [...c.sceneImages.map((x) => x.id), uploaded.id].slice(0, 6);
       await api(`/sos/cases/${c.id}/scene`, { method: 'PUT', body: { sceneImageIds: nextIds } });

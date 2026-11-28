@@ -1,11 +1,12 @@
 'use client';
 
-import type { PermissionCode } from '@cardiy/shared';
+import type { OrderIntakeData, PermissionCode } from '@cardiy/shared';
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner } from '@cardiy/ui';
 import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { OrderQuoteCard } from '@/components/order-quote-card';
 import { OrderAiQuoteCard } from '@/components/ai-assistant-cards';
+import { OrderMediaSection, type OrderPhotoWithOwner } from '@/components/order-media';
 import { OrderReviewCard, type Review } from '@/components/order-review-card';
 import { useParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useState } from 'react';
@@ -36,6 +37,8 @@ interface Order {
   deliveredAt: string | null;
   cancelReason: string | null;
   editable: boolean;
+  intake: OrderIntakeData | null;
+  photos: OrderPhotoWithOwner[];
   review: Review | null;
   items: { id: string; kind: ItemKind; productId: string | null; name: string; unit: string | null; quantity: string; unitPrice: number | null; discount: number | null; amount: number | null; vatRate: number; section: string | null }[];
   subtotal: number | null;
@@ -64,7 +67,7 @@ const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError ? (e.err
 
 function OrderDetail() {
   const { id } = useParams<{ id: string }>();
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const [o, setO] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -376,6 +379,19 @@ function OrderDetail() {
 
           <OrderQuoteCard orderId={o.id} editable={o.editable} itemCount={o.items.length} version={`${o.total}:${o.items.length}`} onAnswered={reload} />
           {o.review && <OrderReviewCard orderId={o.id} review={o.review} onSaved={reload} />}
+
+          {(o.vehicle !== null || o.intake !== null || (o.photos?.length ?? 0) > 0) && (
+            <OrderMediaSection
+              orderId={o.id}
+              intake={o.intake ?? null}
+              photos={o.photos ?? []}
+              editable={o.editable}
+              canManage={can('ro.manage')}
+              canTechUpdate={can('ro.task.update')}
+              currentUserId={me?.user.id}
+              onChanged={reload}
+            />
+          )}
 
           <Card className="p-4 lg:p-5">
             <CardTitle>Thông tin tiếp nhận</CardTitle>
