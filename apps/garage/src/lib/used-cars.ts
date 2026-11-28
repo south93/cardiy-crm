@@ -1,5 +1,6 @@
 import type { Tone } from '@cardiy/ui';
 import { API_URL, ApiError } from './api';
+import { convertImageToWebp } from './image-webp';
 import { ownerApi } from './owner';
 
 export type UsedCarListingStatus =
@@ -269,7 +270,8 @@ export async function publicUsedCarPost<T>(path: string, body: unknown): Promise
 }
 
 export async function ownerUploadUsedCarPhoto(file: File): Promise<{ id: string }> {
+  const webpFile = await convertImageToWebp(file);
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', webpFile);
   return ownerApi<{ id: string }>('/used-cars/upload', { form });
 }

@@ -1,5 +1,6 @@
 import type { Tone } from '@cardiy/ui';
 import { api } from './api';
+import { convertImageToWebp } from './image-webp';
 
 export type CatalogKind = 'PRODUCT' | 'SERVICE';
 
@@ -107,8 +108,9 @@ export interface ShopInfo {
 
 /** Tải ảnh lên (ảnh của garage / sàn), trả id + link xem */
 export async function uploadImage(file: File) {
+  const webpFile = await convertImageToWebp(file);
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', webpFile);
   return api<{ id: string; url: string }>('/files', { form });
 }
 

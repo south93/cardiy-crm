@@ -60,7 +60,7 @@ test.describe('Hiện trạng tiếp nhận & Hình ảnh 2 đầu lệnh sửa 
     await expect(page.getByTestId('intake-summary')).toContainText('Xước nhẹ cản trước bên phụ');
     await expect(page.getByTestId('order-intake-photos-item')).toHaveCount(1);
 
-    // Lấy customerId để cuối luồng mời chủ xe xem App
+    // Lấy customerId & đối chứng ảnh PNG đã được trình duyệt nén sang chuẩn WebP trước khi tải lên
     const salesTok = (
       await (await request.post(`${api}/api/auth/login`, { data: { phone: PHONES.sales, password: 'Cardiy2026' } })).json()
     ).accessToken as string;
@@ -68,6 +68,13 @@ test.describe('Hiện trạng tiếp nhận & Hình ảnh 2 đầu lệnh sửa 
       await request.get(`${api}/api/orders/${orderId}`, { headers: { Authorization: `Bearer ${salesTok}` } })
     ).json();
     const customerId = orderJson.customer.id as string;
+    const uploadedMeta = await (
+      await request.get(`${api}/api/files/${orderJson.photos[0].fileId}`, {
+        headers: { Authorization: `Bearer ${salesTok}` },
+      })
+    ).json();
+    expect(uploadedMeta.mime).toBe('image/webp');
+    expect(uploadedMeta.name).toBe('can-truoc-tiep-nhan.webp');
 
     // 2. Kỹ thuật viên (KTV) đăng nhập -> nhận việc -> xem đối chiếu hiện trạng & tải ảnh hoàn tất dịch vụ
     await page.context().clearCookies();

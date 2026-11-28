@@ -16,6 +16,7 @@ import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Spinner } 
 import { AlertTriangle, Camera, CheckCircle2, Fuel, ImagePlus, Pencil, ShieldCheck, Trash2, Upload, Wrench, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
+import { convertImageToWebp } from '@/lib/image-webp';
 import { fmtDateTime } from '@/lib/orders';
 
 export interface IntakeDraft {
@@ -71,9 +72,10 @@ export function intakeDraftToPayload(d: IntakeDraft) {
 async function uploadImageFiles(files: FileList | File[]): Promise<{ id: string; url: string }[]> {
   const list = Array.from(files);
   const out: { id: string; url: string }[] = [];
-  for (const file of list) {
+  for (const rawFile of list) {
+    const webpFile = await convertImageToWebp(rawFile);
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', webpFile);
     const uploaded = await api<{ id: string; url: string }>('/files', { form });
     out.push({ id: uploaded.id, url: uploaded.url });
   }

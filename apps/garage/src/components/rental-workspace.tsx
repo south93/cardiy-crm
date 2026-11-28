@@ -20,6 +20,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { convertImageToWebp } from '@/lib/image-webp';
 import { fmtDateTime } from '@/lib/orders';
 import {
   fmtVnd,
@@ -157,8 +158,9 @@ export function RentalWorkspace({ mode }: { mode: 'PARTNER' | 'GARAGE' }) {
     if (!file) return;
     setBusy('upload');
     try {
+      const webpFile = await convertImageToWebp(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', webpFile);
       const res = await api<{ id: string }>('/files', { form });
       append(res.id);
     } catch (ex) {

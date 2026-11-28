@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api';
+import { convertImageToWebp } from '@/lib/image-webp';
 import { fmtDateTime } from '@/lib/orders';
 import { ownerApi } from '@/lib/owner';
 import { SOS_ISSUES, SOS_STATUS_UI, type SosDetail, type SosIssueType } from '@/lib/sos';
@@ -78,8 +79,9 @@ export default function OwnerSosPage() {
     setUploading(true);
     setError(null);
     try {
+      const webpFile = await convertImageToWebp(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', webpFile);
       const uploaded = await ownerApi<{ id: string; name: string }>('/sos/upload', { form });
       setImages((prev) => [...prev, { id: uploaded.id, name: uploaded.name }]);
     } catch (ex) {

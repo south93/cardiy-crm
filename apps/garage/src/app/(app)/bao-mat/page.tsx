@@ -7,6 +7,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } fr
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { api, ApiError, type TokenResponse } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { convertImageToWebp } from '@/lib/image-webp';
 import { homeFor } from '@/lib/nav';
 
 function TwoFactorCard() {
@@ -104,8 +105,9 @@ function ProfileCard() {
     setError(null);
     setBusy(true);
     try {
+      const webpFile = await convertImageToWebp(file, { maxDimension: 512, quality: 0.85 });
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', webpFile);
       const f = await api<{ id: string }>('/files', { form });
       await api('/me/avatar', { method: 'PATCH', body: { fileId: f.id } });
       await auth.reload();

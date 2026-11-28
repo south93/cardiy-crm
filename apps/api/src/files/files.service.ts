@@ -41,6 +41,7 @@ export class FilesService {
             accessKeyId: config.get('S3_ACCESS_KEY'),
             secretAccessKey: config.get('S3_SECRET_KEY'),
             forcePathStyle: config.get('S3_FORCE_PATH_STYLE'),
+            publicUrl: config.get('S3_PUBLIC_URL'),
           })
         : new LocalStorage(config.get('FILE_LOCAL_DIR'), config.get('PUBLIC_API_URL'), config.get('JWT_SECRET'));
   }

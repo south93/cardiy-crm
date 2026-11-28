@@ -51,26 +51,65 @@ export class LocalStorage implements StorageDriver {
   }
 }
 
+/** Chuẩn hoá endpoint Cloudflare R2 nếu người dùng dán nhầm cả tên bucket vào cuối URL */
+export function normalizeS3Endpoint(endpoint: string | undefined, bucket: string): string | undefined {
+  if (!endpoint) return undefined;
+  const trimmed = endpoint.trim().replace(/\/+$/, '');
+  const r2WithBucket = trimmed.match(/^(https?:\/\/[a-z0-9]+\.(?:eu\.|fedramp\.)?r2\.cloudflarestorage\.com)\/([^/]+)$/i);
+  if (r2WithBucket && r2WithBucket[2] === bucket) return r2WithBucket[1];
+  return trimmed;
+}
+
 export class S3Storage implements StorageDriver {
   private readonly client: S3Client;
+  private readonly publicUrl?: string;
+  readonly normalizedEndpoint?: string;
 
   constructor(
     private readonly bucket: string,
-    opts: { endpoint?: string; region: string; accessKeyId?: string; secretAccessKey?: string; forcePathStyle: boolean },
+    opts: {
+      endpoint?: string;
+      region: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
+      forcePathStyle: boolean;
+      publicUrl?: string;
+    },
   ) {
+    const endpoint = normalizeS3Endpoint(opts.endpoint, bucket);
+    this.normalizedEndpoint = endpoint;
+    this.publicUrl = opts.publicUrl?.trim().replace(/\/+$/, '') || undefined;
+    const isR2 = !!endpoint && /\.r2\.cloudflarestorage\.com$/i.test(endpoint);
     this.client = new S3Client({
-      endpoint: opts.endpoint,
-      region: opts.region,
+      endpoint,
+      region: isR2 && (!opts.region || opts.region === 'us-east-1') ? 'auto' : opts.region || 'auto',
       forcePathStyle: opts.forcePathStyle,
-      credentials: opts.accessKeyId && opts.secretAccessKey ? { accessKeyId: opts.accessKeyId, secretAccessKey: opts.secretAccessKey } : undefined,
+      // Bắt buộc với AWS SDK v3 >= 3.729 khi kết nối Cloudflare R2 / S3-compatible để tránh lỗi chữ ký CRC32
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+      credentials:
+        opts.accessKeyId && opts.secretAccessKey
+          ? { accessKeyId: opts.accessKeyId, secretAccessKey: opts.secretAccessKey }
+          : undefined,
     });
   }
 
   async put(key: string, body: Buffer, mime: string): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: mime }));
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: mime,
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
   }
 
-  signedUrl(key: string, _fileId: string, ttlSeconds: number): Promise<string> {
-    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), { expiresIn: ttlSeconds });
+  async signedUrl(key: string, _fileId: string, ttlSeconds: number): Promise<string> {
+    if (this.publicUrl) return `${this.publicUrl}/${key}`;
+    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
+      expiresIn: ttlSeconds,
+    });
   }
 }

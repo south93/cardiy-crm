@@ -1,5 +1,6 @@
 import type { Tone } from '@cardiy/ui';
 import { API_URL, ApiError } from './api';
+import { convertImageToWebp } from './image-webp';
 import { ownerApi } from './owner';
 
 export type CommunityPostType = 'BLOG' | 'AUDIO' | 'PLAYLIST' | 'QA';
@@ -274,7 +275,8 @@ export async function publicCommunityGet<T>(path: string): Promise<T> {
 }
 
 export async function ownerUploadCommunityPhoto(file: File): Promise<{ id: string }> {
+  const webpFile = await convertImageToWebp(file);
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', webpFile);
   return ownerApi<{ id: string }>('/community/upload', { form });
 }
