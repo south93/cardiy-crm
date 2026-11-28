@@ -1,67 +1,321 @@
 'use client';
 
-import { Alert, Badge, Button, Card, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
+import { Alert, Badge, Button, Card, CardTitle, Checkbox, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
+import { SmsSettingsTab } from '@/components/sms-settings';
 import { ZaloSettingsTab } from '@/components/zalo-settings';
-import { Building2, Check, Minus, Pencil, Plus, ShieldCheck } from 'lucide-react';
+import { Building2, Check, Minus, Pencil, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ExportButton } from '@/components/export-button';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { fetchAllCursor } from '@/lib/export';
+import type { MaintenanceRuleItem } from '@/lib/fleet';
 import { convertImageToWebp } from '@/lib/image-webp';
 import type { BranchRow, PermissionRow, RoleRow } from '@/lib/org';
 
-type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky' | 'zalo';
+type Tab = 'chi-nhanh' | 'mau-in' | 'cham-soc' | 'vai-tro' | 'nhat-ky' | 'zalo' | 'sms';
 
-// ---------------- Chăm sóc khách ----------------
+// ---------------- Chăm sóc khách & Nhắc lịch tự động ----------------
 const CARE_FIELDS = [
-  { key: 'registrationDays', label: 'Gọi nhắc trước hạn đăng kiểm', unit: 'ngày' },
-  { key: 'insuranceDays', label: 'Gọi nhắc trước hạn bảo hiểm', unit: 'ngày' },
-  { key: 'maintenanceMonths', label: 'Nhắc bảo dưỡng sau lần giao xe gần nhất', unit: 'tháng' },
+  { key: 'registrationDays', label: 'Nhắc trước hạn đăng kiểm', unit: 'ngày' },
+  { key: 'insuranceDays', label: 'Nhắc trước hạn bảo hiểm', unit: 'ngày' },
+  { key: 'badgeDays', label: 'Nhắc trước hạn phù hiệu xe', unit: 'ngày' },
+  { key: 'maintenanceMonths', label: 'Nhắc bảo dưỡng chung sau lần giao xe (nếu chưa gắn hạng mục riêng)', unit: 'tháng' },
   { key: 'followUpDays', label: 'Gọi hỏi thăm sau khi giao xe', unit: 'ngày' },
   { key: 'maxAttempts', label: 'Không nghe máy quá … lần thì bỏ qua', unit: 'lần' },
 ] as const;
-type CareSettings = Record<(typeof CARE_FIELDS)[number]['key'], number>;
+
+interface CareSettings {
+  registrationDays: number;
+  insuranceDays: number;
+  badgeDays: number;
+  maintenanceMonths: number;
+  followUpDays: number;
+  maxAttempts: number;
+  autoAppEnabled: boolean;
+  autoZaloEnabled: boolean;
+  autoSmsEnabled: boolean;
+  smsFallbackWhenZaloFails: boolean;
+  sendHourVn: number;
+}
 
 function CareSettingsTab() {
   const [v, setV] = useState<CareSettings | null>(null);
+  const [rules, setRules] = useState<MaintenanceRuleItem[] | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [ruleMsg, setRuleMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [runningAuto, setRunningAuto] = useState(false);
+
   useEffect(() => {
-    api<CareSettings>('/care/settings').then(setV);
+    Promise.all([api<CareSettings>('/care/settings'), api<MaintenanceRuleItem[]>('/maintenance/rules')]).then(([c, r]) => {
+      setV(c);
+      setRules(r);
+    });
   }, []);
-  if (!v) return <Spinner className="text-brand-600" />;
+
+  if (!v || !rules) return <Spinner className="text-brand-600" />;
+
+  const updateRule = (idx: number, patch: Partial<MaintenanceRuleItem>) =>
+    setRules((prev) => prev?.map((item, i) => (i === idx ? { ...item, ...patch } : item)) ?? null);
+
+  const addCustomRule = () => {
+    const nextIdx = rules.length + 1;
+    setRules([
+      ...rules,
+      {
+        code: `HANG_MUC_${nextIdx}`,
+        name: '',
+        intervalKm: 10000,
+        intervalMonths: 6,
+        remindBeforeKm: 500,
+        remindBeforeDays: 15,
+        keywords: [],
+        active: true,
+        sortOrder: nextIdx,
+      },
+    ]);
+  };
+
   return (
-    <Card className="max-w-xl space-y-4 p-5" data-testid="care-settings">
-      <p className="text-sm text-slate-600">Hệ thống tự lập danh sách khách cần gọi trong <b>Lịch gọi</b> theo các mốc dưới đây.</p>
-      {CARE_FIELDS.map((f) => (
-        <Field key={f.key} label={f.label}>
-          {(id) => (
-            <div className="flex items-center gap-2">
-              <Input id={id} type="number" min={1} className="w-28" value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: Number(e.target.value) })} />
-              <span className="text-sm text-slate-500">{f.unit}</span>
-            </div>
-          )}
-        </Field>
-      ))}
-      <div className="flex items-center gap-3">
-        <Button
-          onClick={async () => {
-            setMsg(null);
-            try {
-              setV(await api<CareSettings>('/care/settings', { method: 'PUT', body: v }));
-              setMsg({ ok: true, text: 'Đã lưu' });
-            } catch (err) {
-              setMsg({ ok: false, text: err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được' });
-            }
-          }}
-          data-testid="save-care-settings"
-        >
-          Lưu
-        </Button>
-        {msg && <span className={`text-sm ${msg.ok ? 'text-mint-700' : 'text-rose-600'}`}>{msg.text}</span>}
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-2" data-testid="care-settings">
+        <Card className="space-y-4 p-5">
+          <CardTitle>Mốc nhắc hạn giấy tờ xe & chăm sóc sau dịch vụ</CardTitle>
+          <p className="text-sm text-slate-600">
+            Hệ thống tự quét hạn đăng kiểm, bảo hiểm, phù hiệu của từng xe và lịch bảo dưỡng để lập danh sách trong <b>Lịch gọi</b> (có thể ghi đè số ngày nhắc riêng trên từng hồ sơ xe).
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CARE_FIELDS.map((f) => (
+              <Field key={f.key} label={f.label}>
+                {(id) => (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={id}
+                      type="number"
+                      min={1}
+                      className="w-28"
+                      value={v[f.key]}
+                      onChange={(e) => setV({ ...v, [f.key]: Number(e.target.value) })}
+                    />
+                    <span className="text-sm text-slate-500">{f.unit}</span>
+                  </div>
+                )}
+              </Field>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="space-y-4 p-5" data-testid="auto-reminder-settings">
+          <CardTitle>Tự động gửi thông báo nhắc khách (App / Zalo / SMS)</CardTitle>
+          <p className="text-sm text-slate-600">
+            Khi bật, hệ thống tự động gửi nhắc lịch cho khách đến hạn hàng ngày (chống gửi trùng lặp tự động cho mỗi kỳ hạn). Cấu hình chi tiết tài khoản OA ở tab <b>Zalo</b> và Brandname ở tab <b>SMS Brandname</b>.
+          </p>
+          <div className="space-y-2.5">
+            <Checkbox
+              checked={v.autoAppEnabled}
+              onChange={(e) => setV({ ...v, autoAppEnabled: e.target.checked })}
+              label="Tự động đẩy thông báo vào hộp thư App Chủ xe (miễn phí)"
+            />
+            <Checkbox
+              checked={v.autoZaloEnabled}
+              onChange={(e) => setV({ ...v, autoZaloEnabled: e.target.checked })}
+              label="Tự động gửi tin nhắn Zalo ZNS (mẫu CARE_REMINDER)"
+            />
+            <Checkbox
+              checked={v.autoSmsEnabled}
+              onChange={(e) => setV({ ...v, autoSmsEnabled: e.target.checked })}
+              label="Tự động gửi tin nhắn SMS Brandname"
+            />
+            <Checkbox
+              checked={v.smsFallbackWhenZaloFails}
+              onChange={(e) => setV({ ...v, smsFallbackWhenZaloFails: e.target.checked })}
+              label="Tự động chuyển sang gửi SMS dự phòng nếu gửi Zalo ZNS không thành công"
+            />
+          </div>
+          <Field label="Khung giờ hệ thống tự động quét & gửi hàng ngày (giờ Việt Nam)">
+            {(id) => (
+              <Select
+                id={id}
+                value={String(v.sendHourVn)}
+                onChange={(e) => setV({ ...v, sendHourVn: Number(e.target.value) })}
+                className="w-48"
+              >
+                {Array.from({ length: 15 }, (_, idx) => idx + 6).map((h) => (
+                  <option key={h} value={h}>
+                    Từ {String(h).padStart(2, '0')}:00 hàng ngày
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Button
+              onClick={async () => {
+                setMsg(null);
+                try {
+                  setV(await api<CareSettings>('/care/settings', { method: 'PUT', body: v }));
+                  setMsg({ ok: true, text: 'Đã lưu cấu hình nhắc lịch & kênh tự động' });
+                } catch (err) {
+                  setMsg({ ok: false, text: err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được' });
+                }
+              }}
+              data-testid="save-care-settings"
+            >
+              Lưu cấu hình nhắc lịch
+            </Button>
+            <Button
+              variant="outline"
+              disabled={runningAuto}
+              onClick={async () => {
+                setRunningAuto(true);
+                setMsg(null);
+                try {
+                  const r = await api<{ scanned: number; appSent: number; zaloSent: number; smsSent: number; skipped: number }>(
+                    '/care/auto-reminders/run',
+                    { body: {} },
+                  );
+                  setMsg({
+                    ok: true,
+                    text: `Đã quét ${r.scanned} mốc đến hạn · Gửi App: ${r.appSent}, Zalo: ${r.zaloSent}, SMS: ${r.smsSent} (bỏ qua trùng: ${r.skipped})`,
+                  });
+                } catch (err) {
+                  setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'Không chạy quét được' });
+                } finally {
+                  setRunningAuto(false);
+                }
+              }}
+              data-testid="run-auto-from-settings"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Quét & Gửi nhắc ngay
+            </Button>
+            {msg && <span className={`text-sm ${msg.ok ? 'text-mint-700' : 'text-rose-600'}`}>{msg.text}</span>}
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <Card className="space-y-4 p-5" data-testid="maintenance-rules-card">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle>Định mức nhắc bảo dưỡng theo từng hạng mục (Số km hoặc Thời gian)</CardTitle>
+            <p className="mt-0.5 text-sm text-slate-600">
+              Khi đơn sửa chữa chuyển sang <b>Đã giao</b> (hoặc khi ghi nhận trên hồ sơ xe), hệ thống tự nhận diện từ khoá và theo dõi số km đã chạy kể từ lúc thay để nhắc khi chạm ngưỡng km hoặc tháng (tuỳ điều kiện nào đến trước).
+            </p>
+          </div>
+          <Button variant="outline" onClick={addCustomRule}>
+            <Plus className="h-4 w-4" />
+            Thêm hạng mục
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[780px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500">
+                <th className="py-2 pr-2">Bật</th>
+                <th className="py-2 pr-2">Tên hạng mục</th>
+                <th className="py-2 pr-2">Chu kỳ (km)</th>
+                <th className="py-2 pr-2">Chu kỳ (tháng)</th>
+                <th className="py-2 pr-2">Nhắc trước (km)</th>
+                <th className="py-2 pr-2">Nhắc trước (ngày)</th>
+                <th className="py-2">Từ khoá tự nhận diện trên đơn</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r, idx) => (
+                <tr key={r.code} className="border-b border-slate-50">
+                  <td className="py-2 pr-2">
+                    <input
+                      type="checkbox"
+                      checked={r.active}
+                      onChange={(e) => updateRule(idx, { active: e.target.checked })}
+                      aria-label={`Bật ${r.name}`}
+                    />
+                  </td>
+                  <td className="py-2 pr-2">
+                    <Input
+                      value={r.name}
+                      onChange={(e) => updateRule(idx, { name: e.target.value })}
+                      placeholder="VD: Thay dầu hộp số"
+                    />
+                  </td>
+                  <td className="w-28 py-2 pr-2">
+                    <Input
+                      inputMode="numeric"
+                      value={r.intervalKm ?? ''}
+                      onChange={(e) => updateRule(idx, { intervalKm: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : null })}
+                      placeholder="5000"
+                    />
+                  </td>
+                  <td className="w-24 py-2 pr-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={r.intervalMonths ?? ''}
+                      onChange={(e) => updateRule(idx, { intervalMonths: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="6"
+                    />
+                  </td>
+                  <td className="w-28 py-2 pr-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={r.remindBeforeKm}
+                      onChange={(e) => updateRule(idx, { remindBeforeKm: Number(e.target.value || 0) })}
+                    />
+                  </td>
+                  <td className="w-24 py-2 pr-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={r.remindBeforeDays}
+                      onChange={(e) => updateRule(idx, { remindBeforeDays: Number(e.target.value || 1) })}
+                    />
+                  </td>
+                  <td className="py-2">
+                    <Input
+                      value={r.keywords.join(', ')}
+                      onChange={(e) =>
+                        updateRule(idx, {
+                          keywords: e.target.value
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                      placeholder="dau nhot, 5w30, castrol…"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={async () => {
+              setRuleMsg(null);
+              try {
+                const saved = await api<MaintenanceRuleItem[]>('/maintenance/rules', { method: 'PUT', body: { rules } });
+                setRules(saved);
+                setRuleMsg({ ok: true, text: 'Đã lưu bảng định mức bảo dưỡng theo hạng mục.' });
+              } catch (err) {
+                setRuleMsg({
+                  ok: false,
+                  text: err instanceof ApiError ? (err.errors?.[0]?.message ?? err.message) : 'Không lưu được định mức',
+                });
+              }
+            }}
+            data-testid="save-maintenance-rules"
+          >
+            Lưu định mức bảo dưỡng
+          </Button>
+          {ruleMsg && <span className={`text-sm ${ruleMsg.ok ? 'text-mint-700' : 'text-rose-600'}`}>{ruleMsg.text}</span>}
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -558,6 +812,19 @@ const ACTION_LABEL: Record<string, string> = {
   'payment.created': 'Thu tiền',
   'payment.voided': 'Huỷ phiếu thu',
   'file.uploaded': 'Tải file lên',
+  'sms.settings_saved': 'Lưu cấu hình SMS Brandname',
+  'maintenance.rules_saved': 'Cập nhật định mức bảo dưỡng',
+  'vehicle.maintenance_recorded': 'Ghi nhận thay mới / bảo dưỡng xe',
+  'vehicle.maintenance_deleted': 'Xoá mốc theo dõi bảo dưỡng xe',
+  'serial.created': 'Nhập kho số sê-ri',
+  'serial.installed': 'Đăng ký & lắp sê-ri lên xe',
+  'serial.lap_moi': 'Lắp mới sê-ri lên xe',
+  'serial.lap_lai': 'Lắp lại sê-ri lên xe',
+  'serial.dao_vi_tri': 'Đảo vị trí sê-ri trên xe',
+  'serial.chuyen_xe': 'Chuyển sê-ri sang xe khác',
+  'serial.thao_ra': 'Tháo rời sê-ri khỏi xe',
+  'serial.doi_bao_hanh': 'Đổi / thu hồi sê-ri bảo hành',
+  'serial.loai_bo': 'Thanh lý / ngừng sử dụng sê-ri',
 };
 
 const FILTERS = [
@@ -678,7 +945,14 @@ export default function SettingsPage() {
   const { can } = useAuth();
   const tabs = [
     { value: 'chi-nhanh' as const, label: 'Chi nhánh' },
-    ...(can('settings.manage') ? [{ value: 'mau-in' as const, label: 'Mẫu in & thanh toán' }, { value: 'cham-soc' as const, label: 'Chăm sóc khách' }, { value: 'zalo' as const, label: 'Zalo' }] : []),
+    ...(can('settings.manage')
+      ? [
+          { value: 'mau-in' as const, label: 'Mẫu in & thanh toán' },
+          { value: 'cham-soc' as const, label: 'Chăm sóc khách' },
+          { value: 'zalo' as const, label: 'Zalo' },
+          { value: 'sms' as const, label: 'SMS Brandname' },
+        ]
+      : []),
     ...(can('staff.view') ? [{ value: 'vai-tro' as const, label: 'Vai trò & quyền' }] : []),
     ...(can('audit.view') ? [{ value: 'nhat-ky' as const, label: 'Nhật ký thao tác' }] : []),
   ];
@@ -691,6 +965,7 @@ export default function SettingsPage() {
         {tab === 'mau-in' && <PrintSettingsTab />}
         {tab === 'cham-soc' && <CareSettingsTab />}
         {tab === 'zalo' && <ZaloSettingsTab />}
+        {tab === 'sms' && <SmsSettingsTab />}
         {tab === 'vai-tro' && <RolesTab />}
         {tab === 'nhat-ky' && <AuditTab />}
       </div>

@@ -81,6 +81,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/danh-muc', label: 'Danh mục sản phẩm', icon: Boxes, screen: 'A3.20', round: '1.4', tone: 'lav', permission: 'inventory.view', built: true },
       { href: '/ton-kho', label: 'Tồn kho chi nhánh', icon: Warehouse, screen: 'A3.21', round: '1.4', tone: 'sky', permission: 'inventory.view', built: true },
+      { href: '/seri-bao-hanh', label: 'Sê-ri & Bảo hành', icon: ShieldCheck, screen: 'A3.22', round: '5.4', tone: 'mint', permission: 'ro.view', built: true },
     ],
   },
   {

@@ -9,9 +9,11 @@ import { VehicleFields, vehiclePayload, type VehicleFormValue } from '@/componen
 import { VehicleAiSummaryCard } from '@/components/ai-assistant-cards';
 import { OrderHistory } from '@/components/order-history';
 import { RequirePermission } from '@/components/require-permission';
+import { VehicleMaintenancePanel, VehicleSerialsPanel } from '@/components/vehicle-fleet-panels';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { daysUntil, expiryText, expiryTone, fmtDate, fmtKm } from '@/lib/crm';
+import { badgeTypeLabel } from '@/lib/fleet';
 
 interface Vehicle {
   id: string;
@@ -28,6 +30,12 @@ interface Vehicle {
   odometerKm: number | null;
   registrationExpiry: string | null;
   insuranceExpiry: string | null;
+  badgeNo: string | null;
+  badgeType: string | null;
+  badgeExpiry: string | null;
+  registrationRemindDays: number | null;
+  insuranceRemindDays: number | null;
+  badgeRemindDays: number | null;
   note: string | null;
   owner: { id: string; code: string; name: string; phone: string | null } | null;
   owners: { customer: { id: string; code: string; name: string; phone: string | null }; fromDate: string; toDate: string | null }[];
@@ -35,11 +43,28 @@ interface Vehicle {
 }
 
 const toForm = (v: Vehicle): VehicleFormValue => ({
-  plate: v.plate, make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', color: v.color ?? '', vin: v.vin ?? '', fuel: v.fuel ?? '',
-  transmission: v.transmission ?? '', tireSize: v.tireSize ?? '', odometerKm: '', registrationExpiry: v.registrationExpiry?.slice(0, 10) ?? '', insuranceExpiry: v.insuranceExpiry?.slice(0, 10) ?? '', note: v.note ?? '',
+  plate: v.plate,
+  make: v.make ?? '',
+  model: v.model ?? '',
+  year: v.year ? String(v.year) : '',
+  color: v.color ?? '',
+  vin: v.vin ?? '',
+  fuel: v.fuel ?? '',
+  transmission: v.transmission ?? '',
+  tireSize: v.tireSize ?? '',
+  odometerKm: '',
+  registrationExpiry: v.registrationExpiry?.slice(0, 10) ?? '',
+  insuranceExpiry: v.insuranceExpiry?.slice(0, 10) ?? '',
+  badgeNo: v.badgeNo ?? '',
+  badgeType: v.badgeType ?? '',
+  badgeExpiry: v.badgeExpiry?.slice(0, 10) ?? '',
+  registrationRemindDays: v.registrationRemindDays ? String(v.registrationRemindDays) : '',
+  insuranceRemindDays: v.insuranceRemindDays ? String(v.insuranceRemindDays) : '',
+  badgeRemindDays: v.badgeRemindDays ? String(v.badgeRemindDays) : '',
+  note: v.note ?? '',
 });
 
-const SOURCE_LABEL: Record<string, string> = { MANUAL: 'Nhập tay', IMPORT: 'Nhập file', CORRECTION: 'Sửa sai', RO: 'Tiếp nhận xe' };
+const SOURCE_LABEL: Record<string, string> = { MANUAL: 'Nhập tay', IMPORT: 'Nhập file', CORRECTION: 'Sửa sai', RO: 'Tiếp nhận xe', OWNER: 'Chủ xe cập nhật' };
 
 function Spec({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -54,6 +79,7 @@ function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
   const { can } = useAuth();
   const [v, setV] = useState<Vehicle | null>(null);
+  const [fleetReload, setFleetReload] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'edit' | 'km' | 'transfer' | null>(null);
   const [form, setForm] = useState<VehicleFormValue | null>(null);
@@ -66,6 +92,7 @@ function VehicleDetail() {
   const load = useCallback(async () => {
     try {
       setV(await api<Vehicle>(`/vehicles/${id}`));
+      setFleetReload((n) => n + 1);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Không tải được xe');
     }
@@ -132,17 +159,58 @@ function VehicleDetail() {
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
           <Card className="p-4 lg:p-5">
-            <CardTitle className="mb-3">Thông số</CardTitle>
+            <CardTitle className="mb-3">Thông số & Hạn giấy tờ xe</CardTitle>
             <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
               <Spec label="Số VIN" value={v.vin && <span className="font-mono text-sm">{v.vin}</span>} />
               <Spec label="Nhiên liệu" value={v.fuel} />
               <Spec label="Hộp số" value={v.transmission} />
               <Spec label="Size lốp" value={v.tireSize} />
-              <Spec label="Đăng kiểm" value={<Badge tone={expiryTone(daysUntil(v.registrationExpiry))}>{expiryText(daysUntil(v.registrationExpiry), v.registrationExpiry)}</Badge>} />
-              <Spec label="Bảo hiểm" value={<Badge tone={expiryTone(daysUntil(v.insuranceExpiry))}>{expiryText(daysUntil(v.insuranceExpiry), v.insuranceExpiry)}</Badge>} />
+              <Spec
+                label={v.registrationRemindDays ? `Đăng kiểm (nhắc trước ${v.registrationRemindDays} ngày)` : 'Đăng kiểm'}
+                value={<Badge tone={expiryTone(daysUntil(v.registrationExpiry))}>{expiryText(daysUntil(v.registrationExpiry), v.registrationExpiry)}</Badge>}
+              />
+              <Spec
+                label={v.insuranceRemindDays ? `Bảo hiểm (nhắc trước ${v.insuranceRemindDays} ngày)` : 'Bảo hiểm'}
+                value={<Badge tone={expiryTone(daysUntil(v.insuranceExpiry))}>{expiryText(daysUntil(v.insuranceExpiry), v.insuranceExpiry)}</Badge>}
+              />
+              <Spec
+                label={v.badgeRemindDays ? `Phù hiệu xe (nhắc trước ${v.badgeRemindDays} ngày)` : 'Phù hiệu xe'}
+                value={
+                  v.badgeExpiry || v.badgeNo ? (
+                    <div className="space-y-0.5">
+                      {v.badgeExpiry && <Badge tone={expiryTone(daysUntil(v.badgeExpiry))}>{expiryText(daysUntil(v.badgeExpiry), v.badgeExpiry)}</Badge>}
+                      {(v.badgeNo || v.badgeType) && (
+                        <div className="text-xs text-slate-600">
+                          {v.badgeNo && <span className="font-mono">{v.badgeNo}</span>}
+                          {v.badgeType && ` · ${badgeTypeLabel(v.badgeType)}`}
+                        </div>
+                      )}
+                    </div>
+                  ) : null
+                }
+              />
             </div>
             {v.note && <p className="mt-3 whitespace-pre-line rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">{v.note}</p>}
           </Card>
+
+          <VehicleMaintenancePanel
+            vehicleId={v.id}
+            plate={v.plate}
+            currentKm={v.odometerKm}
+            reloadToken={fleetReload}
+            onChanged={() => void load()}
+          />
+
+          <VehicleSerialsPanel
+            vehicleId={v.id}
+            plate={v.plate}
+            make={v.make}
+            model={v.model}
+            currentKm={v.odometerKm}
+            reloadToken={fleetReload}
+            onChanged={() => void load()}
+          />
+
           {can('ai.use') && <VehicleAiSummaryCard vehicleId={v.id} />}
           {can('ro.view') && <OrderHistory vehicleId={v.id} />}
           <Card className="p-4 lg:p-5">

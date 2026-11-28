@@ -11,6 +11,7 @@ import { RequirePermission } from '@/components/require-permission';
 import { api } from '@/lib/api';
 import { daysUntil, expiryText, expiryTone, fmtDate, fmtKm, type Paged } from '@/lib/crm';
 import { fetchAllPages } from '@/lib/export';
+import { badgeTypeLabel } from '@/lib/fleet';
 
 interface Row {
   id: string;
@@ -22,6 +23,9 @@ interface Row {
   odometerKm: number | null;
   registrationExpiry: string | null;
   insuranceExpiry: string | null;
+  badgeNo: string | null;
+  badgeType: string | null;
+  badgeExpiry: string | null;
   owner: { id: string; name: string; phone: string | null } | null;
 }
 
@@ -56,11 +60,11 @@ function VehiclesList() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Biển số, hãng, dòng xe, SĐT chủ xe…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm xe" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Biển số, phù hiệu, hãng xe, SĐT chủ xe…" className="rounded-full bg-white/80 pl-10" aria-label="Tìm xe" />
         </div>
         <Select value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }} className="w-auto rounded-full bg-white/80" aria-label="Lọc xe">
           <option value="">Tất cả xe</option>
-          <option value="expiring">Sắp hết hạn đăng kiểm / bảo hiểm (30 ngày)</option>
+          <option value="expiring">Sắp hết hạn đăng kiểm / bảo hiểm / phù hiệu (30 ngày)</option>
           <option value="review">Biển số cần xem lại</option>
         </Select>
         <div className="flex-1" />
@@ -81,6 +85,9 @@ function VehiclesList() {
             { header: 'Số km', value: (v) => v.odometerKm },
             { header: 'Hạn đăng kiểm', value: (v) => (v.registrationExpiry ? fmtDate(v.registrationExpiry) : '') },
             { header: 'Hạn bảo hiểm', value: (v) => (v.insuranceExpiry ? fmtDate(v.insuranceExpiry) : '') },
+            { header: 'Số phù hiệu', value: (v) => v.badgeNo ?? '' },
+            { header: 'Loại phù hiệu', value: (v) => badgeTypeLabel(v.badgeType) },
+            { header: 'Hạn phù hiệu', value: (v) => (v.badgeExpiry ? fmtDate(v.badgeExpiry) : '') },
           ]}
         />
       </div>
@@ -97,7 +104,8 @@ function VehiclesList() {
                     <th className="px-3 py-3 font-semibold">Xe</th>
                     <th className="px-3 py-3 font-semibold">Chủ xe</th>
                     <th className="px-3 py-3 font-semibold">Số km</th>
-                    <th className="px-5 py-3 font-semibold">Đăng kiểm</th>
+                    <th className="px-3 py-3 font-semibold">Đăng kiểm</th>
+                    <th className="px-5 py-3 font-semibold">Bảo hiểm / Phù hiệu</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -118,11 +126,26 @@ function VehiclesList() {
                         )}
                       </td>
                       <td className="px-3 py-3 text-slate-600">{fmtKm(v.odometerKm)}</td>
-                      <td className="px-5 py-3"><Badge tone={expiryTone(daysUntil(v.registrationExpiry))}>{expiryText(daysUntil(v.registrationExpiry), v.registrationExpiry)}</Badge></td>
+                      <td className="px-3 py-3"><Badge tone={expiryTone(daysUntil(v.registrationExpiry))}>{expiryText(daysUntil(v.registrationExpiry), v.registrationExpiry)}</Badge></td>
+                      <td className="px-5 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {v.insuranceExpiry && (
+                            <Badge tone={expiryTone(daysUntil(v.insuranceExpiry))}>
+                              BH: {expiryText(daysUntil(v.insuranceExpiry), v.insuranceExpiry)}
+                            </Badge>
+                          )}
+                          {v.badgeExpiry && (
+                            <Badge tone={expiryTone(daysUntil(v.badgeExpiry))}>
+                              PH: {expiryText(daysUntil(v.badgeExpiry), v.badgeExpiry)}
+                            </Badge>
+                          )}
+                          {!v.insuranceExpiry && !v.badgeExpiry && <span className="text-slate-400">—</span>}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {!data.items.length && (
-                    <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-500">Không có xe phù hợp</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">Không có xe phù hợp</td></tr>
                   )}
                 </tbody>
               </table>

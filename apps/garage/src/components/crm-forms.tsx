@@ -5,6 +5,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { SOURCES, TIERS, type Source, type Tier } from '@/lib/crm';
+import { BADGE_TYPES } from '@/lib/fleet';
 
 export interface CustomerFormValue {
   type: 'PERSON' | 'COMPANY';
@@ -36,11 +37,35 @@ export interface VehicleFormValue {
   odometerKm: string;
   registrationExpiry: string;
   insuranceExpiry: string;
+  badgeNo: string;
+  badgeType: string;
+  badgeExpiry: string;
+  registrationRemindDays: string;
+  insuranceRemindDays: string;
+  badgeRemindDays: string;
   note: string;
 }
 
 export const emptyVehicle = (): VehicleFormValue => ({
-  plate: '', make: '', model: '', year: '', color: '', vin: '', fuel: '', transmission: '', tireSize: '', odometerKm: '', registrationExpiry: '', insuranceExpiry: '', note: '',
+  plate: '',
+  make: '',
+  model: '',
+  year: '',
+  color: '',
+  vin: '',
+  fuel: '',
+  transmission: '',
+  tireSize: '',
+  odometerKm: '',
+  registrationExpiry: '',
+  insuranceExpiry: '',
+  badgeNo: '',
+  badgeType: '',
+  badgeExpiry: '',
+  registrationRemindDays: '',
+  insuranceRemindDays: '',
+  badgeRemindDays: '',
+  note: '',
 });
 
 export const emptyCustomer = (): CustomerFormValue => ({
@@ -50,6 +75,7 @@ export const emptyCustomer = (): CustomerFormValue => ({
 /** Chuyển giá trị form xe sang dữ liệu gửi API (bỏ ô trống). */
 export function vehiclePayload(v: VehicleFormValue, includeKm = true) {
   const t = (s: string) => (s.trim() ? s.trim() : null);
+  const numOrNull = (s: string) => (s.trim() ? Number(s.replace(/\D/g, '')) || null : null);
   return {
     plate: v.plate.trim(),
     make: t(v.make),
@@ -63,6 +89,12 @@ export function vehiclePayload(v: VehicleFormValue, includeKm = true) {
     ...(includeKm ? { odometerKm: v.odometerKm ? Number(v.odometerKm.replace(/\D/g, '')) : null } : {}),
     registrationExpiry: v.registrationExpiry || null,
     insuranceExpiry: v.insuranceExpiry || null,
+    badgeNo: t(v.badgeNo),
+    badgeType: t(v.badgeType),
+    badgeExpiry: v.badgeExpiry || null,
+    registrationRemindDays: numOrNull(v.registrationRemindDays),
+    insuranceRemindDays: numOrNull(v.insuranceRemindDays),
+    badgeRemindDays: numOrNull(v.badgeRemindDays),
     note: t(v.note),
   };
 }
@@ -90,33 +122,67 @@ export function customerPayload(c: CustomerFormValue) {
 export function VehicleFields({ value, onChange, showKm = true }: { value: VehicleFormValue; onChange: (v: VehicleFormValue) => void; showKm?: boolean }) {
   const set = (k: keyof VehicleFormValue) => (e: { target: { value: string } }) => onChange({ ...value, [k]: e.target.value });
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <Field label="Biển số" hint="VD: 61C-279.99">{(id) => <Input id={id} name="plate" required value={value.plate} onChange={set('plate')} className="uppercase" />}</Field>
-      <Field label="Hãng xe">{(id) => <Input id={id} name="make" value={value.make} onChange={set('make')} placeholder="Toyota" />}</Field>
-      <Field label="Dòng xe">{(id) => <Input id={id} name="model" value={value.model} onChange={set('model')} placeholder="Vios" />}</Field>
-      <Field label="Đời xe (năm)">{(id) => <Input id={id} name="year" inputMode="numeric" value={value.year} onChange={set('year')} />}</Field>
-      <Field label="Màu xe">{(id) => <Input id={id} name="color" value={value.color} onChange={set('color')} />}</Field>
-      {showKm && <Field label="Số km hiện tại">{(id) => <Input id={id} name="odometerKm" inputMode="numeric" value={value.odometerKm} onChange={set('odometerKm')} />}</Field>}
-      <Field label="Số VIN" hint="17 ký tự" className="sm:col-span-2">{(id) => <Input id={id} name="vin" value={value.vin} onChange={set('vin')} className="uppercase" />}</Field>
-      <Field label="Size lốp">{(id) => <Input id={id} name="tireSize" value={value.tireSize} onChange={set('tireSize')} placeholder="185/60R15" />}</Field>
-      <Field label="Nhiên liệu">
-        {(id) => (
-          <Select id={id} name="fuel" value={value.fuel} onChange={set('fuel')}>
-            <option value="">—</option>
-            {['Xăng', 'Dầu', 'Hybrid', 'Điện'].map((f) => <option key={f}>{f}</option>)}
-          </Select>
-        )}
-      </Field>
-      <Field label="Hộp số">
-        {(id) => (
-          <Select id={id} name="transmission" value={value.transmission} onChange={set('transmission')}>
-            <option value="">—</option>
-            {['Số sàn', 'Số tự động', 'CVT'].map((f) => <option key={f}>{f}</option>)}
-          </Select>
-        )}
-      </Field>
-      <Field label="Hạn đăng kiểm">{(id) => <Input id={id} name="registrationExpiry" type="date" value={value.registrationExpiry} onChange={set('registrationExpiry')} />}</Field>
-      <Field label="Hạn bảo hiểm">{(id) => <Input id={id} name="insuranceExpiry" type="date" value={value.insuranceExpiry} onChange={set('insuranceExpiry')} />}</Field>
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Biển số" hint="VD: 61C-279.99">{(id) => <Input id={id} name="plate" required value={value.plate} onChange={set('plate')} className="uppercase" />}</Field>
+        <Field label="Hãng xe">{(id) => <Input id={id} name="make" value={value.make} onChange={set('make')} placeholder="Toyota" />}</Field>
+        <Field label="Dòng xe">{(id) => <Input id={id} name="model" value={value.model} onChange={set('model')} placeholder="Vios" />}</Field>
+        <Field label="Đời xe (năm)">{(id) => <Input id={id} name="year" inputMode="numeric" value={value.year} onChange={set('year')} />}</Field>
+        <Field label="Màu xe">{(id) => <Input id={id} name="color" value={value.color} onChange={set('color')} />}</Field>
+        {showKm && <Field label="Số km hiện tại">{(id) => <Input id={id} name="odometerKm" inputMode="numeric" value={value.odometerKm} onChange={set('odometerKm')} />}</Field>}
+        <Field label="Số VIN" hint="17 ký tự" className="sm:col-span-2">{(id) => <Input id={id} name="vin" value={value.vin} onChange={set('vin')} className="uppercase" />}</Field>
+        <Field label="Size lốp">{(id) => <Input id={id} name="tireSize" value={value.tireSize} onChange={set('tireSize')} placeholder="185/60R15" />}</Field>
+        <Field label="Nhiên liệu">
+          {(id) => (
+            <Select id={id} name="fuel" value={value.fuel} onChange={set('fuel')}>
+              <option value="">—</option>
+              {['Xăng', 'Dầu', 'Hybrid', 'Điện'].map((f) => <option key={f}>{f}</option>)}
+            </Select>
+          )}
+        </Field>
+        <Field label="Hộp số">
+          {(id) => (
+            <Select id={id} name="transmission" value={value.transmission} onChange={set('transmission')}>
+              <option value="">—</option>
+              {['Số sàn', 'Số tự động', 'CVT'].map((f) => <option key={f}>{f}</option>)}
+            </Select>
+          )}
+        </Field>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Theo dõi hạn giấy tờ & thời điểm gửi thông báo trước khi hết hạn
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Hạn đăng kiểm">{(id) => <Input id={id} name="registrationExpiry" type="date" value={value.registrationExpiry} onChange={set('registrationExpiry')} />}</Field>
+          <Field label="Hạn bảo hiểm">{(id) => <Input id={id} name="insuranceExpiry" type="date" value={value.insuranceExpiry} onChange={set('insuranceExpiry')} />}</Field>
+          <Field label="Hạn phù hiệu xe">{(id) => <Input id={id} name="badgeExpiry" type="date" value={value.badgeExpiry} onChange={set('badgeExpiry')} />}</Field>
+          <Field label="Số phù hiệu xe">{(id) => <Input id={id} name="badgeNo" value={value.badgeNo} onChange={set('badgeNo')} placeholder="VD: HP-612409" />}</Field>
+          <Field label="Loại phù hiệu">
+            {(id) => (
+              <Select id={id} name="badgeType" value={value.badgeType} onChange={set('badgeType')}>
+                <option value="">— Không / Chưa gắn —</option>
+                {BADGE_TYPES.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <div className="hidden sm:block" />
+          <Field label="Nhắc trước hạn đăng kiểm (ngày)" hint="Để trống = theo Cài đặt chung">
+            {(id) => <Input id={id} name="registrationRemindDays" type="number" min={1} max={180} value={value.registrationRemindDays} onChange={set('registrationRemindDays')} placeholder="Mặc định" />}
+          </Field>
+          <Field label="Nhắc trước hạn bảo hiểm (ngày)" hint="Để trống = theo Cài đặt chung">
+            {(id) => <Input id={id} name="insuranceRemindDays" type="number" min={1} max={180} value={value.insuranceRemindDays} onChange={set('insuranceRemindDays')} placeholder="Mặc định" />}
+          </Field>
+          <Field label="Nhắc trước hạn phù hiệu (ngày)" hint="Để trống = theo Cài đặt chung">
+            {(id) => <Input id={id} name="badgeRemindDays" type="number" min={1} max={180} value={value.badgeRemindDays} onChange={set('badgeRemindDays')} placeholder="Mặc định" />}
+          </Field>
+        </div>
+      </div>
     </div>
   );
 }

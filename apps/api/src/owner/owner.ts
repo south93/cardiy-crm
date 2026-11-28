@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { Public } from '../common/auth.decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import * as QRCode from 'qrcode';
-import { DEFAULT_CARE } from '../care/care-rules';
+import { AutoReminderService } from '../care/auto-reminder';
+import { CareModule } from '../care/care.controller';
+import { DEFAULT_CARE, vnDate, vnToday, ymd } from '../care/care-rules';
 import { OrderMediaService } from '../orders/media';
 import { OrdersModule } from '../orders/orders.module';
 import { STATUS_LABEL, paymentState } from '../orders/order-rules';
@@ -13,6 +15,8 @@ import { applyQuoteResponse, quoteView, type QuoteLine } from '../orders/quotes'
 import { AuditService } from '../audit/audit.service';
 import { OwnerBookingController, OwnerBookingService } from './owner-booking';
 import { PrismaService } from '../prisma/prisma.service';
+import { evaluateSerialWarranty, positionLabel, SERIAL_KIND_LABEL } from '../serials/fleet-rules';
+import { MaintenanceService } from '../serials/serials';
 import { CustomerAppController, OwnerAuthController, OwnerAuthService, OwnerGuard, maskPhone, type OwnerRequest } from './owner-auth';
 
 const n = (b: bigint | number) => Number(b);
@@ -36,6 +40,8 @@ export class OwnerService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly media: OrderMediaService,
+    private readonly maintenance: MaintenanceService,
+    private readonly autoReminder: AutoReminderService,
   ) {}
 
   private async links(userId: string) {
@@ -61,7 +67,7 @@ export class OwnerService {
     if (!ids.length) return [];
     const own = await this.prisma.vehicleOwnership.findMany({
       where: { customerId: { in: ids }, toDate: null, vehicle: { deletedAt: null } },
-      include: { vehicle: true },
+      include: { vehicle: { include: { compliance: true } } },
       orderBy: { fromDate: 'asc' },
     });
     const tenants = await this.prisma.tenant.findMany({ where: { id: { in: [...new Set(own.map((o) => o.vehicle.tenantId))] } }, select: { id: true, name: true, printSettings: true, careSettings: true } });
@@ -87,6 +93,8 @@ export class OwnerService {
         odometerKm: v.odometerKm,
         registrationExpiry: v.registrationExpiry,
         insuranceExpiry: v.insuranceExpiry,
+        badgeNo: v.compliance?.badgeNo ?? null,
+        badgeExpiry: v.compliance?.badgeExpiry ?? null,
         garage: garageName(tenants.find((t) => t.id === v.tenantId)!),
         visits: mine.filter((o) => o.status === 'DA_GIAO').length,
         lastVisit: last ? { date: last.deliveredAt, km: last.odometerKm } : null,
@@ -99,21 +107,34 @@ export class OwnerService {
 
   private async ownedVehicle(userId: string, vehicleId: string) {
     const ids = await this.customerIds(userId);
-    const own = await this.prisma.vehicleOwnership.findFirst({ where: { vehicleId, customerId: { in: ids }, toDate: null, vehicle: { deletedAt: null } }, include: { vehicle: true } });
+    const own = await this.prisma.vehicleOwnership.findFirst({
+      where: { vehicleId, customerId: { in: ids }, toDate: null, vehicle: { deletedAt: null } },
+      include: { vehicle: { include: { compliance: true } } },
+    });
     if (!own) throw new NotFoundException('Không tìm thấy xe');
     return { vehicle: own.vehicle, customerIds: ids };
   }
 
   async vehicle(userId: string, vehicleId: string) {
     const { vehicle: v, customerIds } = await this.ownedVehicle(userId, vehicleId);
-    const [orders, odo] = await Promise.all([
+    const [orders, odo, maintRows, serialRows] = await Promise.all([
       this.prisma.repairOrder.findMany({
         where: { vehicleId, customerId: { in: customerIds }, status: { not: 'HUY' } },
         orderBy: { receivedAt: 'desc' },
         include: { branch: { select: { name: true } }, items: { orderBy: { sortOrder: 'asc' }, select: { name: true } } },
       }),
       this.prisma.odometerReading.findMany({ where: { vehicleId }, orderBy: { createdAt: 'desc' }, take: 10, select: { km: true, source: true, createdAt: true } }),
+      this.prisma.vehicleMaintenanceItem.findMany({
+        where: { vehicleId, status: 'DANG_THEO_DOI' },
+        orderBy: { installedAt: 'desc' },
+      }),
+      this.prisma.serialItem.findMany({
+        where: { currentVehicleId: vehicleId, status: 'DANG_SU_DUNG' },
+        orderBy: { installedAt: 'desc' },
+      }),
     ]);
+
+    const today = vnToday();
     return {
       id: v.id,
       plate: formatPlate(v.plateNo),
@@ -128,6 +149,26 @@ export class OwnerService {
       odometerKm: v.odometerKm,
       registrationExpiry: v.registrationExpiry,
       insuranceExpiry: v.insuranceExpiry,
+      badgeNo: v.compliance?.badgeNo ?? null,
+      badgeType: v.compliance?.badgeType ?? null,
+      badgeExpiry: v.compliance?.badgeExpiry ?? null,
+      maintenanceItems: maintRows.map((m) => this.maintenance.formatItemView(m, v.odometerKm, today)),
+      serialItems: serialRows.map((s) => {
+        const w = evaluateSerialWarranty(s, v.odometerKm, today);
+        return {
+          id: s.id,
+          serialNo: s.serialNo,
+          kind: s.kind,
+          kindLabel: SERIAL_KIND_LABEL[s.kind],
+          productName: s.productName,
+          brand: s.brand,
+          positionLabel: positionLabel(s.position),
+          installedAt: s.installedAt ? ymd(vnDate(s.installedAt)) : null,
+          installedKm: s.installedKm,
+          warrantyState: w.warrantyState,
+          warrantySummary: w.summaryText,
+        };
+      }),
       odometers: odo,
       orders: orders.map((o) => ({
         id: o.id,
@@ -144,7 +185,7 @@ export class OwnerService {
     };
   }
 
-  /** Chủ xe tự cập nhật số km (không được nhỏ hơn số đang có) */
+  /** Chủ xe tự cập nhật số km (không được nhỏ hơn số đang có) — đồng thời kích hoạt kiểm tra mốc bảo dưỡng tự động */
   async addOdometer(userId: string, vehicleId: string, km: number) {
     const { vehicle: v } = await this.ownedVehicle(userId, vehicleId);
     if (v.odometerKm !== null && km < v.odometerKm) throw new BadRequestException(`Số km không được nhỏ hơn ${v.odometerKm.toLocaleString('vi-VN')} km đang lưu`);
@@ -152,6 +193,7 @@ export class OwnerService {
       this.prisma.odometerReading.create({ data: { vehicleId, km, source: 'OWNER', recordedBy: userId } }),
       this.prisma.vehicle.update({ where: { id: vehicleId }, data: { odometerKm: km } }),
     ]);
+    void this.autoReminder.runForTenant(v.tenantId).catch(() => undefined);
     return { odometerKm: km };
   }
 
@@ -351,7 +393,7 @@ export class OwnerController {
 }
 
 @Module({
-  imports: [OrdersModule],
+  imports: [OrdersModule, CareModule],
   controllers: [OwnerAuthController, OwnerController, OwnerBookingController, CustomerAppController],
   providers: [OwnerAuthService, OwnerService, OwnerBookingService, OwnerGuard],
   exports: [OwnerGuard, OwnerBookingService],

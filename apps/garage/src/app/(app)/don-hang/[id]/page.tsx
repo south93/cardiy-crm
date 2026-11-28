@@ -2,7 +2,7 @@
 
 import type { OrderIntakeData, PermissionCode } from '@cardiy/shared';
 import { Alert, Badge, Button, Card, CardTitle, Dialog, Field, Input, Select, Spinner } from '@cardiy/ui';
-import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, Truck, Undo2, User } from 'lucide-react';
+import { Ban, Car, ClipboardCheck, Printer, CheckCircle2, ChevronLeft, CircleDollarSign, Pencil, Play, RotateCcw, ShieldCheck, Truck, Undo2, User } from 'lucide-react';
 import Link from 'next/link';
 import { OrderQuoteCard } from '@/components/order-quote-card';
 import { OrderAiQuoteCard } from '@/components/ai-assistant-cards';
@@ -183,6 +183,16 @@ function OrderDetail() {
             <Link href={`/viec-cua-toi/${o.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50" data-testid="open-inspection">
               <ClipboardCheck className="h-3.5 w-3.5" />
               Nhập phiếu kiểm tra
+            </Link>
+          )}
+          {o.vehicle && (
+            <Link
+              href={`/seri-bao-hanh?q=${encodeURIComponent(o.vehicle.plate)}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              data-testid="order-serials-link"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-mint-700" />
+              Sê-ri & Bảo hành
             </Link>
           )}
           <div className="flex gap-1 rounded-full bg-slate-50 p-1" aria-label="In phiếu">

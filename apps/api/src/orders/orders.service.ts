@@ -7,6 +7,7 @@ import { reserveNumbers } from '../crm/counters';
 import { applyMovement } from '../inventory/stock';
 import { awardOrderLoyaltyPoints } from '../marketing/loyalty-helper';
 import { PrismaService } from '../prisma/prisma.service';
+import { MaintenanceService } from '../serials/serials';
 import { OrderMediaService, type IntakeInput, type PhotoInputItem } from './media';
 import { EDITABLE_STATUSES, lineAmount, OPEN_STATUSES, orderTotals, paymentState, STATUS_LABEL, transitionError, type ItemInput, type OrderStatus } from './order-rules';
 import { expirePendingQuotes } from './quotes';
@@ -66,6 +67,7 @@ export class OrdersService {
     private readonly audit: AuditService,
     private readonly zalo: ZaloService,
     private readonly media: OrderMediaService,
+    private readonly maintenance: MaintenanceService,
   ) {}
 
   /** Người không có quyền về tiền (vd. KTV) không thấy giá. */
@@ -498,6 +500,15 @@ export class OrdersService {
           orderId: id,
           orderCode: o.code,
           orderTotal: num(o.total),
+          actorId: a.userId,
+        });
+        // Tự động ghi nhận các hạng mục bảo dưỡng (Dầu nhớt, Lốp, Ắc quy…) theo ngày thay & số km lúc giao xe
+        await this.maintenance.recordFromDeliveredOrder(tx, {
+          tenantId: a.tenantId,
+          orderId: id,
+          vehicleId: o.vehicleId,
+          odometerKm: o.odometerKm,
+          deliveredAt: now,
           actorId: a.userId,
         });
       }
