@@ -15,6 +15,11 @@ const SOURCES = ['ZALO', 'FACEBOOK', 'TIKTOK', 'GIOI_THIEU', 'KHACH_CU', 'VANG_L
 const opt = (s: z.ZodString) => s.trim().max(300).optional().nullable().transform((v) => (v ? v : v === '' ? null : v));
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày dạng YYYY-MM-DD').optional().nullable().or(z.literal('').transform(() => null));
 
+const optRemindDays = z.preprocess(
+  (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
+  z.number().int().min(1).max(180).nullable().optional(),
+);
+
 const vehicleFields = {
   plate: z.string().trim().min(2, 'Cần nhập biển số').max(20),
   vin: opt(z.string()),
@@ -27,6 +32,12 @@ const vehicleFields = {
   tireSize: opt(z.string()),
   registrationExpiry: isoDate,
   insuranceExpiry: isoDate,
+  badgeNo: opt(z.string()),
+  badgeType: opt(z.string()),
+  badgeExpiry: isoDate,
+  registrationRemindDays: optRemindDays,
+  insuranceRemindDays: optRemindDays,
+  badgeRemindDays: optRemindDays,
   note: opt(z.string()),
 };
 const vehicleCreate = z.object({ ...vehicleFields, odometerKm: z.coerce.number().int().min(0).max(5_000_000).optional().nullable(), customerId: z.string().uuid().optional().nullable() });

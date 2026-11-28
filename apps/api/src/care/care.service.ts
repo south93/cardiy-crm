@@ -5,12 +5,14 @@ import type { Access } from '../auth/access.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { evaluateMaintenanceItem } from '../serials/fleet-rules';
 import { addDays, addMonths, applyOutcome, DEFAULT_CARE, dueBefore, KIND_LABEL, vnDate, vnToday, ymd, type CareSettings } from './care-rules';
 
 type View = 'hom-nay' | 'sap-toi' | 'da-xu-ly';
 const LOOKAHEAD_DAYS = 7;
 /** Đã hết hạn quá lâu thì thôi không gọi nữa */
 const STALE_DAYS = 30;
+const MAX_LEAD_SCAN_DAYS = 180;
 
 @Injectable()
 export class CareService {
@@ -25,16 +27,18 @@ export class CareService {
     return { ...DEFAULT_CARE, ...((t.careSettings ?? {}) as Partial<CareSettings>) };
   }
 
-  async saveSettings(a: Access, dto: CareSettings, ip?: string) {
-    await this.prisma.tenant.update({ where: { id: a.tenantId }, data: { careSettings: dto as unknown as Prisma.InputJsonValue } });
+  async saveSettings(a: Access, dto: Partial<CareSettings>, ip?: string) {
+    const cur = await this.settings(a.tenantId);
+    const merged: CareSettings = { ...cur, ...dto };
+    await this.prisma.tenant.update({ where: { id: a.tenantId }, data: { careSettings: merged as unknown as Prisma.InputJsonValue } });
     await this.redis.client.del(`care:gen:${a.tenantId}`).catch(() => 0);
-    await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'care.settings', entity: 'tenant', entityId: a.tenantId, after: { ...dto }, ip });
+    await this.audit.log({ tenantId: a.tenantId, actorId: a.userId, action: 'care.settings', entity: 'tenant', entityId: a.tenantId, after: { ...merged }, ip });
     return this.settings(a.tenantId);
   }
 
   /**
    * Quét dữ liệu, tạo việc gọi còn thiếu (không trùng nhờ refKey). Chạy khi mở Lịch gọi,
-   * tối đa 5 phút một lần mỗi garage (hoặc khi bấm "Làm mới").
+   * tối đa 5 phút một lần mỗi garage (hoặc khi bấm "Làm mới" / quét tự động).
    */
   async generate(tenantId: string, force = false) {
     const lock = `care:gen:${tenantId}`;
@@ -47,20 +51,30 @@ export class CareService {
     const horizon = addDays(today, LOOKAHEAD_DAYS);
     const rows: Prisma.CareTaskCreateManyInput[] = [];
 
-    // 1-2. Hạn đăng kiểm / bảo hiểm của xe đang có chủ
-    for (const [kind, field, days] of [
-      ['DANG_KIEM', 'registrationExpiry', s.registrationDays],
-      ['BAO_HIEM', 'insuranceExpiry', s.insuranceDays],
+    // 1-2. Hạn đăng kiểm & bảo hiểm (hỗ trợ cả số ngày báo trước riêng trên từng xe)
+    for (const [kind, field, overrideField, defaultDays] of [
+      ['DANG_KIEM', 'registrationExpiry', 'registrationRemindDays', s.registrationDays],
+      ['BAO_HIEM', 'insuranceExpiry', 'insuranceRemindDays', s.insuranceDays],
     ] as const) {
+      const maxWindow = Math.max(defaultDays, MAX_LEAD_SCAN_DAYS);
       const vs = await this.prisma.vehicle.findMany({
-        where: { tenantId, deletedAt: null, [field]: { gte: addDays(today, -STALE_DAYS), lte: addDays(horizon, days) } },
-        select: { id: true, plateNo: true, registrationExpiry: true, insuranceExpiry: true, ownerships: { where: { toDate: null }, select: { customer: { select: { id: true, branchId: true, deletedAt: true } } } } },
+        where: { tenantId, deletedAt: null, [field]: { gte: addDays(today, -STALE_DAYS), lte: addDays(horizon, maxWindow) } },
+        select: {
+          id: true,
+          plateNo: true,
+          registrationExpiry: true,
+          insuranceExpiry: true,
+          compliance: { select: { registrationRemindDays: true, insuranceRemindDays: true } },
+          ownerships: { where: { toDate: null }, select: { customer: { select: { id: true, branchId: true, deletedAt: true } } } },
+        },
       });
       for (const v of vs) {
         const owner = v.ownerships[0]?.customer;
         const exp = v[field];
         if (!owner || owner.deletedAt || !exp) continue;
+        const leadDays = v.compliance?.[overrideField] ?? defaultDays;
         const expDay = vnDate(exp);
+        if (expDay > addDays(horizon, leadDays)) continue;
         rows.push({
           tenantId,
           branchId: owner.branchId,
@@ -69,10 +83,46 @@ export class CareService {
           kind,
           refKey: `${kind}:${v.id}:${ymd(expDay)}`,
           title: `${KIND_LABEL[kind]} ${formatPlate(v.plateNo)}: ${expDay.toLocaleDateString('vi-VN', { timeZone: 'UTC' })}`,
-          dueDate: dueBefore(expDay, days, today),
+          dueDate: dueBefore(expDay, leadDays, today),
           eventDate: expDay,
         });
       }
+    }
+
+    // 2b. Hạn phù hiệu xe (badgeExpiry trong bảng mở rộng vehicle_compliance)
+    const badgeComps = await this.prisma.vehicleCompliance.findMany({
+      where: {
+        tenantId,
+        badgeExpiry: { gte: addDays(today, -STALE_DAYS), lte: addDays(horizon, Math.max(s.badgeDays, MAX_LEAD_SCAN_DAYS)) },
+        vehicle: { deletedAt: null },
+      },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            plateNo: true,
+            ownerships: { where: { toDate: null }, select: { customer: { select: { id: true, branchId: true, deletedAt: true } } } },
+          },
+        },
+      },
+    });
+    for (const c of badgeComps) {
+      const owner = c.vehicle.ownerships[0]?.customer;
+      if (!owner || owner.deletedAt || !c.badgeExpiry) continue;
+      const leadDays = c.badgeRemindDays ?? s.badgeDays;
+      const expDay = vnDate(c.badgeExpiry);
+      if (expDay > addDays(horizon, leadDays)) continue;
+      rows.push({
+        tenantId,
+        branchId: owner.branchId,
+        customerId: owner.id,
+        vehicleId: c.vehicle.id,
+        kind: 'KHAC',
+        refKey: `PHU_HIEU:${c.vehicle.id}:${ymd(expDay)}`,
+        title: `Hạn phù hiệu xe ${formatPlate(c.vehicle.plateNo)}${c.badgeNo ? ` (${c.badgeNo})` : ''}: ${expDay.toLocaleDateString('vi-VN', { timeZone: 'UTC' })}`,
+        dueDate: dueBefore(expDay, leadDays, today),
+        eventDate: expDay,
+      });
     }
 
     // 3. Hỏi thăm sau khi giao xe
@@ -96,7 +146,49 @@ export class CareService {
       });
     }
 
-    // 4. Đến kỳ bảo dưỡng: lần giao xe gần nhất của mỗi xe + N tháng, xe chưa có đơn / lịch mới
+    // 4a. Theo dõi sử dụng & nhắc bảo dưỡng theo từng hạng mục (Dầu nhớt, Lốp, Ắc quy, Pin… theo số km HOẶC thời gian)
+    const maintItems = await this.prisma.vehicleMaintenanceItem.findMany({
+      where: { tenantId, status: 'DANG_THEO_DOI', vehicle: { deletedAt: null } },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            plateNo: true,
+            odometerKm: true,
+            ownerships: { where: { toDate: null }, select: { customer: { select: { id: true, branchId: true, deletedAt: true } } } },
+          },
+        },
+      },
+    });
+    for (const it of maintItems) {
+      const owner = it.vehicle.ownerships[0]?.customer;
+      if (!owner || owner.deletedAt) continue;
+      const nowEval = evaluateMaintenanceItem(it, it.vehicle.odometerKm, today);
+      const horizonEval = evaluateMaintenanceItem(it, it.vehicle.odometerKm, horizon);
+      if (nowEval.alertState === 'BINH_THUONG' && horizonEval.alertState === 'BINH_THUONG') continue;
+
+      const dueDate =
+        nowEval.alertState !== 'BINH_THUONG'
+          ? today
+          : it.nextDueDate
+            ? dueBefore(vnDate(it.nextDueDate), it.remindBeforeDays, today)
+            : today;
+
+      rows.push({
+        tenantId,
+        branchId: owner.branchId,
+        customerId: owner.id,
+        vehicleId: it.vehicle.id,
+        orderId: it.orderId,
+        kind: 'BAO_DUONG',
+        refKey: `MAINT_ITEM:${it.id}`,
+        title: `Nhắc bảo dưỡng ${formatPlate(it.vehicle.plateNo)} · ${it.itemName} (${nowEval.reasonText})`,
+        dueDate,
+        eventDate: it.nextDueDate ? vnDate(it.nextDueDate) : today,
+      });
+    }
+
+    // 4b. Đến kỳ bảo dưỡng chung: lần giao xe gần nhất của mỗi xe + N tháng, xe chưa có đơn / lịch mới
     const from = addMonths(addDays(today, -STALE_DAYS), -s.maintenanceMonths);
     const to = addMonths(horizon, -s.maintenanceMonths);
     const last = await this.prisma.$queryRaw<{ id: string; code: string; branch_id: string; customer_id: string; vehicle_id: string; delivered_at: Date }[]>`

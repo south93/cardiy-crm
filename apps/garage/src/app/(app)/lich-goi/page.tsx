@@ -1,17 +1,20 @@
 'use client';
 
 import { Alert, Badge, Button, Card, Dialog, Field, Input, Select, Spinner, Tabs } from '@cardiy/ui';
-import { CalendarPlus, MessageCircle, Phone, PhoneCall, Plus, RefreshCw, Search } from 'lucide-react';
+import { BellRing, CalendarPlus, History, MessageCircle, MessageSquareText, Phone, PhoneCall, Plus, RefreshCw, Search, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { NewBooking } from '@/components/booking-form';
 import { CustomerPicker } from '@/components/customer-picker';
+import { ExportButton } from '@/components/export-button';
 import { Pager } from '@/components/pager';
 import { RequirePermission } from '@/components/require-permission';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCurrentBranch } from '@/lib/branch';
 import { fmtDay, KINDS, OUTCOMES, outcomeLabel, type CallOutcome, type CareKind, type CareTask } from '@/lib/care';
+import type { ReminderDispatchLog } from '@/lib/fleet';
+import { fmtDateTime } from '@/lib/orders';
 
 type View = 'hom-nay' | 'sap-toi' | 'da-xu-ly';
 interface Page {
@@ -106,6 +109,9 @@ function CallList() {
   const [booking, setBooking] = useState<CareTask | null>(null);
   const [adding, setAdding] = useState(false);
   const [newTask, setNewTask] = useState<{ customerId: string; name: string; title: string; dueDate: string } | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<ReminderDispatchLog[]>([]);
+  const [runningAuto, setRunningAuto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -123,6 +129,11 @@ function CallList() {
     const t = setTimeout(() => void load(), q ? 250 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+
+  const openLogs = async () => {
+    setShowLogs(true);
+    setLogs(await api<ReminderDispatchLog[]>('/care/auto-reminders/logs'));
+  };
 
   const manage = can('customer.manage');
   return (
@@ -154,11 +165,44 @@ function CallList() {
           <RefreshCw className="h-4 w-4" />
           Làm mới
         </Button>
+        <Button variant="outline" onClick={() => void openLogs()} data-testid="open-reminder-logs" title="Xem nhật ký thông báo tự động (App / Zalo / SMS)">
+          <History className="h-4 w-4" />
+          Nhật ký gửi
+        </Button>
         {manage && (
-          <Button onClick={() => (setAdding(true), setNewTask(null))} data-testid="add-care">
-            <Plus className="h-4 w-4" />
-            Thêm việc gọi
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              disabled={runningAuto}
+              onClick={async () => {
+                setRunningAuto(true);
+                setError(null);
+                try {
+                  const r = await api<{ scanned: number; appSent: number; zaloSent: number; smsSent: number; skipped: number }>(
+                    '/care/auto-reminders/run',
+                    { body: {} },
+                  );
+                  await load();
+                  setNotice(
+                    `Đã quét ${r.scanned} việc đến hạn · Đã gửi App: ${r.appSent}, Zalo: ${r.zaloSent}, SMS: ${r.smsSent} (bỏ qua trùng: ${r.skipped})`,
+                  );
+                } catch (e) {
+                  setError(errMsg(e, 'Không chạy được gửi nhắc tự động'));
+                } finally {
+                  setRunningAuto(false);
+                }
+              }}
+              data-testid="run-auto-reminders"
+              title="Quét và gửi nhắc tự động qua App / Zalo / SMS theo cấu hình Cài đặt"
+            >
+              <Send className="h-4 w-4" />
+              Gửi nhắc tự động
+            </Button>
+            <Button onClick={() => (setAdding(true), setNewTask(null))} data-testid="add-care">
+              <Plus className="h-4 w-4" />
+              Thêm việc gọi
+            </Button>
+          </>
         )}
       </div>
       {error && <Alert>{error}</Alert>}
@@ -172,72 +216,183 @@ function CallList() {
         ) : (
           <>
             <ul className="divide-y divide-slate-50" data-testid="care-list">
-              {data.items.map((t) => (
-                <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="care-row">
-                  <Badge tone={KINDS[t.kind].tone}>{KINDS[t.kind].label}</Badge>
-                  <div className="min-w-[220px] flex-1">
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-sm text-slate-600">
-                      <Link href={`/khach-hang/${t.customer.id}`} className="hover:text-brand-600">
-                        {t.customer.name}
-                      </Link>
-                      {t.customer.phone && (
-                        <a href={`tel:${t.customer.phone}`} className="ml-2 font-medium text-brand-600">
-                          {t.customer.phone}
-                        </a>
+              {data.items.map((t) => {
+                const isBadge = t.kind === 'KHAC' && t.title.toLowerCase().includes('phù hiệu');
+                return (
+                  <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="care-row">
+                    <Badge tone={isBadge ? 'peach' : KINDS[t.kind].tone}>{isBadge ? 'Phù hiệu' : KINDS[t.kind].label}</Badge>
+                    <div className="min-w-[220px] flex-1">
+                      <div className="font-medium">{t.title}</div>
+                      <div className="text-sm text-slate-600">
+                        <Link href={`/khach-hang/${t.customer.id}`} className="hover:text-brand-600">
+                          {t.customer.name}
+                        </Link>
+                        {t.customer.phone && (
+                          <a href={`tel:${t.customer.phone}`} className="ml-2 font-medium text-brand-600">
+                            {t.customer.phone}
+                          </a>
+                        )}
+                        {t.vehicle && (
+                          <Link href={`/xe/${t.vehicle.id}`} className="ml-2 font-mono text-xs hover:text-brand-600">
+                            {t.vehicle.plate}
+                          </Link>
+                        )}
+                      </div>
+                      {(t.lastOutcome || t.lastNote) && (
+                        <div className="text-xs text-slate-500">
+                          {outcomeLabel(t.lastOutcome)}
+                          {t.lastNote && ` — ${t.lastNote}`}
+                          {t.attempts > 1 && ` · ${t.attempts} lần gọi`}
+                        </div>
                       )}
-                      {t.vehicle && <span className="ml-2 font-mono text-xs">{t.vehicle.plate}</span>}
                     </div>
-                    {(t.lastOutcome || t.lastNote) && (
-                      <div className="text-xs text-slate-500">
-                        {outcomeLabel(t.lastOutcome)}
-                        {t.lastNote && ` — ${t.lastNote}`}
-                        {t.attempts > 1 && ` · ${t.attempts} lần gọi`}
+                    <div className="text-right text-sm">
+                      <div className={t.overdueDays > 0 && view !== 'da-xu-ly' ? 'font-semibold text-rose-600' : 'text-slate-600'}>{fmtDay(t.dueDate)}</div>
+                      {t.overdueDays > 0 && view !== 'da-xu-ly' && <div className="text-xs text-rose-600">trễ {t.overdueDays} ngày</div>}
+                      {view === 'da-xu-ly' && <div className="text-xs text-slate-500">{t.status === 'BO_QUA' ? 'Bỏ qua' : 'Xong'}</div>}
+                    </div>
+                    {manage && view !== 'da-xu-ly' && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button variant="outline" onClick={() => setBooking(t)} title="Đặt lịch hẹn cho khách">
+                          <CalendarPlus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          title="Đẩy thông báo nhắc qua App Chủ xe"
+                          aria-label="Báo qua App"
+                          data-testid="send-app"
+                          onClick={async () => {
+                            setError(null);
+                            try {
+                              await api(`/care/tasks/${t.id}/app-notify`, { body: {} });
+                              setNotice(`Đã đẩy thông báo qua App Chủ xe cho ${t.customer.name}`);
+                            } catch (e) {
+                              setError(errMsg(e, 'Không gửi được thông báo App'));
+                            }
+                          }}
+                        >
+                          <BellRing className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          title="Gửi tin nhắc qua Zalo ZNS"
+                          aria-label="Gửi Zalo"
+                          data-testid="send-zalo"
+                          onClick={async () => {
+                            setError(null);
+                            try {
+                              const r = await api<{ status: string; error?: string }>(`/care/tasks/${t.id}/zalo`, { body: {} });
+                              setNotice(r.status === 'SENT' ? `Đã gửi tin Zalo cho ${t.customer.name}` : null);
+                              if (r.status !== 'SENT') setError(r.error ?? 'Không gửi được tin Zalo');
+                            } catch (e) {
+                              setError(e instanceof ApiError ? e.message : 'Không gửi được tin Zalo');
+                            }
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          title="Gửi tin nhắc qua SMS Brandname"
+                          aria-label="Gửi SMS"
+                          data-testid="send-sms"
+                          onClick={async () => {
+                            setError(null);
+                            try {
+                              const r = await api<{ status: string; content?: string; error?: string }>(`/care/tasks/${t.id}/sms`, { body: {} });
+                              if (r.status === 'SENT' || r.status === 'SIMULATED') {
+                                setNotice(
+                                  r.status === 'SIMULATED'
+                                    ? `Đã gửi giả lập SMS cho ${t.customer.name}: "${r.content ?? ''}"`
+                                    : `Đã gửi tin SMS cho ${t.customer.name}`,
+                                );
+                              } else {
+                                setError(r.error ?? 'Không gửi được tin SMS');
+                              }
+                            } catch (e) {
+                              setError(errMsg(e, 'Không gửi được tin SMS'));
+                            }
+                          }}
+                        >
+                          <MessageSquareText className="h-4 w-4" />
+                        </Button>
+                        <Button onClick={() => setCalling(t)} data-testid="log-call">
+                          <PhoneCall className="h-4 w-4" />
+                          Ghi cuộc gọi
+                        </Button>
                       </div>
                     )}
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className={t.overdueDays > 0 && view !== 'da-xu-ly' ? 'font-semibold text-rose-600' : 'text-slate-600'}>{fmtDay(t.dueDate)}</div>
-                    {t.overdueDays > 0 && view !== 'da-xu-ly' && <div className="text-xs text-rose-600">trễ {t.overdueDays} ngày</div>}
-                    {view === 'da-xu-ly' && <div className="text-xs text-slate-500">{t.status === 'BO_QUA' ? 'Bỏ qua' : 'Xong'}</div>}
-                  </div>
-                  {manage && view !== 'da-xu-ly' && (
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setBooking(t)} title="Đặt lịch hẹn cho khách">
-                        <CalendarPlus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        title="Gửi tin nhắc qua Zalo"
-                        aria-label="Gửi Zalo"
-                        data-testid="send-zalo"
-                        onClick={async () => {
-                          setError(null);
-                          try {
-                            const r = await api<{ status: string; error?: string }>(`/care/tasks/${t.id}/zalo`, { body: {} });
-                            setNotice(r.status === 'SENT' ? `Đã gửi tin Zalo cho ${t.customer.name}` : null);
-                            if (r.status !== 'SENT') setError(r.error ?? 'Không gửi được tin Zalo');
-                          } catch (e) {
-                            setError(e instanceof ApiError ? e.message : 'Không gửi được tin Zalo');
-                          }
-                        }}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                      <Button onClick={() => setCalling(t)} data-testid="log-call">
-                        <PhoneCall className="h-4 w-4" />
-                        Ghi cuộc gọi
-                      </Button>
-                    </div>
-                  )}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
               {!data.items.length && <li className="px-5 py-12 text-center text-slate-500">{view === 'da-xu-ly' ? 'Chưa có cuộc gọi nào.' : 'Không có khách cần gọi. 🎉'}</li>}
             </ul>
             <Pager page={data.page} pageSize={data.pageSize} total={data.total} onPage={setPage} />
           </>
         )}
       </Card>
+
+      <Dialog open={showLogs} onClose={() => setShowLogs(false)} title="Nhật ký gửi thông báo nhắc lịch (App / Zalo / SMS)" wide>
+        <div className="space-y-3" data-testid="reminder-logs-dialog">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">100 lượt gửi nhắc gần nhất (chống gửi lặp theo từng mốc hạn)</span>
+            <ExportButton
+              filename="nhat-ky-nhac-lich"
+              sheetName="Nhật ký nhắc lịch"
+              testId="export-reminder-logs"
+              rows={logs}
+              columns={[
+                { header: 'Thời gian', value: (l) => fmtDateTime(l.createdAt) },
+                { header: 'Kênh', value: (l) => l.channel },
+                { header: 'Loại nhắc', value: (l) => l.kind },
+                { header: 'Khách hàng', value: (l) => l.customer?.name ?? '' },
+                { header: 'SĐT', value: (l) => l.customer?.phone ?? '' },
+                { header: 'Biển số xe', value: (l) => l.vehicle?.plate ?? '' },
+                { header: 'Trạng thái', value: (l) => l.status },
+                { header: 'Nội dung', value: (l) => l.body },
+              ]}
+            />
+          </div>
+          {!logs.length ? (
+            <p className="py-6 text-center text-sm text-slate-500">Chưa có lượt gửi thông báo nhắc tự động nào.</p>
+          ) : (
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500">
+                    <th className="py-2 pr-2">Thời gian</th>
+                    <th className="py-2 pr-2">Kênh</th>
+                    <th className="py-2 pr-2">Khách / Xe</th>
+                    <th className="py-2 pr-2">Trạng thái</th>
+                    <th className="py-2">Nội dung</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((l) => (
+                    <tr key={l.id} className="border-b border-slate-50 align-top">
+                      <td className="whitespace-nowrap py-2 pr-2 text-xs text-slate-500">{fmtDateTime(l.createdAt)}</td>
+                      <td className="py-2 pr-2">
+                        <Badge tone={l.channel === 'APP' ? 'sky' : l.channel === 'ZALO' ? 'lav' : 'peach'}>{l.channel}</Badge>
+                      </td>
+                      <td className="py-2 pr-2 text-xs">
+                        <div className="font-medium">{l.customer?.name ?? '—'}</div>
+                        {l.vehicle && <div className="font-mono text-slate-500">{l.vehicle.plate}</div>}
+                      </td>
+                      <td className="py-2 pr-2">
+                        <Badge tone={l.status === 'SENT' ? 'mint' : l.status === 'SIMULATED' ? 'sky' : 'rose'}>{l.status}</Badge>
+                      </td>
+                      <td className="py-2 text-xs text-slate-600">
+                        <div>{l.body}</div>
+                        {l.error && <div className="text-rose-600">{l.error}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Dialog>
 
       <Dialog open={calling !== null} onClose={() => setCalling(null)} title="Ghi kết quả cuộc gọi" wide>
         {calling && (

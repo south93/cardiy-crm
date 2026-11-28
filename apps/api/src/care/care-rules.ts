@@ -4,18 +4,43 @@ export type CareStatus = 'CAN_GOI' | 'GOI_LAI' | 'XONG' | 'BO_QUA';
 export type CallOutcome = 'DA_TU_VAN' | 'DAT_LICH' | 'KHONG_NGHE' | 'GOI_LAI_SAU' | 'KHONG_CAN' | 'SAI_SO';
 
 export interface CareSettings {
-  /** Gọi trước ngày hết hạn đăng kiểm bao nhiêu ngày */
+  /** Gọi / gửi nhắc trước ngày hết hạn đăng kiểm bao nhiêu ngày */
   registrationDays: number;
+  /** Gọi / gửi nhắc trước ngày hết hạn bảo hiểm bao nhiêu ngày */
   insuranceDays: number;
-  /** Bảo dưỡng lại sau bao nhiêu tháng kể từ lần giao xe gần nhất */
+  /** Gọi / gửi nhắc trước ngày hết hạn phù hiệu xe bao nhiêu ngày */
+  badgeDays: number;
+  /** Bảo dưỡng lại sau bao nhiêu tháng kể từ lần giao xe gần nhất (áp dụng chung khi chưa có hạng mục riêng) */
   maintenanceMonths: number;
   /** Gọi hỏi thăm sau khi giao xe bao nhiêu ngày */
   followUpDays: number;
   /** Không nghe máy bao nhiêu lần thì bỏ qua */
   maxAttempts: number;
+  /** Tự động đẩy thông báo nhắc hạn vào hộp thư App Chủ xe */
+  autoAppEnabled: boolean;
+  /** Tự động gửi tin Zalo ZNS (mẫu CARE_REMINDER) khi chạm mốc nhắc */
+  autoZaloEnabled: boolean;
+  /** Tự động gửi tin nhắn SMS Brandname khi chạm mốc nhắc */
+  autoSmsEnabled: boolean;
+  /** Tự động gửi SMS dự phòng nếu gửi Zalo ZNS không thành công */
+  smsFallbackWhenZaloFails: boolean;
+  /** Giờ gửi nhắc tự động hàng ngày theo múi giờ Việt Nam (0–23, mặc định 8h sáng) */
+  sendHourVn: number;
 }
 
-export const DEFAULT_CARE: CareSettings = { registrationDays: 30, insuranceDays: 30, maintenanceMonths: 6, followUpDays: 3, maxAttempts: 3 };
+export const DEFAULT_CARE: CareSettings = {
+  registrationDays: 30,
+  insuranceDays: 30,
+  badgeDays: 30,
+  maintenanceMonths: 6,
+  followUpDays: 3,
+  maxAttempts: 3,
+  autoAppEnabled: true,
+  autoZaloEnabled: false,
+  autoSmsEnabled: false,
+  smsFallbackWhenZaloFails: false,
+  sendHourVn: 8,
+};
 
 export const KIND_LABEL: Record<CareKind, string> = {
   DANG_KIEM: 'Hạn đăng kiểm',

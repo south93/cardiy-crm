@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { fmtDate, fmtMoney } from '@/lib/crm';
+import { MAINT_ALERT_UI, WARRANTY_STATE_UI, badgeTypeLabel, type VehicleMaintenanceItemView, type WarrantyState } from '@/lib/fleet';
 import { ownerApi } from '@/lib/owner';
 import { STATUS, type OrderStatus } from '@/lib/orders';
 import { Reminders } from '@/components/owner-reminders';
@@ -25,6 +26,23 @@ interface Detail {
   odometerKm: number | null;
   registrationExpiry: string | null;
   insuranceExpiry: string | null;
+  badgeNo?: string | null;
+  badgeType?: string | null;
+  badgeExpiry?: string | null;
+  maintenanceItems?: VehicleMaintenanceItemView[];
+  serialItems?: {
+    id: string;
+    serialNo: string;
+    kind: string;
+    kindLabel: string;
+    productName: string;
+    brand: string | null;
+    positionLabel: string | null;
+    installedAt: string | null;
+    installedKm: number | null;
+    warrantyState: WarrantyState;
+    warrantySummary: string;
+  }[];
   orders: {
     id: string;
     code: string;
@@ -73,6 +91,7 @@ export default function OwnerVehiclePage() {
     ['Số khung', v.vin],
     ['Hạn đăng kiểm', v.registrationExpiry ? fmtDate(v.registrationExpiry) : null],
     ['Hạn bảo hiểm', v.insuranceExpiry ? fmtDate(v.insuranceExpiry) : null],
+    ['Phù hiệu xe', v.badgeExpiry ? `${fmtDate(v.badgeExpiry)}${v.badgeNo ? ` (${v.badgeNo})` : ''}` : v.badgeNo ? `${v.badgeNo} (${badgeTypeLabel(v.badgeType)})` : null],
   ].filter(([, x]) => x);
   return (
     <div className="space-y-4">
@@ -105,6 +124,45 @@ export default function OwnerVehiclePage() {
         {msg?.ok && <p className="mt-2 text-sm text-emerald-700">{msg.text}</p>}
         {msg && !msg.ok && <Alert className="mt-2">{msg.text}</Alert>}
       </Card>
+
+      {v.maintenanceItems && v.maintenanceItems.length > 0 && (
+        <Card className="space-y-2.5 p-4" data-testid="owner-maintenance-items">
+          <CardTitle className="text-base">Theo dõi bảo dưỡng định kỳ</CardTitle>
+          {v.maintenanceItems.map((m) => (
+            <div key={m.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{m.itemName}</span>
+                <Badge tone={MAINT_ALERT_UI[m.alertState].tone}>{MAINT_ALERT_UI[m.alertState].label}</Badge>
+              </div>
+              <div className="mt-1 text-xs text-slate-600">
+                Thay ngày {fmtDate(m.installedAt)}
+                {m.installedKm !== null && ` tại ${m.installedKm.toLocaleString('vi-VN')} km`}
+                {m.kmDriven !== null && ` · Đã chạy ${m.kmDriven.toLocaleString('vi-VN')} km`}
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">{m.reasonText}</div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {v.serialItems && v.serialItems.length > 0 && (
+        <Card className="space-y-2.5 p-4" data-testid="owner-serial-items">
+          <CardTitle className="text-base">Bảo hành điện tử (Lốp / Ắc quy / Pin)</CardTitle>
+          {v.serialItems.map((s) => (
+            <div key={s.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-xs font-bold">{s.serialNo}</span>
+                <Badge tone={WARRANTY_STATE_UI[s.warrantyState].tone}>{WARRANTY_STATE_UI[s.warrantyState].label}</Badge>
+              </div>
+              <div className="mt-0.5 font-medium">
+                {s.productName}
+                {s.positionLabel && <span className="ml-1.5 text-xs font-normal text-slate-500">({s.positionLabel})</span>}
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">{s.warrantySummary}</div>
+            </div>
+          ))}
+        </Card>
+      )}
 
       {info.length > 0 && (
         <Card className="p-4">

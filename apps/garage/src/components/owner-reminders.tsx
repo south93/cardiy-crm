@@ -4,11 +4,21 @@ import { ShieldAlert, Wrench } from 'lucide-react';
 import { fmtDate } from '@/lib/crm';
 import { daysLeft } from '@/lib/owner';
 
-/** Nhắc hạn đăng kiểm / bảo hiểm: hiện khi còn ≤ 45 ngày hoặc đã quá hạn */
-export function Reminders({ v }: { v: { registrationExpiry: string | null; insuranceExpiry: string | null; nextMaintenance?: string | null } }) {
+/** Nhắc hạn đăng kiểm / bảo hiểm / phù hiệu xe: hiện khi còn ≤ 45 ngày hoặc đã quá hạn */
+export function Reminders({
+  v,
+}: {
+  v: {
+    registrationExpiry: string | null;
+    insuranceExpiry: string | null;
+    badgeExpiry?: string | null;
+    nextMaintenance?: string | null;
+  };
+}) {
   const rows = [
-    { label: 'Đăng kiểm', d: v.registrationExpiry },
-    { label: 'Bảo hiểm', d: v.insuranceExpiry },
+    { label: 'Đăng kiểm', d: v.registrationExpiry ?? null },
+    { label: 'Bảo hiểm', d: v.insuranceExpiry ?? null },
+    { label: 'Phù hiệu xe', d: v.badgeExpiry ?? null },
   ]
     .map((r) => ({ ...r, left: daysLeft(r.d) }))
     .filter((r) => r.left !== null && r.left <= 45);

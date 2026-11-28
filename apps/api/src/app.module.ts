@@ -25,6 +25,8 @@ import { HealthModule } from './health/health.module';
 import { OrgModule } from './org/org.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { SerialsModule } from './serials/serials';
+import { SmsModule } from './sms/sms';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     FilesModule,
     OrgModule,
+    SmsModule,
+    SerialsModule,
     CrmModule,
     OrdersModule,
     InventoryModule,

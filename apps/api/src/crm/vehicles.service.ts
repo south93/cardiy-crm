@@ -18,12 +18,18 @@ export interface VehicleInput {
   odometerKm?: number | null;
   registrationExpiry?: string | null;
   insuranceExpiry?: string | null;
+  badgeNo?: string | null;
+  badgeType?: string | null;
+  badgeExpiry?: string | null;
+  registrationRemindDays?: number | null;
+  insuranceRemindDays?: number | null;
+  badgeRemindDays?: number | null;
   note?: string | null;
   customerId?: string | null;
 }
 
-export function vehicleSearchText(v: { plateNo: string; vin?: string | null; make?: string | null; model?: string | null }) {
-  return searchKey(v.plateNo, formatPlate(v.plateNo), v.vin, v.make, v.model);
+export function vehicleSearchText(v: { plateNo: string; vin?: string | null; make?: string | null; model?: string | null; badgeNo?: string | null }) {
+  return searchKey(v.plateNo, formatPlate(v.plateNo), v.vin, v.make, v.model, v.badgeNo);
 }
 
 const toDate = (s?: string | null) => (s ? new Date(s) : s === null ? null : undefined);
@@ -53,6 +59,45 @@ export class VehiclesService {
     if (!c) throw new BadRequestException('Khách hàng không hợp lệ');
   }
 
+  private async upsertComplianceInTx(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+    dto: Pick<VehicleInput, 'badgeNo' | 'badgeType' | 'badgeExpiry' | 'registrationRemindDays' | 'insuranceRemindDays' | 'badgeRemindDays'>,
+  ) {
+    const hasField =
+      dto.badgeNo !== undefined ||
+      dto.badgeType !== undefined ||
+      dto.badgeExpiry !== undefined ||
+      dto.registrationRemindDays !== undefined ||
+      dto.insuranceRemindDays !== undefined ||
+      dto.badgeRemindDays !== undefined;
+    if (!hasField) return;
+
+    const badgeExp = toDate(dto.badgeExpiry);
+    await tx.vehicleCompliance.upsert({
+      where: { vehicleId },
+      create: {
+        vehicleId,
+        tenantId,
+        badgeNo: dto.badgeNo?.trim() || null,
+        badgeType: dto.badgeType?.trim() || null,
+        badgeExpiry: badgeExp ?? null,
+        registrationRemindDays: dto.registrationRemindDays ?? null,
+        insuranceRemindDays: dto.insuranceRemindDays ?? null,
+        badgeRemindDays: dto.badgeRemindDays ?? null,
+      },
+      update: {
+        ...(dto.badgeNo !== undefined ? { badgeNo: dto.badgeNo?.trim() || null } : {}),
+        ...(dto.badgeType !== undefined ? { badgeType: dto.badgeType?.trim() || null } : {}),
+        ...(badgeExp !== undefined ? { badgeExpiry: badgeExp } : {}),
+        ...(dto.registrationRemindDays !== undefined ? { registrationRemindDays: dto.registrationRemindDays } : {}),
+        ...(dto.insuranceRemindDays !== undefined ? { insuranceRemindDays: dto.insuranceRemindDays } : {}),
+        ...(dto.badgeRemindDays !== undefined ? { badgeRemindDays: dto.badgeRemindDays } : {}),
+      },
+    });
+  }
+
   async createInTx(tx: Prisma.TransactionClient, actor: Access, dto: VehicleInput) {
     const { plateNo, plateValid } = this.plateOf(dto.plate);
     if (await tx.vehicle.findFirst({ where: { tenantId: actor.tenantId, plateNo } })) throw new ConflictException(`Biển số ${formatPlate(plateNo)} đã có trong hệ thống`);
@@ -76,9 +121,10 @@ export class VehiclesService {
         insuranceExpiry: toDate(dto.insuranceExpiry) ?? null,
         note: dto.note || null,
         createdBy: actor.userId,
-        searchText: vehicleSearchText({ plateNo, vin, make: dto.make, model: dto.model }),
+        searchText: vehicleSearchText({ plateNo, vin, make: dto.make, model: dto.model, badgeNo: dto.badgeNo }),
       },
     });
+    await this.upsertComplianceInTx(tx, actor.tenantId, v.id, dto);
     if (dto.customerId) await tx.vehicleOwnership.create({ data: { vehicleId: v.id, customerId: dto.customerId } });
     if (dto.odometerKm) await tx.odometerReading.create({ data: { vehicleId: v.id, km: dto.odometerKm, recordedBy: actor.userId } });
     return v;
@@ -109,7 +155,15 @@ export class VehiclesService {
     }
     if (q.expiringDays) {
       const until = new Date(Date.now() + q.expiringDays * 86_400_000);
-      where.AND = [{ OR: [{ registrationExpiry: { lte: until } }, { insuranceExpiry: { lte: until } }] }];
+      where.AND = [
+        {
+          OR: [
+            { registrationExpiry: { lte: until } },
+            { insuranceExpiry: { lte: until } },
+            { compliance: { badgeExpiry: { lte: until } } },
+          ],
+        },
+      ];
     }
     if (q.needsReview) where.plateValid = false;
     const [total, rows] = await Promise.all([
@@ -119,7 +173,10 @@ export class VehiclesService {
         orderBy: { createdAt: 'desc' },
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
-        include: { ownerships: { where: { toDate: null }, include: { customer: { select: { id: true, name: true, phone: true } } } } },
+        include: {
+          compliance: true,
+          ownerships: { where: { toDate: null }, include: { customer: { select: { id: true, name: true, phone: true } } } },
+        },
       }),
     ]);
     return {
@@ -136,6 +193,9 @@ export class VehiclesService {
         odometerKm: v.odometerKm,
         registrationExpiry: v.registrationExpiry,
         insuranceExpiry: v.insuranceExpiry,
+        badgeNo: v.compliance?.badgeNo ?? null,
+        badgeType: v.compliance?.badgeType ?? null,
+        badgeExpiry: v.compliance?.badgeExpiry ?? null,
         owner: v.ownerships[0]?.customer ?? null,
       })),
     };
@@ -145,15 +205,22 @@ export class VehiclesService {
     const v = await this.prisma.vehicle.findFirst({
       where: { id, tenantId: actor.tenantId, deletedAt: null },
       include: {
+        compliance: true,
         ownerships: { include: { customer: { select: { id: true, code: true, name: true, phone: true } } }, orderBy: { fromDate: 'desc' } },
         odometers: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });
     if (!v) throw new NotFoundException('Không tìm thấy xe');
-    const { searchText: _s, ownerships, odometers, ...rest } = v;
+    const { searchText: _s, ownerships, odometers, compliance, ...rest } = v;
     return {
       ...rest,
       plate: formatPlate(v.plateNo),
+      badgeNo: compliance?.badgeNo ?? null,
+      badgeType: compliance?.badgeType ?? null,
+      badgeExpiry: compliance?.badgeExpiry ?? null,
+      registrationRemindDays: compliance?.registrationRemindDays ?? null,
+      insuranceRemindDays: compliance?.insuranceRemindDays ?? null,
+      badgeRemindDays: compliance?.badgeRemindDays ?? null,
       owner: ownerships.find((o) => !o.toDate)?.customer ?? null,
       owners: ownerships.map((o) => ({ customer: o.customer, fromDate: o.fromDate, toDate: o.toDate })),
       odometers: odometers.map((o) => ({ km: o.km, source: o.source, createdAt: o.createdAt })),
@@ -161,7 +228,10 @@ export class VehiclesService {
   }
 
   async update(actor: Access, id: string, dto: Partial<Omit<VehicleInput, 'customerId' | 'odometerKm'>>, ip?: string) {
-    const before = await this.prisma.vehicle.findFirst({ where: { id, tenantId: actor.tenantId, deletedAt: null } });
+    const before = await this.prisma.vehicle.findFirst({
+      where: { id, tenantId: actor.tenantId, deletedAt: null },
+      include: { compliance: true },
+    });
     if (!before) throw new NotFoundException('Không tìm thấy xe');
     const plate = dto.plate ? this.plateOf(dto.plate) : null;
     if (plate && plate.plateNo !== before.plateNo && (await this.prisma.vehicle.findFirst({ where: { tenantId: actor.tenantId, plateNo: plate.plateNo } }))) {
@@ -173,24 +243,28 @@ export class VehiclesService {
       vin: vin === undefined ? before.vin : vin,
       make: dto.make === undefined ? before.make : dto.make,
       model: dto.model === undefined ? before.model : dto.model,
+      badgeNo: dto.badgeNo === undefined ? before.compliance?.badgeNo : dto.badgeNo,
     };
-    await this.prisma.vehicle.update({
-      where: { id },
-      data: {
-        ...(plate ? plate : {}),
-        vin,
-        make: dto.make,
-        model: dto.model,
-        year: dto.year,
-        color: dto.color,
-        fuel: dto.fuel,
-        transmission: dto.transmission,
-        tireSize: dto.tireSize,
-        note: dto.note,
-        registrationExpiry: toDate(dto.registrationExpiry),
-        insuranceExpiry: toDate(dto.insuranceExpiry),
-        searchText: vehicleSearchText(next),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.vehicle.update({
+        where: { id },
+        data: {
+          ...(plate ? plate : {}),
+          vin,
+          make: dto.make,
+          model: dto.model,
+          year: dto.year,
+          color: dto.color,
+          fuel: dto.fuel,
+          transmission: dto.transmission,
+          tireSize: dto.tireSize,
+          note: dto.note,
+          registrationExpiry: toDate(dto.registrationExpiry),
+          insuranceExpiry: toDate(dto.insuranceExpiry),
+          searchText: vehicleSearchText(next),
+        },
+      });
+      await this.upsertComplianceInTx(tx, actor.tenantId, id, dto);
     });
     await this.audit.log({ tenantId: actor.tenantId, actorId: actor.userId, action: 'vehicle.updated', entity: 'vehicle', entityId: id, before: { plate: formatPlate(before.plateNo), make: before.make, model: before.model }, after: dto, ip });
     return { status: 'ok' };

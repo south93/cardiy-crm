@@ -361,10 +361,15 @@ model Vehicle {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  ownerships VehicleOwnership[]
-  odometers  OdometerReading[]
-  orders     RepairOrder[]
-  bookings   Booking[]
+  ownerships       VehicleOwnership[]
+  odometers        OdometerReading[]
+  orders           RepairOrder[]
+  bookings         Booking[]
+  compliance       VehicleCompliance?
+  maintenanceItems VehicleMaintenanceItem[]
+  serialItems      SerialItem[]             @relation("CurrentVehicleSerials")
+  serialFromEvents SerialEvent[]            @relation("SerialFromVehicle")
+  serialToEvents   SerialEvent[]            @relation("SerialToVehicle")
 
   @@unique([tenantId, plateNo])
   @@index([tenantId, searchText])
@@ -2594,4 +2599,239 @@ model OrderPhoto {
   @@index([tenantId, createdAt])
   @@map("order_photos")
 }
+
+// ======================= Nhắc hạn xe (Phù hiệu), Theo dõi Bảo dưỡng Hạng mục, Sê-ri Bảo hành & Tự động Nhắc (Zalo/SMS/App) =======================
+
+/// Mở rộng hồ sơ pháp lý & cấu hình nhắc hạn riêng của từng xe (1-1 với vehicles, không sửa bảng cũ)
+model VehicleCompliance {
+  vehicleId              String    @id @map("vehicle_id") @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  /// Số phù hiệu vận tải (VD: XT-7926001, XHD-51F8899…)
+  badgeNo                String?   @map("badge_no")
+  /// Loại phù hiệu: XE_HOP_DONG, XE_TAI, CONTAINER, TUYEN_CO_DINH, TAXI…
+  badgeType              String?   @map("badge_type")
+  /// Ngày hết hạn phù hiệu xe
+  badgeExpiry            DateTime? @map("badge_expiry") @db.Date
+  /// Ghi đè số ngày báo trước riêng cho xe này (null = lấy cấu hình chung của garage)
+  registrationRemindDays Int?      @map("registration_remind_days")
+  insuranceRemindDays    Int?      @map("insurance_remind_days")
+  badgeRemindDays        Int?      @map("badge_remind_days")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, badgeExpiry])
+  @@map("vehicle_compliance")
+}
+
+/// Định mức nhắc bảo dưỡng / thay thế chuẩn của garage theo từng hạng mục (Dầu nhớt, Lốp, Ắc quy, Pin…)
+model MaintenanceRule {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  code             String
+  name             String
+  /// Định mức nhắc theo số km chạy thêm kể từ lần thay (null = không tính theo km)
+  intervalKm       Int?     @map("interval_km")
+  /// Định mức nhắc theo thời gian sử dụng tính bằng tháng (null = không tính theo thời gian)
+  intervalMonths   Int?     @map("interval_months")
+  /// Cảnh báo / gửi nhắc trước khi chạm mốc km bao nhiêu km
+  remindBeforeKm   Int      @default(500) @map("remind_before_km")
+  /// Cảnh báo / gửi nhắc trước khi chạm hạn ngày bao nhiêu ngày
+  remindBeforeDays Int      @default(15) @map("remind_before_days")
+  /// Từ khoá nhận diện tự động khi giao xe trên Lệnh sửa chữa
+  keywords         String[] @default([])
+  active           Boolean  @default(true)
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+  @@map("maintenance_rules")
+}
+
+/// Theo dõi sử dụng & kỳ bảo dưỡng thực tế của từng hạng mục lắp/thay trên từng xe
+model VehicleMaintenanceItem {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  vehicleId        String    @map("vehicle_id") @db.Uuid
+  categoryCode     String    @map("category_code")
+  itemName         String    @map("item_name")
+  productId        String?   @map("product_id") @db.Uuid
+  orderId          String?   @map("order_id") @db.Uuid
+  installedAt      DateTime  @map("installed_at") @db.Date
+  installedKm      Int?      @map("installed_km")
+  intervalKm       Int?      @map("interval_km")
+  intervalMonths   Int?      @map("interval_months")
+  remindBeforeKm   Int       @default(500) @map("remind_before_km")
+  remindBeforeDays Int       @default(15) @map("remind_before_days")
+  nextDueKm        Int?      @map("next_due_km")
+  nextDueDate      DateTime? @map("next_due_date") @db.Date
+  /// DANG_THEO_DOI: đang sử dụng hiện hành · DA_THAY_MOI: đã thay mới ở lần sau (lưu lịch sử)
+  status           String    @default("DANG_THEO_DOI")
+  note             String?
+  createdBy        String?   @map("created_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, status])
+  @@index([tenantId, status, nextDueDate])
+  @@index([tenantId, status, nextDueKm])
+  @@map("vehicle_maintenance_items")
+}
+
+enum SerialKind {
+  LOP
+  AC_QUY
+  PIN_LITHIUM
+}
+
+enum SerialStatus {
+  TRONG_KHO
+  DANG_SU_DUNG
+  DA_THAO
+  BAO_HANH
+  LOAI_BO
+}
+
+enum SerialEventAction {
+  NHAP_KHO
+  LAP_MOI
+  LAP_LAI
+  DAO_VI_TRI
+  CHUYEN_XE
+  THAO_RA
+  DOI_BAO_HANH
+  LOAI_BO
+}
+
+/// Quản lý từng cá thể Lốp, Ắc quy & Pin Lithium theo Số Sê-ri phục vụ truy xuất nguồn gốc & bảo hành
+model SerialItem {
+  id                String       @id @default(uuid()) @db.Uuid
+  tenantId          String       @map("tenant_id") @db.Uuid
+  branchId          String?      @map("branch_id") @db.Uuid
+  serialNo          String       @map("serial_no")
+  kind              SerialKind
+  productId         String?      @map("product_id") @db.Uuid
+  productName       String       @map("product_name")
+  brand             String?
+  /// Tuần/năm DOT (VD: 2426) hoặc mã lô sản xuất
+  dotOrMfg          String?      @map("dot_or_mfg")
+  status            SerialStatus @default(TRONG_KHO)
+  currentVehicleId  String?      @map("current_vehicle_id") @db.Uuid
+  /// Vị trí lắp: TRUOC_TRAI, TRUOC_PHAI, SAU_TRAI, SAU_PHAI, DU_PHONG, KHOANG_MAY, GAM_PIN…
+  position          String?
+  installedAt       DateTime?    @map("installed_at") @db.Date
+  installedKm       Int?         @map("installed_km")
+  warrantyMonths    Int?         @map("warranty_months")
+  warrantyKm        Int?         @map("warranty_km")
+  warrantyExpiresAt DateTime?    @map("warranty_expires_at") @db.Date
+  warrantyMaxKm     Int?         @map("warranty_max_km")
+  note              String?
+  searchText        String       @default("") @map("search_text")
+  createdBy         String?      @map("created_by") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  currentVehicle Vehicle?      @relation("CurrentVehicleSerials", fields: [currentVehicleId], references: [id], onDelete: SetNull)
+  events         SerialEvent[]
+
+  @@unique([tenantId, serialNo])
+  @@index([tenantId, kind, status])
+  @@index([currentVehicleId])
+  @@index([tenantId, searchText])
+  @@map("serial_items")
+}
+
+/// Lịch sử vòng đời của một Số Sê-ri: lắp mới, đảo vị trí, tháo ra, bảo hành, chuyển sang xe khác
+model SerialEvent {
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  serialId      String            @map("serial_id") @db.Uuid
+  action        SerialEventAction
+  fromVehicleId String?           @map("from_vehicle_id") @db.Uuid
+  toVehicleId   String?           @map("to_vehicle_id") @db.Uuid
+  fromPosition  String?           @map("from_position")
+  toPosition    String?           @map("to_position")
+  orderId       String?           @map("order_id") @db.Uuid
+  odometerKm    Int?              @map("odometer_km")
+  performedAt   DateTime          @default(now()) @map("performed_at")
+  note          String?
+  actorId       String?           @map("actor_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  serial      SerialItem @relation(fields: [serialId], references: [id], onDelete: Cascade)
+  fromVehicle Vehicle?   @relation("SerialFromVehicle", fields: [fromVehicleId], references: [id], onDelete: SetNull)
+  toVehicle   Vehicle?   @relation("SerialToVehicle", fields: [toVehicleId], references: [id], onDelete: SetNull)
+
+  @@index([serialId, performedAt])
+  @@index([fromVehicleId])
+  @@index([toVehicleId])
+  @@index([orderId])
+  @@map("serial_events")
+}
+
+/// Cấu hình cổng gửi SMS Brandname / Webhook của từng garage (khóa bí mật mã hoá AES-256-GCM)
+model SmsConfig {
+  tenantId     String   @id @map("tenant_id") @db.Uuid
+  enabled      Boolean  @default(false)
+  /// ESMS | SPEEDSMS | VIETGUYS | WEBHOOK
+  provider     String   @default("ESMS")
+  /// development: ghi nhận giả lập để kiểm thử · production: gọi thật API nhà mạng
+  mode         String   @default("development")
+  endpointUrl  String?  @map("endpoint_url")
+  brandname    String?
+  apiKey       String?  @map("api_key")
+  apiSecretEnc String?  @map("api_secret_enc")
+  templateText String   @default("[{garage_name}] Xe {plate}: {care_title} (han {due_date}). LH {branch_phone} hoac dat lich tai {app_link}") @map("template_text")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("sms_configs")
+}
+
+/// Nhật ký tin nhắn SMS đã gửi / mô phỏng / lỗi
+model SmsMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  event     String
+  phone     String
+  content   String
+  provider  String
+  status    String
+  msgId     String?  @map("msg_id")
+  error     String?
+  refId     String?  @map("ref_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("sms_messages")
+}
+
+/// Nhật ký gửi nhắc hẹn tự động đa kênh (App / Zalo ZNS / SMS) và khoá chống gửi trùng theo mốc
+model ReminderDispatch {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  branchId   String?  @map("branch_id") @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  vehicleId  String?  @map("vehicle_id") @db.Uuid
+  /// APP | ZALO | SMS
+  channel    String
+  /// DANG_KIEM | BAO_HIEM | PHU_HIEU | BAO_DUONG_HANG_MUC | BAO_DUONG
+  kind       String
+  dedupeKey  String   @map("dedupe_key")
+  title      String
+  body       String
+  /// SENT | SIMULATED | FAILED | SKIPPED
+  status     String
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, createdAt])
+  @@index([vehicleId])
+  @@map("reminder_dispatches")
+}
+
 
